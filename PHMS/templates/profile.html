@@ -1,0 +1,273 @@
+{% extends "base.html" %}
+
+{% block title %}My Profile | PHMS{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='style/profile.css') }}">
+{% endblock %}
+
+{% block content %}
+
+<div class="profile-container">
+    
+    <!-- ===== PROFILE HEADER ===== -->
+    <div class="profile-header">
+        <div class="header-content">
+            <div class="avatar">👤</div>
+            <div class="header-info">
+                <h1>{{ user.username }}</h1>
+                <p class="subtitle">{{ user.user_email }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== PROFILE INFORMATION ===== -->
+    <div class="profile-grid">
+        
+        <!-- Personal Information Card -->
+        <div class="profile-card">
+            <div class="card-header">
+                <h3>Personal Information</h3>
+                <span class="card-icon">👤</span>
+            </div>
+            <div class="card-content">
+                <div class="info-row">
+                    <span class="info-label">Username</span>
+                    <span class="info-value">{{ user.username }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Email</span>
+                    <span class="info-value">{{ user.user_email }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Gender</span>
+                    <span class="info-value">{{ user.gender }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Age</span>
+                    <span class="info-value">{{ user.age }} years</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Health Metrics Card -->
+        <div class="profile-card">
+            <div class="card-header">
+                <h3>Health Metrics</h3>
+                <span class="card-icon">📊</span>
+            </div>
+            <div class="card-content">
+                <div class="metric-grid">
+                    <div class="metric-item">
+                        <span class="metric-label">Height</span>
+                        <span class="metric-value">{{ user.height }} <span class="unit">cm</span></span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">Weight</span>
+                        <span class="metric-value">{{ user.weight }} <span class="unit">kg</span></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ===== ACTION BUTTONS ===== -->
+    <div class="action-section">
+        <button class="btn-update" onclick="openUpdate()">✏️ Update Profile</button>
+        <button class="btn-password" onclick="openPassword()">🔐 Change Password</button>
+        <a href="/logout" class="btn-logout-link">
+            <button class="btn-logout">🚪 Logout</button>
+        </a>
+    </div>
+
+</div>
+
+<!-- ===== UPDATE PROFILE MODAL ===== -->
+<div class="modal" id="updateModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Update Profile</h2>
+            <span class="close" onclick="closeAll()">&times;</span>
+        </div>
+        
+        <div class="modal-body">
+            <form id="updateForm">
+                <div class="form-group">
+                    <label for="edit_username">Username</label>
+                    <input id="edit_username" type="text" value="{{ user.username }}" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="edit_gender">Gender</label>
+                    <select id="edit_gender" required>
+                        <option value="Male" {{ 'selected' if user.gender=='Male' }}>Male</option>
+                        <option value="Female" {{ 'selected' if user.gender=='Female' }}>Female</option>
+                        <option value="Other" {{ 'selected' if user.gender=='Other' }}>Other</option>
+                    </select>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="edit_age">Age</label>
+                        <input id="edit_age" type="number" value="{{ user.age }}" min="1" max="120" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="edit_height">Height (cm)</label>
+                        <input id="edit_height" type="number" step="0.1" value="{{ user.height }}" min="50" max="300" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="edit_weight">Weight (kg)</label>
+                        <input id="edit_weight" type="number" step="0.1" value="{{ user.weight }}" min="20" max="300" required>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <div class="modal-footer">
+            <button type="button" class="btn-cancel" onclick="closeAll()">Cancel</button>
+            <button type="button" class="btn-submit" onclick="updateProfile()">Update</button>
+        </div>
+    </div>
+</div>
+
+<!-- ===== CHANGE PASSWORD MODAL ===== -->
+<div class="modal" id="passwordModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Change Password</h2>
+            <span class="close" onclick="closeAll()">&times;</span>
+        </div>
+        
+        <div class="modal-body">
+            <form id="passwordForm">
+                <div class="form-group">
+                    <label for="fp_email">Email</label>
+                    <input id="fp_email" type="email" placeholder="Your registered email" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="fp_password">New Password</label>
+                    <input id="fp_password" type="password" placeholder="Enter new password" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="fp_repeat">Confirm Password</label>
+                    <input id="fp_repeat" type="password" placeholder="Confirm new password" required>
+                </div>
+            </form>
+        </div>
+
+        <div class="modal-footer">
+            <button type="button" class="btn-cancel" onclick="closeAll()">Cancel</button>
+            <button type="button" class="btn-submit" onclick="resetPassword()">Reset Password</button>
+        </div>
+    </div>
+</div>
+
+<script>
+
+function openUpdate() {
+    closeAll();
+    document.getElementById('updateModal').style.display = 'block';
+}
+
+function openPassword() {
+    closeAll();
+    document.getElementById('passwordModal').style.display = 'block';
+}
+
+function closeAll() {
+    document.getElementById('updateModal').style.display = 'none';
+    document.getElementById('passwordModal').style.display = 'none';
+}
+
+function updateProfile() {
+    const username = document.getElementById('edit_username').value;
+    const gender = document.getElementById('edit_gender').value;
+    const age = document.getElementById('edit_age').value;
+    const height = document.getElementById('edit_height').value;
+    const weight = document.getElementById('edit_weight').value;
+
+    if (!username || !gender || !age || !height || !weight) {
+        alert("Please fill in all fields.");
+        return;
+    }
+
+    fetch('/updateProfile', {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            username: username,
+            gender: gender,
+            age: parseInt(age),
+            height: parseFloat(height),
+            weight: parseFloat(weight)
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert("✅ Profile updated successfully!");
+            location.reload();
+        } else {
+            alert("❌ " + (data.message || "Failed to update profile."));
+        }
+    })
+    .catch(err => alert("❌ Error updating profile. Please try again."));
+}
+
+function resetPassword() {
+    const email = document.getElementById('fp_email').value;
+    const password = document.getElementById('fp_password').value;
+    const repeat = document.getElementById('fp_repeat').value;
+
+    if (!email || !password || !repeat) {
+        alert("Please fill in all fields.");
+        return;
+    }
+
+    if (password !== repeat) {
+        alert("❌ Passwords do not match. Please try again.");
+        return;
+    }
+
+    if (password.length < 6) {
+        alert("❌ Password must be at least 6 characters long.");
+        return;
+    }
+
+    fetch('/forgotPassword', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            email: email,
+            password: password
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert("✅ " + data.message);
+            closeAll();
+        } else {
+            alert("❌ " + (data.message || "Failed to reset password."));
+        }
+    })
+    .catch(err => alert("❌ Error resetting password. Please try again."));
+}
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+    const updateModal = document.getElementById('updateModal');
+    const passwordModal = document.getElementById('passwordModal');
+    if (event.target == updateModal || event.target == passwordModal) {
+        closeAll();
+    }
+}
+
+</script>
+
+{% endblock %}

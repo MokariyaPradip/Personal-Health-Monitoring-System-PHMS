@@ -1,0 +1,120 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard | PHMS{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='style/dashboard.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <div class="welcome-header">
+        <h1>Welcome, <span class="username">{{ user.username }}</span></h1>
+        <p class="subtitle">Your Health Management Dashboard</p>
+    </div>
+
+    <div class="dashboard-grid">
+        <!-- ===== Latest Health Record ===== -->
+        <div class="card health-card">
+            <div class="card-header">
+                <h3>Latest Health Record</h3>
+                <span class="card-icon">❤️</span>
+            </div>
+            {% if last_health %}
+            <div class="health-stats">
+                <div class="stat-row">
+                    <div class="stat-item">
+                        <div class="stat-label">Heart Rate</div>
+                        <div class="stat-value">{{ last_health.heart_rate }} <span class="unit">bpm</span></div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Temperature</div>
+                        <div class="stat-value">{{ last_health.temperature }} <span class="unit">°C</span></div>
+                    </div>
+                </div>
+                <div class="stat-row">
+                    <div class="stat-item">
+                        <div class="stat-label">Steps</div>
+                        <div class="stat-value">{{ last_health.steps }}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Sleep</div>
+                        <div class="stat-value">{{ last_health.sleep_hours }} <span class="unit">hrs</span></div>
+                    </div>
+                </div>
+                <div class="stat-row">
+                    <div class="stat-item">
+                        <div class="stat-label">Blood Pressure</div>
+                        <div class="stat-value">{{ last_health.blood_pressure }}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Calories</div>
+                        <div class="stat-value">{{ last_health.calories }} <span class="unit">kcal</span></div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer">
+                <small>📅 {{ last_health.timestamp.strftime('%d %b %Y, %I:%M %p') }}</small>
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <p>No health data recorded yet.</p>
+                <a href="/health" class="link">Add your first entry →</a>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- ===== Medications ===== -->
+        <div class="card medication-card">
+            <div class="card-header">
+                <h3>Current Medications</h3>
+                <span class="card-icon">💊</span>
+            </div>
+            {% if medications %}
+            <div class="med-list">
+                {% for m in medications %}
+                <div class="med-item">
+                    <div class="med-name">{{ m.medicine.medicine_name }}</div>
+                    <div class="med-details">
+                        <div><strong>Dosage:</strong> {{ m.dosage }}</div>
+                        <div><strong>Frequency:</strong> {{ m.frequency }}</div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <p>No medications assigned.</p>
+                <a href="/medication" class="link">Add medications →</a>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- ===== Alerts & Reminders ===== -->
+        <div class="card alerts-card">
+            <div class="card-header">
+                <h3>Reminders & Alerts</h3>
+                <span class="card-icon">🔔</span>
+            </div>
+            {% if alerts %}
+            <div class="alerts-list">
+                {% for alert in alerts %}
+                <div class="alert-item alert-{{ alert.severity|lower }}">
+                    <div class="alert-badge">{{ alert.severity }}</div>
+                    <div class="alert-content">
+                        <div class="alert-message">{{ alert.message }}</div>
+                        <small class="alert-time">{{ alert.alert_date.strftime('%d %b %Y, %I:%M %p') }}</small>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-state success">
+                <p>🎉 No alerts right now</p>
+                <p class="subtitle">You're all set!</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

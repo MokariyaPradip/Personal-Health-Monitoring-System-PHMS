@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Login | PHMS</title>
+    
+    <link rel="stylesheet" href="{{ url_for('static', filename='style/login.css') }}">
+    
+    <style>
+    </style>
+</head>
+
+<body>
+
+<div class="box">
+    <h2>User Login</h2>
+
+    <input id="email" type="email" placeholder="Email">
+    <input id="password" type="password" placeholder="Password">
+
+    <button onclick="login()">Login</button>
+
+    <!-- Register link -->
+    <div class="register-link">
+        New user? <a href="/register">Register</a>
+    </div>
+</div>
+
+<script>
+function login() {
+    fetch('/login', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            email: email.value,
+            password: password.value
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            window.location = "/dashboard";
+        } else {
+            alert(data.message);
+        }
+    });
+}
+</script>
+
+</body>
+</html>

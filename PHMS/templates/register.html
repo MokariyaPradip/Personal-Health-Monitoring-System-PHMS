@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Register | PHMS</title>
+    
+    <link rel="stylesheet" href="{{ url_for('static', filename='style/register.css') }}">
+    
+    <style>
+    </style>
+</head>
+
+<body>
+
+<div class="box">
+    <h2>User Registration</h2>
+
+    <input id="username" placeholder="Username">
+    <input id="email" type="email" placeholder="Email">
+    <input id="password" type="password" placeholder="Password">
+
+    <input id="age" type="number" placeholder="Age">
+
+    <select id="gender">
+        <option value="">Select Gender</option>
+        <option>Male</option>
+        <option>Female</option>
+        <option>Other</option>
+    </select>
+
+    <input id="height" type="number" step="0.1" placeholder="Height (cm)">
+    <input id="weight" type="number" step="0.1" placeholder="Weight (kg)">
+
+    <button onclick="register()">Register</button>
+
+        <!-- login link -->
+    <div class="login-link">
+        Already had an Account? <a href="/login">login</a>
+    </div>
+</div>
+
+<script>
+function register() {
+    fetch('/register', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            username: username.value,
+            email: email.value,
+            password: password.value,
+            age: age.value,
+            gender: gender.value,
+            height: height.value,
+            weight: weight.value
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        alert(data.message);
+        if (data.success) {
+            window.location = "/login";
+        }
+    });
+}
+</script>
+
+</body>
+</html>

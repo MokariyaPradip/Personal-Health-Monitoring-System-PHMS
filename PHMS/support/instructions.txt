@@ -1,0 +1,177 @@
+================================================================================
+                    PHMS - Personal Health Management System
+                          Setup & Run Instructions
+================================================================================
+
+PRE-REQUISITES
+================================================================================
+1. Python Version
+   - Ensure Python 3.8 or above is installed
+   - Check: python --version
+
+2. Package Manager
+   - pip (comes with Python)
+   - Check: pip --version
+
+3. Database
+   - MySQL Server must be running
+   - Database credentials configured in config.py
+
+
+SETUP INSTRUCTIONS
+================================================================================
+
+Step 1: Navigate to Project Directory
+--------
+cd c:\Users\Admin\Desktop\Sem-06\2_SDP\project\PHMS
+
+Step 2: Create Virtual Environment
+--------
+python -m venv venv
+
+Step 3: Activate Virtual Environment
+--------
+Windows (PowerShell):
+    .\venv\Scripts\Activate.ps1
+
+Windows (Command Prompt):
+    venv\Scripts\activate.bat
+
+Linux/Mac:
+    source venv/bin/activate
+
+Step 4: Install Dependencies
+--------
+pip install --upgrade pip
+
+pip install -r requirements.txt
+
+Step 5: Configure Database Connection
+--------
+- Open config.py
+- Update MySQL connection details:
+  * host
+  * user
+  * password
+  * database name
+
+Step 6: Initialize Database
+--------
+- Ensure MySQL is running
+- Database tables will auto-create on first run
+
+Step 7: Run the Application
+--------
+python app.py
+
+Step 8: Access the Application
+--------
+- Open web browser
+- Go to: http://127.0.0.1:5000
+- Login page will appear
+
+Default route: http://127.0.0.1:5000/login
+
+
+PROJECT STRUCTURE
+================================================================================
+PHMS/
+├── app.py                    # Main application entry point
+├── config.py                 # Database configuration
+├── routes.py                 # Route declarations
+├── models.py                 # Model imports
+├── ml_model.py               # Machine learning models
+├── reports.py                # Report generation
+├── controllers/              # Business logic for routes
+│   ├── auth_controller.py
+│   ├── dashboard_controller.py
+│   ├── profile_controller.py
+│   ├── health_controller.py
+│   ├── medication_controller.py
+│   └── reports_controller.py
+├── models/                   # Database models
+│   ├── user_model.py
+│   ├── health_model.py
+│   ├── medicine_model.py
+│   ├── medication_model.py
+│   ├── medication_log_model.py
+│   └── alert_model.py
+├── templates/                # HTML templates
+│   ├── base.html
+│   ├── login.html
+│   ├── register.html
+│   ├── dashboard.html
+│   ├── profile.html
+│   ├── health.html
+│   ├── medication.html
+│   └── reports.html
+├── static/
+│   └── style/                # CSS stylesheets
+│       ├── base.css
+│       ├── login.css
+│       ├── register.css
+│       ├── profile.css
+│       └── login.css
+├── instance/                 # Instance folder (auto-generated)
+├── venv/                     # Virtual environment
+└── requirements.txt          # Project dependencies
+
+
+TROUBLESHOOTING
+================================================================================
+
+Issue 1: "No module named 'models'"
+Solution: Ensure you're running from PHMS directory and venv is activated
+
+Issue 2: Database connection error
+Solution: 
+- Check MySQL server is running
+- Verify database credentials in config.py
+- Ensure database exists in MySQL
+
+Issue 3: ModuleNotFoundError
+Solution:
+- Activate venv: .\venv\Scripts\Activate.ps1
+- Reinstall dependencies: pip install -r requirements.txt
+
+Issue 4: Port 5000 already in use
+Solution:
+- Change port in app.py: app.run(port=5001)
+- Or: Kill process using port 5000
+
+Issue 5: Permission denied on venv activation
+Solution (PowerShell):
+- Run as Administrator
+- Or: Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+
+
+FEATURES
+================================================================================
+✓ User Authentication (Register & Login)
+✓ Profile Management
+✓ Health Data Tracking (Heart Rate, Temperature, Steps, etc.)
+✓ Medication Management
+✓ Health Alerts
+✓ Reports Generation
+✓ Machine Learning Integration
+✓ Responsive Web Interface
+
+
+IMPORTANT NOTES
+================================================================================
+- Always activate venv before running: .\venv\Scripts\Activate.ps1
+- Never commit venv/ folder to version control
+- Update config.py with your MySQL credentials
+- Debug mode is enabled by default (change in app.py for production)
+- All API endpoints require authentication (session-based)
+
+
+FOR DEVELOPMENT
+================================================================================
+- Flask auto-reloads on file changes
+- Debug mode shows detailed error messages
+- Check app.py for Flask configuration
+- Use browser console (F12) for frontend debugging
+
+For more information, refer to project documentation.
+================================================================================

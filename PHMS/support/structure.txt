@@ -1,0 +1,275 @@
+================================================================================
+                     PHMS - Project Structure Overview
+================================================================================
+
+PHMS/
+│
+├── app.py                          # Main Flask application entry point
+├── config.py                       # Database & app configuration
+├── models.py                       # Model imports from models/ folder
+├── routes.py                       # Route declarations (minimal logic)
+├── ml_model.py                     # Machine learning models & functions
+├── reports.py                      # Report generation utilities
+├── requirements.txt                # Project dependencies
+│
+├── controllers/                    # Business logic layer
+│   ├── __init__.py
+│   ├── auth_controller.py          # Register, Login, Logout, Forgot Password
+│   ├── dashboard_controller.py     # Dashboard page logic
+│   ├── profile_controller.py       # Profile view & update logic
+│   ├── health_controller.py        # Health data management & alerts
+│   ├── medication_controller.py    # Medication CRUD operations
+│   └── reports_controller.py       # Reports page logic
+│
+├── models/                         # Database models
+│   ├── __init__.py                 # Exports all models
+│   ├── user_model.py               # User class (authentication & profile)
+│   ├── health_model.py             # HealthData class (vital signs tracking)
+│   ├── medicine_model.py           # Medicine class (medicine master data)
+│   ├── medication_model.py         # Medication class (user medications)
+│   ├── medication_log_model.py     # MedicationLog class (medication history)
+│   └── alert_model.py              # Alert class (health alerts)
+│
+├── templates/                      # HTML templates
+│   ├── base.html                   # Base template (navigation, layout)
+│   ├── login.html                  # Login page
+│   ├── register.html               # Registration page
+│   ├── dashboard.html              # Dashboard page
+│   ├── profile.html                # User profile page
+│   ├── health.html                 # Health data entry page
+│   ├── medication.html             # Medication management page
+│   └── reports.html                # Reports & analytics page
+│
+├── static/                         # Static files
+│   └── style/                      # CSS stylesheets
+│       ├── base.css                # Base styles (layout, navigation)
+│       ├── login.css               # Login page styles
+│       ├── register.css            # Registration page styles
+│       ├── profile.css             # Profile page styles
+│       └── health.css              # Health page styles
+│
+├── instance/                       # Instance folder (auto-generated)
+│   └── *.db                        # SQLite database (if used)
+│
+├── __pycache__/                    # Python cache (auto-generated)
+│
+└── venv/                           # Virtual environment (not in version control)
+
+
+================================================================================
+                            FILE DESCRIPTIONS
+================================================================================
+
+ROOT LEVEL FILES:
+─────────────────
+app.py
+  - Creates Flask app instance
+  - Initializes database
+  - Registers all routes
+  - Entry point: python app.py
+
+config.py
+  - Database connection settings
+  - Flask configuration
+  - App secrets & constants
+
+models.py
+  - Imports all models from models/ folder
+  - Single import point for all database models
+  - Example: from models import User, HealthData, Medicine
+
+routes.py
+  - Route declarations with HTTP methods
+  - Calls controller functions
+  - No business logic here
+  - Clean & minimal design
+
+ml_model.py
+  - Machine learning algorithms
+  - Predictive models for health data
+  - Model training & prediction functions
+
+reports.py
+  - Report generation utilities
+  - Data aggregation functions
+  - Export/PDF generation (if implemented)
+
+requirements.txt
+  - All Python package dependencies
+  - Version specifications for reproducibility
+
+
+CONTROLLERS FOLDER:
+───────────────────
+auth_controller.py
+  ✓ register()          - Handle user registration
+  ✓ login()             - Handle user authentication
+  ✓ logout()            - Clear user session
+  ✓ forgot_password()   - Password reset functionality
+
+dashboard_controller.py
+  ✓ dashboard()         - Display main dashboard
+
+profile_controller.py
+  ✓ profile()           - Display user profile
+  ✓ update_profile()    - Update profile information
+
+health_controller.py
+  ✓ health_page()       - Display health tracking page
+  ✓ add_health()        - Add health data entry & check alerts
+
+medication_controller.py
+  ✓ medication_page()   - Display user medications
+  ✓ add_medication()    - Add new medication
+  ✓ update_medication() - Update medication details
+  ✓ delete_medication() - Remove medication
+
+reports_controller.py
+  ✓ reports()           - Display analytics & reports
+
+
+MODELS FOLDER:
+──────────────
+user_model.py
+  - User(id, username, email, password, age, gender, height, weight)
+  - Authentication & profile data
+
+health_model.py
+  - HealthData(entry_id, user_id, heart_rate, temperature, steps, etc.)
+  - Vital signs & activity tracking
+
+medicine_model.py
+  - Medicine(id, name, purpose, remark)
+  - Master data for available medicines
+
+medication_model.py
+  - Medication(id, medicine_id, user_id, dosage, frequency)
+  - User's prescribed medications
+
+medication_log_model.py
+  - MedicationLog(log_id, medication_id, time_taken, status)
+  - Medication intake history
+
+alert_model.py
+  - Alert(id, user_id, health_id, message, date, severity)
+  - Health alerts & notifications
+
+
+TEMPLATES FOLDER:
+─────────────────
+base.html
+  - Master template with navigation
+  - Common header & footer
+  - {% block content %} for child templates
+
+login.html
+  - User login form
+  - Email & password fields
+  - Links to register & forgot password
+
+register.html
+  - User registration form
+  - Personal info fields (name, email, password, age, gender, height, weight)
+  - Validation & error messages
+
+dashboard.html
+  - Main dashboard view
+  - Quick stats & recent data
+  - Navigation to other sections
+
+profile.html
+  - User profile information
+  - Editable fields
+  - Update profile button
+
+health.html
+  - Health data entry form
+  - Heart rate, temperature, steps, etc.
+  - Display health history
+  - Alert indicators
+
+medication.html
+  - List of user medications
+  - Add new medication button
+  - Edit & delete options
+  - Medication reminders
+
+reports.html
+  - Analytics & insights
+  - Charts & visualizations
+  - Health trends & reports
+
+
+STATIC/STYLE FOLDER:
+────────────────────
+base.css
+  - Common styles
+  - Responsive layout
+  - Navigation styling
+
+login.css
+  - Login page specific styles
+  - Form styling & animations
+
+register.css
+  - Registration page specific styles
+  - Multi-field form styling
+
+profile.css
+  - Profile page layout
+  - Edit form styles
+
+health.css
+  - Health tracking page styles
+  - Form & data display
+
+
+================================================================================
+                           ARCHITECTURE FLOW
+================================================================================
+
+REQUEST FLOW:
+1. Browser sends HTTP request
+2. routes.py catches the route
+3. routes.py calls controller function
+4. controller imports models & config
+5. controller queries database via models
+6. controller returns response/renders template
+7. Browser receives & displays response
+
+EXAMPLE: GET /profile
+├── routes.py: @app.route('/profile')
+├── Calls: profile_controller.profile()
+├── Controller: queries User from models
+├── Database: fetches user data
+├── Returns: render_template('profile.html', user=user)
+└── Browser: displays profile page
+
+
+DATABASE RELATIONSHIPS:
+User (1) ──→ (many) HealthData
+User (1) ──→ (many) Medication ←─ (many) Medicine (master)
+User (1) ──→ (many) Alert
+Medication (1) ──→ (many) MedicationLog
+
+
+================================================================================
+                         DEVELOPMENT GUIDELINES
+================================================================================
+
+✓ Don't edit:  venv/, __pycache__, instance/
+✓ Do edit:     Source files in root, controllers/, models/, templates/, static/
+✓ Keep clean:  No hardcoded values, use config.py
+✓ DRY:         Reuse functions from controllers
+✓ Comments:    Add docstrings to functions
+✓ Structure:   One model per file, one controller per feature
+
+NEW FEATURE CHECKLIST:
+1. Add model in models/ folder
+2. Add export in models/__init__.py
+3. Add controller in controllers/ folder
+4. Add route in routes.py
+5. Add template in templates/ folder
+6. Add styles in static/style/ folder
+
+================================================================================

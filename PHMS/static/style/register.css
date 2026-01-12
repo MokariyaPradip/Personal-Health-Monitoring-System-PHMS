@@ -1,0 +1,53 @@
+body {
+    font-family: Arial;
+    background: #f4f6f9;
+    padding: 40px;
+}
+
+.box {
+    background: white;
+    max-width: 400px;
+    margin: auto;
+    padding: 25px;
+    border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+input,
+select {
+    width: 90%;
+    padding: 8px;
+    margin: 8px 0;
+}
+
+select {
+    width: 95%;
+}
+
+button {
+    width: 95%;
+    padding: 8px;
+    margin: 8px 0;
+    background: #3498db;
+    color: white;
+    border: none;
+    cursor: pointer;
+}
+
+button:hover {
+    background: #2980b9;
+}
+
+.login-link {
+    margin-top: 12px;
+    font-size: 14px;
+}
+
+.login-link a {
+    color: #3498db;
+    text-decoration: underline;
+}
+
+.login-link a:hover {
+    text-decoration: underline;
+}

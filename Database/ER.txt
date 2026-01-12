@@ -1,0 +1,77 @@
++----------------+
+|     USER       |
++----------------+
+| PK user_id     |
+| username       |
+| user_email     |
+| password       |
+| age            |
+| gender         |
+| height         |
+| weight         |
++----------------+
+        |
+        | 1
+        |
+        | N
++----------------+
+|  HEALTH_DATA   |
++----------------+
+| PK entry_id    |
+| FK user_id     |
+| heart_rate     |
+| temperature    |
+| steps          |
+| sleep_hours    |
+| blood_pressure |
+| calories       |
+| timestamp      |
++----------------+
+
+        |
+        | 1
+        |
+        | N
++----------------+
+|  MEDICATION    |
++----------------+
+| PK medication_id |
+| FK user_id       |
+| FK medicine_id   |
+| dosage           |
+| frequency        |
++----------------+
+
+        |
+        | 1
+        |
+        | N
++----------------+
+| MEDICATION_LOG |
++----------------+
+| PK log_id      |
+| FK medication_id |
+| time_taken     |
+| status         |
++----------------+
+
++----------------+
+|   MEDICINE     |
++----------------+
+| PK medicine_id |
+| medicine_name  |
+| purpose        |
+| remark         |
++----------------+
+
++----------------+
+|     ALERT      |
++----------------+
+| PK alert_id    |
+| FK user_id     |
+| FK health_id   |
+| FK medication_id |
+| message        |
+| alert_date     |
+| severity       |
++----------------+

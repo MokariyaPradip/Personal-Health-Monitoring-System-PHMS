@@ -1,0 +1,422 @@
+/* Dashboard Page Styles - Consistent with Health Page Design System */
+
+:root {
+    --primary-color: #667eea;
+    --secondary-color: #764ba2;
+    --accent-blue: #3498db;
+    --accent-green: #27ae60;
+    --accent-orange: #e67e22;
+    --accent-red: #e74c3c;
+    --text-dark: #2c3e50;
+    --text-muted: #7f8c8d;
+    --border-light: #ecf0f1;
+    --bg-light: #f8f9fa;
+    --white: #ffffff;
+}
+
+.dashboard-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem 1rem;
+}
+
+/* Welcome Header */
+.welcome-header {
+    margin-bottom: 2.5rem;
+}
+
+.welcome-header h1 {
+    margin: 0 0 0.5rem 0;
+    font-size: 2.2rem;
+    color: var(--text-dark);
+    font-weight: 700;
+    letter-spacing: -0.5px;
+}
+
+.welcome-header .username {
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.welcome-header .subtitle {
+    margin: 0;
+    font-size: 1rem;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+/* Dashboard Grid */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+/* Card Base Styles */
+.card {
+    background: var(--white);
+    border: 1px solid var(--border-light);
+    border-radius: 12px;
+    padding: 0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    transition: all 0.3s ease;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.card:hover {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    transform: translateY(-2px);
+}
+
+/* Card Header */
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem;
+    border-bottom: 1px solid var(--border-light);
+    background: var(--bg-light);
+}
+
+.card-header h3 {
+    margin: 0;
+    font-size: 1.2rem;
+    color: var(--text-dark);
+    font-weight: 600;
+}
+
+.card-icon {
+    font-size: 1.5rem;
+}
+
+/* Health Card - Stats Display */
+.health-stats {
+    padding: 1.5rem;
+    flex: 1;
+}
+
+.stat-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1.2rem;
+}
+
+.stat-row:last-child {
+    margin-bottom: 0;
+}
+
+.stat-item {
+    padding: 1rem;
+    background: var(--bg-light);
+    border-radius: 8px;
+    border: 1px solid var(--border-light);
+    transition: all 0.2s ease;
+}
+
+.stat-item:hover {
+    border-color: var(--primary-color);
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.05), rgba(118, 75, 162, 0.05));
+}
+
+.stat-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    display: block;
+    letter-spacing: 0.5px;
+}
+
+.stat-value {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--text-dark);
+}
+
+.unit {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-weight: normal;
+}
+
+.card-footer {
+    padding: 1rem 1.5rem;
+    border-top: 1px solid var(--border-light);
+    background: var(--bg-light);
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+/* Medication Card */
+.medication-card {
+    grid-column: span 1;
+}
+
+.med-list {
+    padding: 1.5rem;
+    flex: 1;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.med-item {
+    margin-bottom: 1.5rem;
+    padding: 1.2rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border-light);
+    background: var(--bg-light);
+    border-radius: 8px;
+    border-left: 4px solid var(--primary-color);
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.med-item:hover {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.05), rgba(118, 75, 162, 0.05));
+    border-left-color: var(--secondary-color);
+    transform: translateX(4px);
+}
+
+.med-item:last-child {
+    margin-bottom: 0;
+    padding-bottom: 1.2rem;
+    border-bottom: none;
+}
+
+.med-name {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--text-dark);
+    margin-bottom: 0.8rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.med-name::before {
+    content: '💉';
+    font-size: 1.1rem;
+}
+
+.med-details {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    line-height: 1.7;
+    padding-left: 0.5rem;
+}
+
+.med-details div {
+    /* margin-bottom: 0.5rem; */
+    display: flex;
+    gap: 0.5rem;
+}
+
+.med-details strong {
+    color: var(--text-dark);
+    font-weight: 700;
+    min-width: 70px;
+}
+
+/* Alerts Card */
+.alerts-card {
+    grid-column: span 1;
+}
+
+.alerts-list {
+    padding: 1.5rem;
+    flex: 1;
+}
+
+.alert-item {
+    display: flex;
+    gap: 1rem;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border-radius: 8px;
+    border-left: 4px solid;
+    transition: all 0.2s ease;
+}
+
+.alert-item:last-child {
+    margin-bottom: 0;
+}
+
+.alert-item.alert-low {
+    background: #d4edda;
+    border-color: var(--accent-green);
+}
+
+.alert-item.alert-medium {
+    background: #fff3cd;
+    border-color: var(--accent-orange);
+}
+
+.alert-item.alert-high {
+    background: #f8d7da;
+    border-color: var(--accent-red);
+}
+
+.alert-item:hover {
+    transform: translateX(4px);
+}
+
+.alert-badge {
+    display: inline-block;
+    padding: 0.35rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    white-space: nowrap;
+    height: fit-content;
+}
+
+.alert-item.alert-low .alert-badge {
+    background: var(--accent-green);
+    color: white;
+}
+
+.alert-item.alert-medium .alert-badge {
+    background: var(--accent-orange);
+    color: white;
+}
+
+.alert-item.alert-high .alert-badge {
+    background: var(--accent-red);
+    color: white;
+}
+
+.alert-content {
+    flex: 1;
+}
+
+.alert-message {
+    font-size: 0.95rem;
+    color: var(--text-dark);
+    font-weight: 500;
+    margin-bottom: 0.4rem;
+}
+
+.alert-time {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+}
+
+/* Empty States */
+.empty-state {
+    padding: 2rem 1.5rem;
+    text-align: center;
+    background: var(--bg-light);
+    color: var(--text-muted);
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.empty-state p {
+    margin: 0.5rem 0;
+}
+
+.empty-state.success {
+    background: #d4edda;
+    color: var(--accent-green);
+}
+
+.empty-state.success p {
+    font-weight: 600;
+}
+
+.empty-state .subtitle {
+    font-size: 0.9rem;
+    margin-top: 0.5rem;
+}
+
+/* Links */
+.link {
+    color: var(--accent-blue);
+    text-decoration: none;
+    font-weight: 600;
+    transition: color 0.2s;
+    display: inline-block;
+    margin-top: 0.5rem;
+}
+
+.link:hover {
+    color: var(--primary-color);
+    text-decoration: underline;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .dashboard-container {
+        padding: 1.5rem 0.75rem;
+    }
+
+    .welcome-header {
+        margin-bottom: 2rem;
+    }
+
+    .welcome-header h1 {
+        font-size: 1.8rem;
+    }
+
+    .welcome-header .subtitle {
+        font-size: 0.95rem;
+    }
+
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+
+    .stat-row {
+        grid-template-columns: 1fr;
+    }
+
+    .card-header h3 {
+        font-size: 1.1rem;
+    }
+
+    .stat-item {
+        padding: 0.9rem;
+    }
+
+    .stat-value {
+        font-size: 1.2rem;
+    }
+}
+
+@media (max-width: 640px) {
+    .dashboard-container {
+        padding: 1rem 0.5rem;
+    }
+
+    .welcome-header h1 {
+        font-size: 1.6rem;
+    }
+
+    .card-header {
+        padding: 1.2rem;
+    }
+
+    .health-stats {
+        padding: 1.2rem;
+    }
+
+    .med-list,
+    .alerts-list {
+        padding: 1.2rem;
+    }
+
+    .empty-state {
+        padding: 1.5rem 1.2rem;
+    }
+}

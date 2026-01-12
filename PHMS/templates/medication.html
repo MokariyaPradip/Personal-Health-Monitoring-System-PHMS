@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+
+{% block title %}Medications | PHMS{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='style/medication.css') }}">
+{% endblock %}
+
+{% block content %}
+
+<div class="medication-container">
+    
+    <!-- ===== ADD MEDICATION BUTTON ===== -->
+    <button class="btn-add-medication" onclick="openModal()">+ Add Medication</button>
+
+    <!-- ===== CURRENT MEDICATIONS ===== -->
+    <div class="medications-section">
+        <h2>Current Medications</h2>
+        {% if meds %}
+        <div class="medications-list">
+            {% for med in meds %}
+            <div class="medication-card">
+                <div class="med-header">
+                    <div class="med-info">
+                        <h3 class="med-title">{{ med.medicine.medicine_name }}</h3>
+                    </div>
+                    <button class="delete-btn"
+                        title="Delete medication"
+                        onclick="deleteMedication({{ med.medication_id }})">
+                        🗑️
+                    </button>
+                </div>
+
+                <div class="med-details-grid">
+                    <div class="detail-card full-width">
+                        <span class="detail-label">Purpose</span>
+                        <span class="detail-value">{{ med.medicine.purpose }}</span>
+                    </div>
+                    <div class="detail-card">
+                        <span class="detail-label">Dosage</span>
+                        <span class="detail-value">{{ med.dosage }}</span>
+                    </div>
+                    <div class="detail-card">
+                        <span class="detail-label">Frequency</span>
+                        <span class="detail-value">{{ med.frequency }}</span>
+                    </div>
+                    <div class="detail-card full-width">
+                        <span class="detail-label">Remark</span>
+                        <span class="detail-value">{{ med.medicine.remark or 'N/A' }}</span>
+                    </div>
+                    
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="no-data-message">
+            <p>📋 No medications assigned yet.</p>
+            <p class="subtitle">Click "Add Medication" to start tracking your medications.</p>
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+
+<!-- ===== MODAL FOR ADDING MEDICATION ===== -->
+<div id="medicationModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Add Medication</h2>
+            <span class="close" onclick="closeModal()">&times;</span>
+        </div>
+        
+        <div class="modal-body">
+            <form id="medicationForm">
+                <div class="form-group">
+                    <label for="medicine_id">Medicine ID</label>
+                    <input type="number" id="medicine_id" placeholder="e.g., 1" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="dosage">Dosage</label>
+                    <input type="text" id="dosage" placeholder="e.g., 500mg" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="frequency">Frequency</label>
+                    <input type="text" id="frequency" placeholder="e.g., Twice daily" required>
+                </div>
+
+                <!--
+                    <div class="form-group">
+                        <label for="remark">Remark</label>
+                        <textarea id="remark" placeholder="e.g., Take with food" rows="3"></textarea>
+                    </div>
+                -->
+            </form>
+        </div>
+
+        <div class="modal-footer">
+            <button type="button" class="btn-cancel" onclick="closeModal()">Cancel</button>
+            <button type="button" class="btn-submit" onclick="addMedication()">Add Medication</button>
+        </div>
+    </div>
+</div>
+
+<script>
+
+function deleteMedication(medicationId) {
+    if (!confirm("Are you sure you want to delete this medication?")) {
+        return;
+    }
+
+    fetch(`/deleteMedication/${medicationId}`, {
+        method: 'DELETE'
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert("✅ " + data.message);
+            location.reload();
+        } else {
+            alert("❌ " + (data.message || "Failed to delete medication."));
+        }
+    })
+    .catch(() => alert("❌ Error deleting medication. Please try again."));
+}
+
+function openModal() {
+    document.getElementById('medicationModal').style.display = 'block';
+}
+
+function closeModal() {
+    document.getElementById('medicationModal').style.display = 'none';
+    document.getElementById('medicationForm').reset();
+}
+
+function addMedication() {
+    const medicineId = document.getElementById('medicine_id').value;
+    const dosage = document.getElementById('dosage').value;
+    const frequency = document.getElementById('frequency').value;
+
+    /* ===== VALIDATION ===== */
+    if (!medicineId || !dosage || !frequency) {
+        alert("Please fill in all fields.");
+        return;
+    }
+
+    if (isNaN(medicineId) || medicineId <= 0) {
+        alert("Medicine ID must be a valid positive number.");
+        return;
+    }
+
+    /* ===== SEND DATA ===== */
+    fetch('/addMedication', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            medicine_id: medicineId,
+            dosage: dosage,
+            frequency: frequency
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.message && data.message.toLowerCase().includes('added')) {
+            alert("✅ Medication added successfully!");
+            closeModal();
+            location.reload();
+        } else {
+            alert(data.message || "Failed to add medication.");
+        }
+    })
+    .catch(err => alert("❌ Something went wrong. Please try again."));
+}
+
+// Close modal when clicking outside it
+window.onclick = function(event) {
+    const modal = document.getElementById('medicationModal');
+    if (event.target == modal) {
+        closeModal();
+    }
+}
+
+</script>
+
+{% endblock %}
