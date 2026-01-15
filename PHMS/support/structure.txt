@@ -45,13 +45,21 @@ PHMS/
 │       ├── base.css                # Base styles (layout, navigation)
 │       ├── login.css               # Login page styles
 │       ├── register.css            # Registration page styles
-│       ├── profile.css             # Profile page styles
-│       └── health.css              # Health page styles
+│       ├── profile.css             # Profile page layout
+│       ├── dashboard.css           # Dashboard page styles
+│       ├── health.css              # Health tracking page styles
+│       └── medication.css          # Medication page styles
 │
 ├── instance/                       # Instance folder (auto-generated)
 │   └── *.db                        # SQLite database (if used)
 │
 ├── __pycache__/                    # Python cache (auto-generated)
+│
+├── support/                        # Support & documentation
+│   ├── structure.txt               # Project structure documentation
+│   ├── databaseAccess.txt          # Database access information
+│   ├── ER.txt                      # Entity relationship documentation
+│   └── instructions.txt            # Setup & development instructions
 │
 └── venv/                           # Virtual environment (not in version control)
 
@@ -117,6 +125,8 @@ profile_controller.py
 health_controller.py
   ✓ health_page()       - Display health tracking page
   ✓ add_health()        - Add health data entry & check alerts
+  ✓ get_health_data()   - Retrieve health data
+  ✓ delete_health()     - Delete health entry
 
 medication_controller.py
   ✓ medication_page()   - Display user medications
@@ -135,7 +145,7 @@ user_model.py
   - Authentication & profile data
 
 health_model.py
-  - HealthData(entry_id, user_id, heart_rate, temperature, steps, etc.)
+  - HealthData(entry_id, user_id, heart_rate, temperature, steps, sleep_hours, blood_pressure, calories)
   - Vital signs & activity tracking
 
 medicine_model.py
@@ -184,7 +194,7 @@ profile.html
 
 health.html
   - Health data entry form
-  - Heart rate, temperature, steps, etc.
+  - Heart rate, temperature, steps, sleep, blood pressure, calories
   - Display health history
   - Alert indicators
 
@@ -219,9 +229,41 @@ profile.css
   - Profile page layout
   - Edit form styles
 
+dashboard.css
+  - Dashboard page styling
+  - Stats & widget layouts
+  - Responsive grid system
+
 health.css
   - Health tracking page styles
   - Form & data display
+  - Chart & alert styling
+
+medication.css
+  - Medication list styles
+  - Add/edit form styling
+  - Reminder notification styles
+
+
+SUPPORT FOLDER:
+───────────────
+structure.txt
+  - Project structure documentation
+  - File descriptions & guidelines
+  - Development workflow
+
+databaseAccess.txt
+  - Database connection details
+  - Access credentials (development only)
+
+ER.txt
+  - Entity relationship diagram text format
+  - Database schema documentation
+
+instructions.txt
+  - Setup & installation guide
+  - Development guidelines
+  - Troubleshooting tips
 
 
 ================================================================================
@@ -237,13 +279,24 @@ REQUEST FLOW:
 6. controller returns response/renders template
 7. Browser receives & displays response
 
-EXAMPLE: GET /profile
-├── routes.py: @app.route('/profile')
-├── Calls: profile_controller.profile()
-├── Controller: queries User from models
-├── Database: fetches user data
-├── Returns: render_template('profile.html', user=user)
-└── Browser: displays profile page
+EXAMPLE: GET /health
+├── routes.py: @app.route('/health')
+├── Calls: health_controller.health_page()
+├── Controller: queries HealthData from models
+├── Database: fetches user's health entries
+├── Controller: checks for alerts based on data
+├── Returns: render_template('health.html', entries=all_entries)
+└── Browser: displays health tracking page
+
+EXAMPLE: POST /add_health
+├── routes.py: @app.route('/add_health', methods=['POST'])
+├── Calls: health_controller.add_health()
+├── Controller: extracts JSON data from request
+├── Controller: creates new HealthData object
+├── Database: saves entry and checks alert conditions
+├── Logic: generates Alert if thresholds exceeded
+├── Returns: JSON response with status
+└── Browser: updates UI with new entry
 
 
 DATABASE RELATIONSHIPS:
@@ -271,5 +324,15 @@ NEW FEATURE CHECKLIST:
 4. Add route in routes.py
 5. Add template in templates/ folder
 6. Add styles in static/style/ folder
+
+ROUTE CONVENTIONS:
+  - GET routes: display pages or retrieve data
+  - POST routes: create or submit data
+  - PUT routes: update existing resources
+  - DELETE routes: remove resources
+  - Use snake_case for Python functions
+  - Use camelCase for HTML form fields
+  - Return JSON for AJAX requests
+  - Return HTML for page navigation
 
 ================================================================================

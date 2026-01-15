@@ -80,6 +80,11 @@ def register_routes(app):
     @app.route('/deleteMedication/<int:id>', methods=['DELETE'])
     def delete_medication(id):
         return medication_controller.delete_medication(id)
+    
+    @app.route('/addMedicine', methods=['POST'])
+    def add_medicine_master():
+        return medication_controller.add_medicine_master()
+
 
     # ================ REPORTS ROUTES ================
     @app.route('/reports')

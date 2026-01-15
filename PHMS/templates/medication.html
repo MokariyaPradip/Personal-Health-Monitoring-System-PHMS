@@ -61,6 +61,93 @@
         {% endif %}
     </div>
 
+
+    <!-- ===== Medicine Details Section ===== -->
+    <section class="medicines-section">
+        <div class="medicines-header">
+            <div class="header-content">
+                <h2>💊 Medicines</h2>
+                <p class="medicines-subtitle">
+                    {% if search_query %}
+                        Search results for "{{ search_query }}"
+                    {% else %}
+                        Search for medicines in our database
+                    {% endif %}
+                </p>
+                
+            </div>
+
+            <button class="add-medicine-btn" onclick="openMedicineModal()">
+                + Add Medicine
+            </button>
+
+            {% if search_query %}
+            <a href="{{ url_for('medication_page') }}" class="clear-search-btn">Clear Search</a>
+            {% endif %}
+        </div>
+
+            <!-- Search Medicines -->
+        <div class="medicine-search-container">
+            <form class="medicine-search-form" method="GET" action="{{ url_for('medication_page') }}">
+                <input
+                    type="text"
+                    name="query"
+                    placeholder="Search medicine by name..."
+                    value="{{ search_query or '' }}"
+                    required
+                >
+                <button type="submit" class="search-btn">Search</button>
+            </form>
+        </div>
+
+
+        {% if medicines %}
+        <div class="medicines-list">
+            {% for med in medicines %}
+                <div class="medicine-card">
+                    <div class="medicine-card-header">
+                        <h3 class="medicine-name">{{ med.medicine_name }}</h3>
+                    </div>
+                    <div class="medicine-card-body">
+                        <div class="medicine-detail">
+                            <span class="detail-label">Purpose</span>
+                            <span class="detail-text">{{ med.purpose }}</span>
+                        </div>
+                        <div class="medicine-detail">
+                            <span class="detail-label">Remarks</span>
+                            <span class="detail-text">{{ med.remark or 'N/A' }}</span>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+
+        </div>
+        {% else %}
+            <div class="no-data-message">
+                {% if search_query %}
+                    <p>📦 No medicines found for "{{ search_query }}".</p>
+                    <p class="subtitle">Try searching with different keywords.</p>
+                {% else %}
+                    <p>🔍 Search for medicines to get started</p>
+                    <p class="subtitle">Use the search bar above to find medicines.</p>
+                {% endif %}
+            </div>
+
+        {% endif %}
+        <div class="medicine-actions-row">
+
+            {% if medicines and not view_all and not search_query %}
+                <a class="view-more-btn"
+                    href="{{ url_for('medication_page', view_all=1) }}">
+                    View More
+                </a>
+            {% endif %}
+        </div>
+
+
+    </section>
+
+
 </div>
 
 <!-- ===== MODAL FOR ADDING MEDICATION ===== -->
@@ -74,8 +161,8 @@
         <div class="modal-body">
             <form id="medicationForm">
                 <div class="form-group">
-                    <label for="medicine_id">Medicine ID</label>
-                    <input type="number" id="medicine_id" placeholder="e.g., 1" required>
+                    <label for="medicine_name">Medicine</label>
+                    <input type="text" id="medicine_name" placeholder="e.g., paracetamol" required>
                 </div>
 
                 <div class="form-group">
@@ -88,12 +175,6 @@
                     <input type="text" id="frequency" placeholder="e.g., Twice daily" required>
                 </div>
 
-                <!--
-                    <div class="form-group">
-                        <label for="remark">Remark</label>
-                        <textarea id="remark" placeholder="e.g., Take with food" rows="3"></textarea>
-                    </div>
-                -->
             </form>
         </div>
 
@@ -103,6 +184,41 @@
         </div>
     </div>
 </div>
+
+<!-- ===== MODAL FOR ADDING MEDICINE ===== -->
+<div id="medicineModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Add Medicine</h2>
+            <span class="close" onclick="closeMedicineModal()">&times;</span>
+        </div>
+
+        <div class="modal-body">
+            <form id="medicineForm">
+                <div class="form-group">
+                    <label>Medicine Name</label>
+                    <input type="text" id="new_medicine_name" placeholder="e.g., paracetamol" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Purpose</label>
+                    <input type="text" id="new_medicine_purpose" placeholder="e.g., Feaver and Pain" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Remark</label>
+                    <input type="text" id="new_medicine_remark" placeholder="e.g., Take after food">
+                </div>
+            </form>
+        </div>
+
+        <div class="modal-footer">
+            <button class="btn-cancel" onclick="closeMedicineModal()">Cancel</button>
+            <button class="btn-submit" onclick="addMedicine()">Add Medicine</button>
+        </div>
+    </div>
+</div>
+
 
 <script>
 
@@ -136,18 +252,13 @@ function closeModal() {
 }
 
 function addMedication() {
-    const medicineId = document.getElementById('medicine_id').value;
+    const medicineName = document.getElementById('medicine_name').value;
     const dosage = document.getElementById('dosage').value;
     const frequency = document.getElementById('frequency').value;
 
     /* ===== VALIDATION ===== */
-    if (!medicineId || !dosage || !frequency) {
+    if (!medicineName || !dosage || !frequency) {
         alert("Please fill in all fields.");
-        return;
-    }
-
-    if (isNaN(medicineId) || medicineId <= 0) {
-        alert("Medicine ID must be a valid positive number.");
         return;
     }
 
@@ -156,7 +267,7 @@ function addMedication() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-            medicine_id: medicineId,
+            medicine_name: medicineName,
             dosage: dosage,
             frequency: frequency
         })
@@ -182,6 +293,48 @@ window.onclick = function(event) {
     }
 }
 
+</script>
+
+<script>
+function openMedicineModal() {
+    document.getElementById('medicineModal').style.display = 'block';
+}
+
+function closeMedicineModal() {
+    document.getElementById('medicineModal').style.display = 'none';
+    document.getElementById('medicineForm').reset();
+}
+
+function addMedicine() {
+    const name = document.getElementById('new_medicine_name').value;
+    const purpose = document.getElementById('new_medicine_purpose').value;
+    const remark = document.getElementById('new_medicine_remark').value;
+
+    if (!name || !purpose) {
+        alert("Please fill required fields");
+        return;
+    }
+
+    fetch('/addMedicine', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            medicine_name: name,
+            purpose: purpose,
+            remark: remark
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert("✅ Medicine added successfully");
+            closeMedicineModal();
+            location.reload();
+        } else {
+            alert("❌ " + data.message);
+        }
+    });
+}
 </script>
 
 {% endblock %}
