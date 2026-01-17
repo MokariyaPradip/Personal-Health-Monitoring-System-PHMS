@@ -14,7 +14,7 @@ def dashboard():
 
     last_health = HealthData.query.filter_by(
         user_id=user.user_id
-    ).order_by(HealthData.timestamp.desc()).first()
+    ).order_by(HealthData.recorded_at.desc()).first()
 
     medications = Medication.query.filter_by(
         user_id=user.user_id
@@ -22,7 +22,7 @@ def dashboard():
 
     alerts = Alert.query.filter_by(
         user_id=user.user_id
-    ).order_by(Alert.alert_date.desc()).limit(5).all()
+    ).order_by(Alert.created_at.desc()).limit(5).all()
 
     return render_template(
         'dashboard.html',

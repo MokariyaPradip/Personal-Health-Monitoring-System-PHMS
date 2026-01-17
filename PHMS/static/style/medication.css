@@ -741,3 +741,22 @@
     transform: translateY(-2px);
     box-shadow: 0 6px 16px rgba(39, 174, 96, 0.4);
 }
+
+.status-badge {
+    font-size: 0.75rem;
+    padding: 4px 10px;
+    border-radius: 14px;
+    margin-left: 10px;
+    font-weight: 600;
+    vertical-align: middle;
+}
+
+.status-badge.active {
+    background-color: #e6f9ee;
+    color: #1e8e3e;
+}
+
+.status-badge.inactive {
+    background-color: #fdecea;
+    color: #c5221f;
+}

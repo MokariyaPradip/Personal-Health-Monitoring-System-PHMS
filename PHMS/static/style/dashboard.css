@@ -420,3 +420,22 @@
         padding: 1.5rem 1.2rem;
     }
 }
+
+.status-badge {
+    font-size: 0.75rem;
+    padding: 4px 10px;
+    border-radius: 14px;
+    margin-left: 10px;
+    font-weight: 600;
+    vertical-align: middle;
+}
+
+.status-badge.active {
+    background-color: #e6f9ee;
+    color: #1e8e3e;
+}
+
+.status-badge.inactive {
+    background-color: #fdecea;
+    color: #c5221f;
+}

@@ -11,7 +11,7 @@
 <div class="medication-container">
     
     <!-- ===== ADD MEDICATION BUTTON ===== -->
-    <button class="btn-add-medication" onclick="openModal()">+ Add Medication</button>
+    <button class="btn-add-medication" onclick="openMedicationModal()">+ Add Medication</button>
 
     <!-- ===== CURRENT MEDICATIONS ===== -->
     <div class="medications-section">
@@ -22,7 +22,15 @@
             <div class="medication-card">
                 <div class="med-header">
                     <div class="med-info">
-                        <h3 class="med-title">{{ med.medicine.medicine_name }}</h3>
+                        <h3 class="med-title">
+                            {{ med.medicine.medicine_name }}
+                        
+                            {% if med.is_active() %}
+                                <span class="status-badge active">🟢 Active</span>
+                            {% else %}
+                                <span class="status-badge inactive">🔴 Inactive</span>
+                            {% endif %}
+                        </h3>
                     </div>
                     <button class="delete-btn"
                         title="Delete medication"
@@ -47,6 +55,21 @@
                     <div class="detail-card full-width">
                         <span class="detail-label">Remark</span>
                         <span class="detail-value">{{ med.medicine.remark or 'N/A' }}</span>
+                    </div>
+
+                    <div class="detail-card full-width">
+                        <span class="detail-label">Start Date</span>
+                        <span class="detail-value">
+                            {{ med.start_date.strftime('%d %b %Y') if med.start_date else 'N/A' }}
+                        </span>
+                    </div>
+
+
+                    <div class="detail-card full-width">
+                        <span class="detail-label">End Date</span>
+                        <span class="detail-value">
+                            {{ med.end_date.strftime('%d %b %Y') if med.end_date else 'N/A' }}
+                        </span>
                     </div>
                     
                 </div>
@@ -110,6 +133,10 @@
                     </div>
                     <div class="medicine-card-body">
                         <div class="medicine-detail">
+                            <span class="detail-label">Medicine Type</span>
+                            <span class="detail-text">{{ med.medicine_type or 'N/A' }}</span>
+                        </div>
+                        <div class="medicine-detail">
                             <span class="detail-label">Purpose</span>
                             <span class="detail-text">{{ med.purpose }}</span>
                         </div>
@@ -155,7 +182,7 @@
     <div class="modal-content">
         <div class="modal-header">
             <h2>Add Medication</h2>
-            <span class="close" onclick="closeModal()">&times;</span>
+            <span class="close" onclick="closeMedicationModal()">&times;</span>
         </div>
         
         <div class="modal-body">
@@ -175,11 +202,21 @@
                     <input type="text" id="frequency" placeholder="e.g., Twice daily" required>
                 </div>
 
+                <div class="form-group">
+                    <label for="start_date">Start Date</label>
+                    <input type="date" id="start_date" placeholder="e.g., 2024-01-01" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="end_date">End Date</label>
+                    <input type="date" id="end_date" placeholder="e.g., 2024-01-15" required>
+                </div>
+
             </form>
         </div>
 
         <div class="modal-footer">
-            <button type="button" class="btn-cancel" onclick="closeModal()">Cancel</button>
+            <button type="button" class="btn-cancel" onclick="closeMedicationModal()">Cancel</button>
             <button type="button" class="btn-submit" onclick="addMedication()">Add Medication</button>
         </div>
     </div>
@@ -198,6 +235,11 @@
                 <div class="form-group">
                     <label>Medicine Name</label>
                     <input type="text" id="new_medicine_name" placeholder="e.g., paracetamol" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Medicine Type</label>
+                    <input type="text" id="new_medicine_type" placeholder="e.g., Tablet, Capsule, Syrup" required>
                 </div>
 
                 <div class="form-group">
@@ -242,11 +284,11 @@ function deleteMedication(medicationId) {
     .catch(() => alert("❌ Error deleting medication. Please try again."));
 }
 
-function openModal() {
+function openMedicationModal() {
     document.getElementById('medicationModal').style.display = 'block';
 }
 
-function closeModal() {
+function closeMedicationModal() {
     document.getElementById('medicationModal').style.display = 'none';
     document.getElementById('medicationForm').reset();
 }
@@ -255,9 +297,11 @@ function addMedication() {
     const medicineName = document.getElementById('medicine_name').value;
     const dosage = document.getElementById('dosage').value;
     const frequency = document.getElementById('frequency').value;
+    const start_date = document.getElementById('start_date').value;
+    const end_date = document.getElementById('end_date').value;
 
     /* ===== VALIDATION ===== */
-    if (!medicineName || !dosage || !frequency) {
+    if (!medicineName || !dosage || !frequency || !start_date || !end_date) {
         alert("Please fill in all fields.");
         return;
     }
@@ -269,28 +313,22 @@ function addMedication() {
         body: JSON.stringify({
             medicine_name: medicineName,
             dosage: dosage,
-            frequency: frequency
+            frequency: frequency,
+            start_date: start_date,
+            end_date: end_date
         })
     })
     .then(res => res.json())
     .then(data => {
         if (data.message && data.message.toLowerCase().includes('added')) {
             alert("✅ Medication added successfully!");
-            closeModal();
+            closeMedicationModal();
             location.reload();
         } else {
             alert(data.message || "Failed to add medication.");
         }
     })
     .catch(err => alert("❌ Something went wrong. Please try again."));
-}
-
-// Close modal when clicking outside it
-window.onclick = function(event) {
-    const modal = document.getElementById('medicationModal');
-    if (event.target == modal) {
-        closeModal();
-    }
 }
 
 </script>
@@ -307,6 +345,7 @@ function closeMedicineModal() {
 
 function addMedicine() {
     const name = document.getElementById('new_medicine_name').value;
+    const type = document.getElementById('new_medicine_type').value;
     const purpose = document.getElementById('new_medicine_purpose').value;
     const remark = document.getElementById('new_medicine_remark').value;
 
@@ -320,6 +359,7 @@ function addMedicine() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             medicine_name: name,
+            medicine_type: type,
             purpose: purpose,
             remark: remark
         })
@@ -335,6 +375,29 @@ function addMedicine() {
         }
     });
 }
+
+// Close modal when clicking outside it
+window.onclick = function(event) {
+    const medicationModal = document.getElementById('medicationModal');
+    const medicineModal = document.getElementById('medicineModal');
+    
+    if (event.target == medicationModal) {
+        closeMedicationModal();
+    }
+    if (event.target == medicineModal) {
+        closeMedicineModal();
+    }
+}
 </script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const today = new Date().toISOString().split("T")[0];
+
+    document.getElementById("start_date").setAttribute("min", today);
+    document.getElementById("end_date").setAttribute("min", today);
+});
+</script>
+
 
 {% endblock %}

@@ -12,7 +12,7 @@ def health_page():
     # Fetch all health entries for user, ordered by timestamp desc
     all_entries = HealthData.query.filter_by(
         user_id=session['user_id']
-    ).order_by(HealthData.timestamp.desc()).all()
+    ).order_by(HealthData.recorded_at.desc()).all()
     
     # Get last/most recent entry
     last_entry = all_entries[0] if all_entries else None
@@ -34,8 +34,7 @@ def add_health():
         steps=data.get('steps'),
         sleep_hours=data.get('sleep_hours'),
         blood_pressure=data.get('blood_pressure'),
-        calories=data.get('calories'),
-        timestamp=datetime.utcnow()
+        sugar=data.get('sugar'),
     )
 
     db.session.add(health)
@@ -60,7 +59,7 @@ def get_health_data():
 
     health_entries = HealthData.query.filter_by(
         user_id=session['user_id']
-    ).order_by(HealthData.timestamp.desc()).all()
+    ).order_by(HealthData.recorded_at.desc()).all()
 
     health_list = [
         {
@@ -70,8 +69,8 @@ def get_health_data():
             "steps": entry.steps,
             "sleep_hours": entry.sleep_hours,
             "blood_pressure": entry.blood_pressure,
-            "calories": entry.calories,
-            "timestamp": entry.timestamp.isoformat()
+            "sugar": entry.sugar,
+            "recorded_at": entry.recorded_at.isoformat()
         }
         for entry in health_entries
     ]

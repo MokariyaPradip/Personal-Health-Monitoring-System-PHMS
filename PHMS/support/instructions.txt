@@ -35,7 +35,7 @@ Windows (PowerShell):
     .\venv\Scripts\Activate.ps1
 
 Windows (Command Prompt):
-    venv\Scripts\activate.bat
+    venv\Scripts\activate
 
 Linux/Mac:
     source venv/bin/activate

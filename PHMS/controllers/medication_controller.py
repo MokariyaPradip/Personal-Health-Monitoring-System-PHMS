@@ -2,6 +2,7 @@ from flask import render_template, session, redirect, jsonify, request
 from models.medicine_model import Medicine
 from config import db
 from models import Medication
+from datetime import date, datetime
 
 
 def medication_page():
@@ -50,9 +51,27 @@ def add_medication():
     medicine_name = data.get('medicine_name')
     dosage = data.get('dosage')
     frequency = data.get('frequency')
-
-    if not medicine_name or not dosage or not frequency:
+    
+    start_date = datetime.strptime(data['start_date'], "%Y-%m-%d").date()
+    end_date = datetime.strptime(data['end_date'], "%Y-%m-%d").date()
+    
+    if not medicine_name or not dosage or not frequency or not start_date or not end_date:
         return jsonify({"message": "All fields are required", "success": False}), 400
+    
+    today = date.today()
+
+    if start_date < today:
+        return jsonify({
+            "success": False,
+            "message": "Start date cannot be in the past"
+        }), 400
+
+    if end_date < start_date:
+        return jsonify({
+            "success": False,
+            "message": "End date must be after start date"
+        }), 400
+
     
     try:
         # Check if medicine exists by name
@@ -68,15 +87,25 @@ def add_medication():
             medicine_id=medicine.medicine_id,
             user_id=session['user_id'],
             dosage=dosage,
-            frequency=frequency
+            frequency=frequency,
+            start_date=start_date,
+            end_date=end_date
         )
 
         db.session.add(medication)
         db.session.commit()
-        return jsonify({"message": "Medication added successfully", "success": True})
+        
+        return jsonify({
+            "success": True,
+            "message": "Medication added successfully"
+        })
+        
     except Exception as e:
         db.session.rollback()
-        return jsonify({"message": f"Error adding medication: {str(e)}", "success": False}), 500
+        return jsonify({
+            "success": False,
+            "message": f"Error adding medication: {str(e)}"
+            }), 500
 
 
 def delete_medication(id):
@@ -109,8 +138,10 @@ def add_medicine_master():
 
     data = request.json
     medicine_name = data.get('medicine_name')
+    medicine_type = data.get('medicine_type')
     purpose = data.get('purpose')
     remark = data.get('remark')
+    
 
     if not medicine_name or not purpose:
         return jsonify({"success": False, "message": "Required fields missing"}), 400
@@ -129,7 +160,8 @@ def add_medicine_master():
     # Add new medicine
     medicine = Medicine(
         medicine_name=medicine_name.strip(),
-        purpose=purpose.strip(),
+        medicine_type=medicine_type.strip() if medicine_type else None,
+        purpose=purpose.strip() if purpose else None,
         remark=remark.strip() if remark else None
     )
 

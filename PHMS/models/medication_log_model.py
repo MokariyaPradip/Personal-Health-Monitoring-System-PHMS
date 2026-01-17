@@ -6,10 +6,26 @@ class MedicationLog(db.Model):
     __tablename__ = 'medication_log'
 
     log_id = db.Column(db.Integer, primary_key=True)
-    medication_id = db.Column(db.Integer, db.ForeignKey('medication.medication_id'), nullable=False)
+    medication_id = db.Column(
+        db.Integer,
+        db.ForeignKey('medication.medication_id', ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
 
-    time_taken = db.Column(db.DateTime, default=datetime.utcnow)
-    status = db.Column(db.String(20))  # Taken / Pending
+    taken_at = db.Column(
+        db.DateTime,
+        default=datetime.utcnow,
+        nullable=False
+    )
     
-    # Relationship to Medication
-    medication = db.relationship('Medication', backref='logs')
+    status = db.Column(db.String(20))  # Taken / Pending / Missed / Skipped
+    
+    medication = db.relationship(
+        "Medication",
+        back_populates="logs"
+    )
+
+    def __repr__(self):
+        return f"<MedicationLog {self.log_id}>"
+

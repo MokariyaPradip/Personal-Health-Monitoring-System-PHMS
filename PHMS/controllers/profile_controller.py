@@ -27,4 +27,8 @@ def update_profile():
     user.weight = data.get('weight')
 
     db.session.commit()
-    return jsonify({"message": "Profile updated successfully"})
+    
+    return jsonify({
+        "success": True,
+        "message": "Profile updated successfully"
+    })

@@ -39,11 +39,11 @@
                 <span class="value">{{ last_entry.blood_pressure or 'N/A' }}</span>
             </div>
             <div class="stat">
-                <span class="label">Calories</span>
-                <span class="value">{{ last_entry.calories or 'N/A' }}</span>
+                <span class="label">Sugar</span>
+                <span class="value">{{ last_entry.sugar or 'N/A' }}</span>
             </div>
         </div>
-        <p class="timestamp">Recorded on {{ last_entry.timestamp.strftime('%d %b %Y at %I:%M %p') }}</p>
+        <p class="timestamp">Recorded on {{ last_entry.recorded_at.strftime('%d %b %Y at %I:%M %p') }}</p>
     </div>
     {% else %}
     <div class="no-data-message">
@@ -60,7 +60,7 @@
             <div class="entry-card">
                 <div class="entry-header">
                     <span class="entry-date">
-                        {{ entry.timestamp.strftime('%d %b %Y, %I:%M %p') }}
+                        {{ entry.recorded_at.strftime('%d %b %Y, %I:%M %p') }}
                     </span>
 
                     <button class="delete-btn"
@@ -92,8 +92,8 @@
                         <span class="detail-value">{{ entry.blood_pressure or 'N/A' }}</span>
                     </div>
                     <div class="detail-item">
-                        <span class="detail-label">Calories:</span>
-                        <span class="detail-value">{{ entry.calories or 'N/A' }}</span>
+                        <span class="detail-label">Sugar:</span>
+                        <span class="detail-value">{{ entry.sugar or 'N/A' }}</span>
                     </div>
                 </div>
             </div>
@@ -137,13 +137,13 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="blood_pressure">Blood Pressure (e.g., 120/80)</label>
+                    <label for="blood_pressure">Blood Pressure</label>
                     <input type="text" id="blood_pressure" placeholder="e.g., 120/80">
                 </div>
 
                 <div class="form-group">
-                    <label for="calories">Calories Burned</label>
-                    <input type="number" id="calories" placeholder="e.g., 2500">
+                    <label for="sugar">Sugar</label>
+                    <input type="number" id="sugar" placeholder="e.g., 130">
                 </div>
             </form>
         </div>
@@ -191,10 +191,10 @@ function addHealth() {
     const steps = document.getElementById('steps').value;
     const sleep = document.getElementById('sleep_hours').value;
     const bp = document.getElementById('blood_pressure').value;
-    const calories = document.getElementById('calories').value;
+    const sugar = document.getElementById('sugar').value;
 
     /* ===== BASIC EMPTY CHECK ===== */
-    if (!heartRate && !temperature && !steps && !sleep && !bp && !calories) {
+    if (!heartRate && !temperature && !steps && !sleep && !bp && !sugar) {
         alert("Please enter at least one health detail.");
         return;
     }
@@ -220,8 +220,8 @@ function addHealth() {
         return;
     }
 
-    if (calories && calories < 0) {
-        alert("Calories cannot be negative.");
+    if (sugar && sugar < 0) {
+        alert("Sugar cannot be negative.");
         return;
     }
 
@@ -241,7 +241,7 @@ function addHealth() {
         steps: steps || null,
         sleep_hours: sleep || null,
         blood_pressure: bp || null,
-        calories: calories || null
+        sugar: sugar || null
     };
 
     fetch('/add_health', {

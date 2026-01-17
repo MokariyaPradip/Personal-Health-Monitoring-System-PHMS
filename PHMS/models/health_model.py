@@ -6,15 +6,35 @@ class HealthData(db.Model):
     __tablename__ = 'health_data'
 
     entry_id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.user_id'), nullable=False)
-    
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey('user.user_id', ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+
     heart_rate = db.Column(db.Integer)
     temperature = db.Column(db.Float)
     steps = db.Column(db.Integer)
     sleep_hours = db.Column(db.Float)
     blood_pressure = db.Column(db.String(20))
-    calories = db.Column(db.Integer)
-    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # NEW: Sugar level (mg/dL or g — your choice at app level)
+    sugar = db.Column(db.Float)
+
+    
+    recorded_at = db.Column(
+        db.DateTime,
+        default=datetime.utcnow,
+        nullable=False
+    )
+
     
     # Relationship to User
-    user = db.relationship('User', backref='health_records')
+    user = db.relationship(
+        "User",
+        back_populates="health_records"
+    )
+
+    def __repr__(self):
+        return f"<Health {self.entry_id} User:{self.user_id}>"

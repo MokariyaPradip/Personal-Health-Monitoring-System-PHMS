@@ -48,13 +48,13 @@
                         <div class="stat-value">{{ last_health.blood_pressure }}</div>
                     </div>
                     <div class="stat-item">
-                        <div class="stat-label">Calories</div>
-                        <div class="stat-value">{{ last_health.calories }} <span class="unit">kcal</span></div>
+                        <div class="stat-label">Sugar</div>
+                        <div class="stat-value">{{ last_health.sugar }} <span class="unit">mg/dL</span></div>
                     </div>
                 </div>
             </div>
             <div class="card-footer">
-                <small>📅 {{ last_health.timestamp.strftime('%d %b %Y, %I:%M %p') }}</small>
+                <small>📅 {{ last_health.recorded_at.strftime('%d %b %Y, %I:%M %p') }}</small>
             </div>
             {% else %}
             <div class="empty-state">
@@ -74,8 +74,16 @@
             <div class="med-list">
                 {% for m in medications %}
                 <div class="med-item">
-                    <div class="med-name">{{ m.medicine.medicine_name }}</div>
+                    <div class="med-name">
+                        {{ m.medicine.medicine_name }}
+                        {% if m.is_active() %}
+                            <span class="status-badge active">🟢 Active</span>
+                        {% else %}
+                            <span class="status-badge inactive">🔴 Inactive</span>
+                        {% endif %}
+                    </div>
                     <div class="med-details">
+                        <div><strong>Type:</strong> {{ m.medicine.medicine_type }}</div>
                         <div><strong>Dosage:</strong> {{ m.dosage }}</div>
                         <div><strong>Frequency:</strong> {{ m.frequency }}</div>
                     </div>
@@ -103,7 +111,7 @@
                     <div class="alert-badge">{{ alert.severity }}</div>
                     <div class="alert-content">
                         <div class="alert-message">{{ alert.message }}</div>
-                        <small class="alert-time">{{ alert.alert_date.strftime('%d %b %Y, %I:%M %p') }}</small>
+                        <small class="alert-time">{{ alert.created_at.strftime('%d %b %Y, %I:%M %p') }}</small>
                     </div>
                 </div>
                 {% endfor %}
