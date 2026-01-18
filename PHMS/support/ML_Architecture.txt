@@ -1,0 +1,19 @@
+health_data.csv (DBMS)
+        ↓
+train_model.py (one-time training)
+        ↓
+phms_model.pkl + label_encoder.pkl
+        ↓
+ml_model.py (prediction only)
+        ↓
+Flask Controllers / Dashboard
+
+
+Raw Health Data
+(BMI, BP, Sugar, HR, Sleep, Steps, Temp)
+        ↓
+Health Score (Rule-Based)
+        ↓
+Risk Label (Healthy / Moderate / HighRisk)
+        ↓
+ML Model Training

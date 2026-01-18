@@ -5,6 +5,25 @@ __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
+*.so
+*.egg
+.eggs/
+*.egg-info/
+*.manifest
+*.spec
+.python-version
+
+# ===============================
+# Python tooling caches
+# ===============================
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+.hypothesis/
+.ipynb_checkpoints/
 
 # ===============================
 # Virtual Environment
@@ -12,6 +31,8 @@ __pycache__/
 venv/
 ENV/
 env/
+.venv/
+.envrc
 
 # ===============================
 # Environment variables
@@ -29,6 +50,7 @@ instance/
 # Flask / Logs
 # ===============================
 *.log
+logs/
 flask_session/
 
 # ===============================
@@ -38,8 +60,20 @@ flask_session/
 Thumbs.db
 .vscode/
 .idea/
+*.swp
+*.swo
+~$*
+desktop.ini
 
 # ===============================
 # Migrations cache
 # ===============================
 migrations/__pycache__/
+
+# ===============================
+# Build artifacts
+# ===============================
+dist/
+build/
+site/
+pip-wheel-metadata/

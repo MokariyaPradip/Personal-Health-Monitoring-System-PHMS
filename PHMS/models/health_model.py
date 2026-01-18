@@ -29,6 +29,10 @@ class HealthData(db.Model):
         nullable=False
     )
 
+    # 🔽 NEW COLUMNS
+    health_score = db.Column(db.Integer)
+    rule_based_risk_label = db.Column(db.String(20))
+    ml_predicted_risk_label = db.Column(db.String(20))
     
     # Relationship to User
     user = db.relationship(
