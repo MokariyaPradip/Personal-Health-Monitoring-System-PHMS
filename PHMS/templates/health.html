@@ -17,6 +17,23 @@
     {% if last_entry %}
     <div class="last-entry-card">
         <h2>Your Latest Health Record</h2>
+        {% set rb_label = (last_entry.rule_based_risk_label or 'N/A') %}
+        {% set ml_label = (last_entry.ml_predicted_risk_label or 'N/A') %}
+        {% set rb_label_display = rb_label.replace('Risk', ' Risk') %}
+        {% set ml_label_display = ml_label.replace('Risk', ' Risk') %}
+
+        <div class="risk-summary">
+            <div class="score-chip">
+                <span class="chip-title">Health Score</span>
+                <span class="chip-score">{{ last_entry.health_score or 'N/A' }}</span>
+                <span class="risk-badge {{ rb_label|lower }}">{{ rb_label_display }}</span>
+            </div>
+            <div class="score-chip alt">
+                <span class="chip-title">ML Predicted</span>
+                <span class="risk-badge {{ ml_label|lower }}">{{ ml_label_display }}</span>
+            </div>
+        </div>
+
         <div class="entry-grid">
             <div class="stat">
                 <span class="label">Heart Rate</span>
@@ -71,6 +88,23 @@
                 </div>
 
                 <div class="entry-details">
+                    {% set rb_label = (entry.rule_based_risk_label or 'N/A') %}
+                    {% set ml_label = (entry.ml_predicted_risk_label or 'N/A') %}
+                    {% set rb_label_display = rb_label.replace('Risk', ' Risk') %}
+                    {% set ml_label_display = ml_label.replace('Risk', ' Risk') %}
+
+                    <div class="detail-item score-row">
+                        <div class="score-chip compact">
+                            <span class="chip-title">Health Score</span>
+                            <span class="chip-score">{{ entry.health_score or 'N/A' }}</span>
+                            <span class="risk-badge {{ rb_label|lower }}">{{ rb_label_display }}</span>
+                        </div>
+                        <div class="score-chip compact alt">
+                            <span class="chip-title">ML</span>
+                            <span class="risk-badge {{ ml_label|lower }}">{{ ml_label_display }}</span>
+                        </div>
+                    </div>
+
                     <div class="detail-item">
                         <span class="detail-label">Heart Rate:</span>
                         <span class="detail-value">{{ entry.heart_rate or 'N/A' }} bpm</span>
@@ -138,12 +172,12 @@
 
                 <div class="form-group">
                     <label for="blood_pressure">Blood Pressure</label>
-                    <input type="text" id="blood_pressure" placeholder="e.g., 120/80">
+                    <input type="number" id="blood_pressure" placeholder="e.g., 120">
                 </div>
 
                 <div class="form-group">
                     <label for="sugar">Sugar</label>
-                    <input type="number" id="sugar" placeholder="e.g., 130">
+                    <input type="number" id="sugar" placeholder="e.g., 100">
                 </div>
             </form>
         </div>
@@ -225,13 +259,10 @@ function addHealth() {
         return;
     }
 
-    /* ===== BLOOD PRESSURE FORMAT ===== */
-    if (bp) {
-        const bpPattern = /^\d{2,3}\/\d{2,3}$/;
-        if (!bpPattern.test(bp)) {
-            alert("Blood pressure must be in format SYS/DIA (e.g., 120/80).");
-            return;
-        }
+    /* ===== BLOOD PRESSURE RANGE ===== */
+    if (bp && (bp < 40 || bp > 200)) {
+        alert("Blood pressure must be between 40 and 200 mmHg.");
+        return;
     }
 
     /* ===== SEND DATA ===== */

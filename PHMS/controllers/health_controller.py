@@ -3,7 +3,7 @@ from datetime import datetime
 from config import db
 from models import HealthData, Alert, User
 from utils.health_score import calculate_health_score, score_to_label
-from PHMS.ml.ml_model import predict_health_risk
+from ml.ml_model import predict_health_risk
 
 
 def health_page():
@@ -29,13 +29,13 @@ def add_health():
 
     data = request.json
 
-    # Extract values
-    heart_rate = data.get('heart_rate')
-    temperature = data.get('temperature')
-    steps = data.get('steps')
-    sleep_hours = data.get('sleep_hours')
-    blood_pressure = data.get('blood_pressure')
-    sugar = data.get('sugar')
+    # Extract values and convert to appropriate types
+    heart_rate = int(data.get('heart_rate')) if data.get('heart_rate') else None
+    temperature = float(data.get('temperature')) if data.get('temperature') else None
+    steps = int(data.get('steps')) if data.get('steps') else None
+    sleep_hours = float(data.get('sleep_hours')) if data.get('sleep_hours') else None
+    blood_pressure = float(data.get('blood_pressure')) if data.get('blood_pressure') else None
+    sugar = float(data.get('sugar')) if data.get('sugar') else None
 
     bmi = User.query.get(session['user_id']).bmi
 

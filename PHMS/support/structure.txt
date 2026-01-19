@@ -8,9 +8,22 @@ PHMS/
 ├── config.py                       # Database & app configuration
 ├── models.py                       # Model imports from models/ folder
 ├── routes.py                       # Route declarations (minimal logic)
-├── ml_model.py                     # Machine learning models & functions
+├── ml/                             # Machine learning module
+│   ├── ml_model.py                 # Prediction interface
+│   ├── README.md                   # ML module documentation
+│   ├── trained_models/             # Current model artifacts (.pkl files)
+│   │   ├── phms_model_v2.pkl       # Trained Decision Tree model v2
+│   │   ├── label_encoder_v2.pkl    # Label encoder for v2 model
+│   │   └── legacy/                 # Legacy model versions (v1, v0)
+│   └── training_scripts/           # Model training scripts
+│       ├── train_model_v1.py       # V1 training script
+│       └── train_model_v2.py       # V2 training script (combined datasets)
 ├── reports.py                      # Report generation utilities
 ├── requirements.txt                # Project dependencies
+│
+├── datasets/                       # Sample CSV datasets
+│   ├── health_data.csv
+│   └── health_data_10000.csv
 │
 ├── controllers/                    # Business logic layer
 │   ├── __init__.py
@@ -50,6 +63,15 @@ PHMS/
 │       ├── health.css              # Health tracking page styles
 │       └── medication.css          # Medication page styles
 │
+├── migrations/                     # Alembic migrations for database schema
+│   ├── alembic.ini
+│   ├── env.py
+│   ├── script.py.mako
+│   └── versions/
+│
+├── utils/                          # Utility helpers
+│   └── health_score.py             # Health score computation
+│
 ├── instance/                       # Instance folder (auto-generated)
 │   └── *.db                        # SQLite database (if used)
 │
@@ -59,7 +81,8 @@ PHMS/
 │   ├── structure.txt               # Project structure documentation
 │   ├── databaseAccess.txt          # Database access information
 │   ├── ER.txt                      # Entity relationship documentation
-│   └── instructions.txt            # Setup & development instructions
+│   ├── instructions.txt            # Setup & development instructions
+│   └── ML_Architecture.txt         # ML architecture overview
 │
 └── venv/                           # Virtual environment (not in version control)
 
@@ -92,10 +115,17 @@ routes.py
   - No business logic here
   - Clean & minimal design
 
-ml_model.py
-  - Machine learning algorithms
-  - Predictive models for health data
-  - Model training & prediction functions
+ml/ (folder)
+  - Machine learning module with organized structure
+  - ml_model.py: prediction interface for health risk assessment
+  - README.md: comprehensive ML documentation with usage examples
+  - trained_models/: current production models (v2)
+    * phms_model_v2.pkl: Decision Tree classifier (98.46% accuracy)
+    * label_encoder_v2.pkl: label encoder for risk levels
+    * legacy/: archived previous model versions
+  - training_scripts/: scripts for training and retraining models
+    * train_model_v1.py: trains model on single dataset
+    * train_model_v2.py: trains model on combined datasets (12,999 records)
 
 reports.py
   - Report generation utilities

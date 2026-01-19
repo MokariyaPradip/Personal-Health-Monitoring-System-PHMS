@@ -20,7 +20,7 @@ class Medication(db.Model):
     )
 
     dosage = db.Column(db.String(50))
-    frequency = db.Column(db.String(50))
+    frequency = db.Column(db.Integer)
     start_date = db.Column(db.Date)
     end_date = db.Column(db.Date)
 

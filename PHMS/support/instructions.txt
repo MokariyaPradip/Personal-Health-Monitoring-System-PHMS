@@ -80,8 +80,8 @@ PHMS/
 ├── config.py                 # Database configuration
 ├── routes.py                 # Route declarations
 ├── models.py                 # Model imports
-├── ml_model.py               # Machine learning models
 ├── reports.py                # Report generation
+├── requirements.txt          # Project dependencies
 ├── controllers/              # Business logic for routes
 │   ├── auth_controller.py
 │   ├── dashboard_controller.py
@@ -111,10 +111,39 @@ PHMS/
 │       ├── login.css
 │       ├── register.css
 │       ├── profile.css
-│       └── login.css
+│       ├── dashboard.css
+│       ├── health.css
+│       └── medication.css
+├── datasets/                 # Sample CSV datasets
+│   ├── health_data.csv
+│   └── health_data_10000.csv
+├── ml/                       # Machine learning module
+│   ├── ml_model.py          # Prediction interface
+│   ├── README.md            # ML documentation
+│   ├── trained_models/      # Current model artifacts
+│   │   ├── phms_model_v2.pkl
+│   │   ├── label_encoder_v2.pkl
+│   │   └── legacy/          # Legacy model versions
+│   └── training_scripts/    # Model training scripts
+│       ├── train_model_v1.py
+│       └── train_model_v2.py
+├── migrations/               # Alembic migrations for DB schema
+│   ├── alembic.ini
+│   ├── env.py
+│   ├── README
+│   ├── script.py.mako
+│   └── versions/
+├── utils/                    # Utility helpers
+│   └── health_score.py
 ├── instance/                 # Instance folder (auto-generated)
-├── venv/                     # Virtual environment
-└── requirements.txt          # Project dependencies
+├── support/                  # Documentation & support files
+│   ├── structure.txt
+│   ├── databaseAccess.txt
+│   ├── ER.txt
+│   ├── instructions.txt
+│   └── ML_Architecture.txt
+├── __pycache__/
+└── venv/                     # Virtual environment
 
 
 TROUBLESHOOTING

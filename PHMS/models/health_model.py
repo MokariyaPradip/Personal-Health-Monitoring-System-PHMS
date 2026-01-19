@@ -17,7 +17,7 @@ class HealthData(db.Model):
     temperature = db.Column(db.Float)
     steps = db.Column(db.Integer)
     sleep_hours = db.Column(db.Float)
-    blood_pressure = db.Column(db.String(20))
+    blood_pressure = db.Column(db.Float)
     
     # NEW: Sugar level (mg/dL or g — your choice at app level)
     sugar = db.Column(db.Float)
