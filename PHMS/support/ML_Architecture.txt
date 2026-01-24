@@ -1,19 +1,48 @@
-health_data.csv (DBMS)
-        ↓
-train_model.py (one-time training)
-        ↓
-phms_model.pkl + label_encoder.pkl
-        ↓
-ml_model.py (prediction only)
-        ↓
-Flask Controllers / Dashboard
+PROCESSING FLOW
+===============
+
+1. DATA INPUT PHASE (Health Controller)
+   User submits health data via Flask form
+   Input: heart_rate, temperature, steps, sleep_hours, blood_pressure, sugar, BMI (from user profile)
+
+2. DUAL RISK ASSESSMENT PHASE (Parallel Processing)
+   
+   a) RULE-BASED PATH (calculate_health_score)
+      - Input: BMI, HR, Temp, Steps, Sleep, BP, Sugar
+      - Feature-specific penalty thresholds:
+        * BMI: 18.5-24.9 (healthy range)
+        * Heart Rate: 60-100 bpm
+        * Blood Pressure: 90-120 mmHg
+        * Sugar: < 100 mg/dL
+        * Sleep: ≥ 7 hours
+        * Steps: ≥ 7000 steps
+        * Temperature: ≤ 37.8°C
+      - Output: Health Score (0-100)
+      - Conversion: score_to_label() → Healthy / Moderate / HighRisk
+      
+   b) ML PREDICTION PATH (ml_model.py)
+      - Loads: phms_model_v2.pkl (DecisionTree) + label_encoder_v2.pkl
+      - Input order: [BMI, BP, Sugar, HR, Sleep, Steps, Temp]
+      - Processing: model.predict() → inverse_transform()
+      - Output: ML Risk Label (Healthy / Moderate / HighRisk)
+
+3. DATA STORAGE PHASE (HealthData Model)
+   Save to health_data table:
+   - Input metrics: HR, Temp, Steps, Sleep, BP, Sugar
+   - Computed: health_score, rule_based_risk_label, ml_predicted_risk_label
+   - Timestamp: recorded_at (UTC)
+   - Foreign key: user_id
+
+4. PRESENTATION PHASE (Dashboard/Reports)
+   Display both predictions for clinical decision support
+   - Rule-based assessment for explainability
+   - ML prediction for pattern recognition
 
 
-Raw Health Data
-(BMI, BP, Sugar, HR, Sleep, Steps, Temp)
+TRAINING PIPELINE (One-time)
+============================
+health_data.csv (historical training data)
         ↓
-Health Score (Rule-Based)
+train_model_v2.py (DecisionTree classifier with tuning)
         ↓
-Risk Label (Healthy / Moderate / HighRisk)
-        ↓
-ML Model Training
+phms_model_v2.pkl + label_encoder_v2.pkl (artifacts)

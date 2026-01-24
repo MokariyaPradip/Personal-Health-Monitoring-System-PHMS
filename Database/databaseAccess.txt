@@ -1,102 +1,61 @@
-sqlite3 --version
+================================================================================
+					Database Access & Quick Checks (SQLite)
+================================================================================
 
+PREREQS
+--------------------------------------------------------------------------------
+- SQLite CLI installed: sqlite3 --version
+- DB file path: C:\Users\Admin\Desktop\Sem-06\2_SDP\project\PHMS\instance\phms.db
+
+OPEN DB
+--------------------------------------------------------------------------------
 cd C:\Users\Admin\Desktop\Sem-06\2_SDP\project\PHMS\instance
-
 sqlite3 phms.db
 
-Check Tables
+BASIC INSPECTION
+--------------------------------------------------------------------------------
+-- List tables
 .tables
 
-View Table Structure (Optional but Recommended)
+-- View schema (table-by-table)
 .schema user
+.schema health_data
+.schema medicine
+.schema medication
+.schema medication_log
+.schema alert
 
-Verify Inserted Data
-SELECT * FROM user;
+-- Peek counts
+SELECT 'user' table, COUNT(*) FROM user;
+SELECT 'health_data' table, COUNT(*) FROM health_data;
+SELECT 'medicine' table, COUNT(*) FROM medicine;
+SELECT 'medication' table, COUNT(*) FROM medication;
+SELECT 'medication_log' table, COUNT(*) FROM medication_log;
+SELECT 'alert' table, COUNT(*) FROM alert;
 
-Exit SQLite
+-- Sample rows
+SELECT * FROM user LIMIT 5;
+SELECT * FROM health_data ORDER BY recorded_at DESC LIMIT 5;
+SELECT * FROM alert ORDER BY created_at DESC LIMIT 5;
+
+INDEX & CONSTRAINT CHECKS (spot-verify)
+--------------------------------------------------------------------------------
+-- Unique email
+PRAGMA index_list('user');
+
+-- Medication uniqueness (user_id, medicine_id)
+PRAGMA index_list('medication');
+PRAGMA foreign_key_list('medication');
+
+FOREIGN KEYS & CASCADE
+--------------------------------------------------------------------------------
+-- Ensure FKs are enforced (should be 1)
+PRAGMA foreign_keys;
+-- If 0, enable in session: PRAGMA foreign_keys = ON;
+
+EXIT
+--------------------------------------------------------------------------------
 .exit
 .quit
 
-<====== ADD DATA TO DATABASE =======>
-
-STEP 1: USER TABLE
-
-INSERT INTO user (user_id, username, user_email, password, age, gender, height, weight) VALUES
-(11, 'Rahul', 'rahul@gmail.com', 'hashed_pwd', 22, 'Male', 170.5, 65),
-(12, 'Sneha', 'sneha@gmail.com', 'hashed_pwd', 21, 'Female', 160.2, 52),
-(3, 'Amit', 'amit@gmail.com', 'hashed_pwd', 25, 'Male', 175.0, 72),
-(4, 'Pooja', 'pooja@gmail.com', 'hashed_pwd', 23, 'Female', 158.0, 50),
-(5, 'Karan', 'karan@gmail.com', 'hashed_pwd', 28, 'Male', 180.3, 78),
-(6, 'Neha', 'neha@gmail.com', 'hashed_pwd', 26, 'Female', 165.4, 55),
-(7, 'Rohit', 'rohit@gmail.com', 'hashed_pwd', 24, 'Male', 172.1, 68),
-(8, 'Anjali', 'anjali@gmail.com', 'hashed_pwd', 22, 'Female', 162.8, 54),
-(9, 'Vikas', 'vikas@gmail.com', 'hashed_pwd', 30, 'Male', 176.0, 80),
-(10, 'Meena', 'meena@gmail.com', 'hashed_pwd', 27, 'Female', 159.6, 57);
-
-
-STEP 2: MEDICINE (MASTER TABLE)
-
-INSERT INTO medicine (medicine_id, medicine_name, purpose, remark) VALUES
-(1, 'Paracetamol', 'Fever and Pain', 'After meals'),
-(2, 'Cetirizine', 'Allergy relief', 'Once daily'),
-(3, 'Amoxicillin', 'Bacterial infection', 'Complete full course'),
-(4, 'Metformin', 'Diabetes control', 'Monitor sugar'),
-(5, 'Aspirin', 'Blood thinning', 'Avoid on empty stomach'),
-(6, 'Vitamin D', 'Bone health', 'Weekly dose'),
-(7, 'Cough Syrup', 'Cold and cough', '3 times a day'),
-(8, 'Ibuprofen', 'Pain and inflammation', 'After meals'),
-(9, 'Insulin', 'Blood sugar control', 'Injectable'),
-(10, 'Antacid', 'Acidity', 'Before meals');
-
-
-STEP 3: MEDICATION (User–Medicine Mapping)
-
-INSERT INTO medication (medication_id, medicine_id, user_id, dosage, frequency) VALUES
-(1, 1, 1, '500 mg', 'Twice a day'),
-(2, 2, 2, '10 mg', 'Once a day'),
-(3, 3, 3, '250 mg', 'Three times a day'),
-(4, 4, 4, '500 mg', 'Twice a day'),
-(5, 5, 5, '75 mg', 'Once a day'),
-(6, 6, 6, '60000 IU', 'Once a week'),
-(7, 7, 7, '10 ml', 'Three times a day'),
-(8, 8, 8, '400 mg', 'Twice a day'),
-(9, 9, 9, '10 units', 'Once daily'),
-(10, 10, 10, '1 tablet', 'Before meals');
-
-
-STEP 4: HEALTH DATA (8–10 Records)
-
-INSERT INTO health_data (entry_id, user_id, heart_rate, temperature, steps, sleep_hours, blood_pressure, calories, timestamp) VALUES
-(1, 1, 72, 36.8, 6000, 7.5, '120/80', 2100, CURRENT_TIMESTAMP),
-(2, 2, 78, 37.1, 5500, 6.8, '118/78', 2000, CURRENT_TIMESTAMP),
-(3, 3, 90, 38.2, 3000, 5.0, '130/85', 2500, CURRENT_TIMESTAMP),
-(4, 4, 68, 36.5, 8000, 8.0, '115/75', 1900, CURRENT_TIMESTAMP),
-(5, 5, 110, 39.0, 2000, 4.5, '140/90', 2600, CURRENT_TIMESTAMP),
-(6, 6, 75, 36.9, 7000, 7.2, '122/80', 2200, CURRENT_TIMESTAMP),
-(7, 7, 82, 37.3, 6500, 6.9, '125/82', 2300, CURRENT_TIMESTAMP),
-(8, 8, 70, 36.6, 9000, 8.2, '118/76', 1800, CURRENT_TIMESTAMP);
-
-
-STEP 5: MEDICATION LOG
-
-INSERT INTO medication_log (log_id, medication_id, time_taken, status) VALUES
-(1, 1, CURRENT_TIMESTAMP, 'Taken'),
-(2, 2, CURRENT_TIMESTAMP, 'Pending'),
-(3, 3, CURRENT_TIMESTAMP, 'Taken'),
-(4, 4, CURRENT_TIMESTAMP, 'Taken'),
-(5, 5, CURRENT_TIMESTAMP, 'Pending'),
-(6, 6, CURRENT_TIMESTAMP, 'Taken'),
-(7, 7, CURRENT_TIMESTAMP, 'Taken'),
-(8, 8, CURRENT_TIMESTAMP, 'Pending');
-
-
-STEP 6: ALERT TABLE (Generated Alerts)
-
-INSERT INTO alert (alert_id, user_id, health_id, medication_id, message, alert_date, severity) VALUES
-(1, 3, 3, NULL, 'High temperature detected', CURRENT_TIMESTAMP, 'High'),
-(2, 5, 5, NULL, 'Critical blood pressure', CURRENT_TIMESTAMP, 'Critical'),
-(3, 9, NULL, 9, 'Medication missed', CURRENT_TIMESTAMP, 'Medium'),
-(4, 2, NULL, 2, 'Medication pending', CURRENT_TIMESTAMP, 'Low'),
-(5, 1, 1, NULL, 'Heart rate normal', CURRENT_TIMESTAMP, 'Low');
-
-
+TIP: For ad-hoc data cleanup, always backup phms.db first.

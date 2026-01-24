@@ -1,77 +1,79 @@
-+----------------+
-|     USER       |
-+----------------+
-| PK user_id     |
-| username       |
-| user_email     |
-| password       |
-| age            |
-| gender         |
-| height         |
-| weight         |
-+----------------+
-        |
-        | 1
-        |
-        | N
-+----------------+
-|  HEALTH_DATA   |
-+----------------+
-| PK entry_id    |
-| FK user_id     |
-| heart_rate     |
-| temperature    |
-| steps          |
-| sleep_hours    |
-| blood_pressure |
-| calories       |
-| timestamp      |
-+----------------+
+================================================================================
+									  PHMS Final ER Diagram
+================================================================================
 
-        |
-        | 1
-        |
-        | N
-+----------------+
-|  MEDICATION    |
-+----------------+
-| PK medication_id |
-| FK user_id       |
-| FK medicine_id   |
-| dosage           |
-| frequency        |
-+----------------+
+OVERVIEW
+--------------------------------------------------------------------------------
+- Text version of the final ERD reflecting the current SQLAlchemy models.
+- Column types follow the model definitions; constraints and cascades noted.
 
-        |
-        | 1
-        |
-        | N
-+----------------+
-| MEDICATION_LOG |
-+----------------+
-| PK log_id      |
-| FK medication_id |
-| time_taken     |
-| status         |
-+----------------+
+TABLES
+--------------------------------------------------------------------------------
+1) user
+	- PK: user_id (int)
+	- username (varchar 50, not null, indexed)
+	- user_email (varchar 100, not null, unique, indexed)
+	- password (varchar 255, not null)
+	- age (int), gender (varchar 10), height (float), weight (float)
+	- bmi (float, computed before insert/update)
+	- created_at (datetime, default now), updated_at (datetime, default now on update)
+	- Relationships: 1:N health_records, medications, alerts (all cascade on delete)
 
-+----------------+
-|   MEDICINE     |
-+----------------+
-| PK medicine_id |
-| medicine_name  |
-| purpose        |
-| remark         |
-+----------------+
+2) health_data
+	- PK: entry_id (int)
+	- FK: user_id -> user.user_id (ondelete CASCADE, indexed)
+	- heart_rate (int), temperature (float), steps (int), sleep_hours (float)
+	- blood_pressure (float), sugar (float)
+	- recorded_at (datetime, default now)
+	- health_score (int), rule_based_risk_label (varchar 20), ml_predicted_risk_label (varchar 20)
+	- Relationship: belongs to user; referenced by alerts
 
-+----------------+
-|     ALERT      |
-+----------------+
-| PK alert_id    |
-| FK user_id     |
-| FK health_id   |
-| FK medication_id |
-| message        |
-| alert_date     |
-| severity       |
-+----------------+
+3) medicine
+	- PK: medicine_id (int)
+	- medicine_name (varchar 100, not null, unique, indexed)
+	- medicine_type (varchar 50), purpose (varchar 200), remark (varchar 200)
+	- Relationship: 1:N medications (delete restricted via FK)
+
+4) medication
+	- PK: medication_id (int)
+	- FK: user_id -> user.user_id (ondelete CASCADE, indexed)
+	- FK: medicine_id -> medicine.medicine_id (ondelete RESTRICT, indexed)
+	- dosage (varchar 50), frequency (int), start_date (date), end_date (date)
+	- Constraint: Unique (user_id, medicine_id) as uq_user_medicine
+	- Relationships: belongs to user and medicine; 1:N medication_logs (cascade); 1:N alerts (no cascade)
+
+5) medication_log
+	- PK: log_id (int)
+	- FK: medication_id -> medication.medication_id (ondelete CASCADE, indexed)
+	- taken_at (datetime, default now), status (varchar 20)
+	- Relationship: belongs to medication; referenced by alerts
+
+6) alert
+	- PK: alert_id (int)
+	- FK: user_id -> user.user_id (ondelete CASCADE, indexed)
+	- FK: health_id -> health_data.entry_id (nullable)
+	- FK: medication_id -> medication.medication_id (nullable)
+	- FK: medication_log_id -> medication_log.log_id (nullable)
+	- message (varchar 255, not null), created_at (datetime, default now)
+	- severity (varchar 20), is_read (boolean, default false)
+	- Relationships: belongs to user; optional links to health_data, medication, medication_log
+
+RELATIONSHIP SUMMARY
+--------------------------------------------------------------------------------
+- user 1 -> many health_data (cascade on delete)
+- user 1 -> many medication (cascade on delete)
+- user 1 -> many alert (cascade on delete)
+- medicine 1 -> many medication (delete restricted by FK)
+- medication 1 -> many medication_log (cascade on delete)
+- health_data 1 -> many alert (optional link)
+- medication 1 -> many alert (optional link; FK default restrict)
+- medication_log 1 -> many alert (optional link)
+
+ASCII SNAPSHOT
+--------------------------------------------------------------------------------
+user --< health_data
+user --< medication --< medication_log
+medicine >-- medication
+user --< alert >-- health_data
+alert >-- medication
+alert >-- medication_log

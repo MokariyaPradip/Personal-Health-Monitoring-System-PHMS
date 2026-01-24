@@ -98,16 +98,13 @@ print("Model v2 and encoder saved successfully (trained on combined datasets).")
 # Ouput of modal training
 # ===========================================================
 # Dataset 1 (health_data.csv) Loaded: (3000, 9)
-# Dataset 2 (health_data_10000.csv) Loaded: (9999, 8)
-# Dataset 2 (health_data_10000.csv) Loaded: (9999, 8)
+# Dataset 2 (health_data_10000.csv) Loaded: (9999, 9)
 # Combined Dataset: (12999, 9)
 # Best Params: {'class_weight': 'balanced', 'criterion': 'entropy', 'max_depth': None, 'max_features': None, 'min_samples_leaf': 1, 'min_samples_split': 2}
-# s_leaf': 1, 'min_samples_split': 2}
-# Best CV Score (f1_weighted): 0.9835761844445532
-# Model Accuracy: 0.9896153846153846
+# Best CV Score (f1_weighted): 0.9834805356249043
+# Model Accuracy: 0.9907692307692307
 #               precision    recall  f1-score   support
 
-#            0       0.99      0.99      0.99      1131
 #            0       0.99      0.99      0.99      1131
 #            1       1.00      1.00      1.00       682
 #            2       0.99      0.98      0.98       787

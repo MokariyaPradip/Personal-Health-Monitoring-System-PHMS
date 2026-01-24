@@ -8,20 +8,65 @@ ml/
 ├── ml_model.py              # Prediction interface used by the app
 ├── README.md                # This documentation
 ├── trained_models/          # Current production artifacts
-│   ├── phms_model_v2.pkl
-│   └── label_encoder_v2.pkl
+│   ├── phms_model_v5.pkl    # RandomForest v5 (CURRENT - 96% accuracy)
+│   ├── label_encoder_v5.pkl
+│   ├── phms_model_v4.pkl    # RandomForest v4 (91% accuracy)
+│   ├── label_encoder_v4.pkl
+│   ├── phms_model_v3.pkl    # DecisionTree v3
+│   ├── label_encoder_v3.pkl
 │   └── legacy/              # Older model versions (v1, v0)
 └── training_scripts/        # Training entrypoints
-    ├── train_model_v1.py     # Trains on health_data_10000.csv
-    └── train_model_v2.py     # Trains on combined datasets (v2 default)
+    ├── train_model_v3.py    # DecisionTree on combined datasets
+    ├── train_model_v4.py    # RandomForest on 2 datasets
+    └── train_model_v5.py    # RandomForest on ALL 4 datasets (CURRENT)
 ```
 
-## Current Model (v2)
-- Algorithm: DecisionTreeClassifier with GridSearchCV
-- Training data: `health_data.csv` + `health_data_10000.csv` (combined 12,999 rows)
-- Features (order-sensitive): `[bmi, blood_pressure, sugar, heart_rate, sleep_hours, steps, temperature]`
-- Labels: `Low Risk`, `Medium Risk`, `High Risk`
-- Saved artifacts: `trained_models/phms_model_v2.pkl`, `trained_models/label_encoder_v2.pkl`
+## Current Model (v5)
+- **Algorithm:** RandomForestClassifier with GridSearchCV tuning
+- **Classifier Details:**
+  - 200 decision trees (n_estimators=200)
+  - Max depth: 20 levels
+  - Class weight: balanced (handles imbalanced data)
+  - Max features: sqrt (√7 ≈ 2-3 features per split)
+  - Min samples per leaf: 2
+- **Training data:** 
+  - `health_data_885.csv`
+  - `health_data.csv`
+  - `health_data_10000.csv`
+  - `health_data_12000_fuzzy.csv`
+  - **Total:** 25,884 samples (20,707 train / 5,177 test)
+- **Features (order-sensitive):** `[bmi, blood_pressure, sugar, heart_rate, sleep_hours, steps, temperature]`
+- **Labels:** `Low Risk`, `Medium Risk`, `High Risk`
+- **Performance:**
+  - Test Accuracy: **96.0%**
+  - Weighted F1: 0.96
+  - High Risk: 96% precision, 95% recall
+  - Low Risk: 97% precision, 96% recall
+  - Medium Risk: 95% precision, 97% recall
+- **Saved artifacts:** 
+  - `trained_models/phms_model_v5.pkl` (37MB)
+  - `trained_models/label_encoder_v5.pkl`
+
+## Feature Importance (v5)
+Top 5 most influential features:
+1. Temperature (22.9%)
+2. Sugar (19.4%)
+3. Blood Pressure (17.3%)
+4. Sleep Hours (12.7%)
+5. BMI (11.1%)
+
+## Previous Versions
+
+### v4 (RandomForest - Small Dataset)
+- Training data: `health_data_885.csv` + `health_data.csv` (3,885 samples)
+- Accuracy: 91.25%
+- Use case: Faster predictions, lower memory
+
+### v3 (DecisionTree)
+- Training data: `health_data.csv` + `health_data_10000.csv` (12,999 samples)
+- Accuracy: 94.2%
+- Algorithm: Single DecisionTree with entropy criterion
+- Use case: Interpretable single-tree model
 
 ## Prediction Usage
 ```python
@@ -40,19 +85,26 @@ print(risk)  # 'Low Risk' | 'Medium Risk' | 'High Risk'
 ```
 
 ## Training
-### Default (v2) — combined datasets
+### Current (v5) — All datasets combined (RECOMMENDED)
 ```bash
 cd ml/training_scripts
-python train_model_v2.py
+python train_model_v5.py
 ```
-Artifacts are saved to `ml/trained_models/`.
+Trains RandomForest on 25k+ samples. Artifacts saved to `ml/trained_models/`.
 
-### Legacy (v1) — single dataset
+### v4 — RandomForest on smaller dataset
 ```bash
 cd ml/training_scripts
-python train_model_v1.py
+python train_model_v4.py
 ```
-Artifacts are saved to `ml/trained_models/legacy/`.
+Trains RandomForest on ~3.9k samples (faster training).
+
+### v3 — DecisionTree
+```bash
+cd ml/training_scripts
+python train_model_v3.py
+```
+Trains single DecisionTree classifier.
 
 ## Data Notes
 - Input CSV columns expected by trainers: `bmi, blood_pressure, sugar, heart_rate, sleep_hours, steps, temperature, health_score, Label`
@@ -61,9 +113,29 @@ Artifacts are saved to `ml/trained_models/legacy/`.
 
 ## Integration
 - The Flask app imports `predict_health_risk` from `ml_model.py`.
-- Ensure `trained_models/phms_model_v2.pkl` and `trained_models/label_encoder_v2.pkl` are present in deployments.
+- Current production model: **v5 (RandomForest)**
+- Ensure `trained_models/phms_model_v5.pkl` and `trained_models/label_encoder_v5.pkl` are present in deployments.
+
+## Model Selection Guide
+
+| Model | Accuracy | Size  | Speed | Use Case |
+|-------|----------|-------|-------|----------|
+| v5    | 96.0%    | 37MB  | Slow  | **Production (best accuracy)** |
+| v4    | 91.3%    | ~5MB  | Fast  | Resource-constrained environments |
+| v3    | 94.2%    | ~1MB  | Fast  | Interpretable, lightweight |
 
 ## Tips
 - Keep feature order consistent when calling the model.
-- Retrain (v2) after significant data changes to preserve accuracy.
+- Retrain v5 after adding significant new data to maintain accuracy.
 - Store new artifacts in `trained_models/` and archive old ones in `trained_models/legacy/`.
+- For debugging, use v3 (single tree) for interpretability.
+- For production with large datasets, use v5 (best performance).
+
+## Classifier Notes (RandomForest v5)
+RandomForest is an **ensemble method** that combines multiple decision trees:
+- Each tree votes on the prediction
+- Final prediction = majority vote across all 200 trees
+- Reduces overfitting compared to single DecisionTree
+- More robust to noise and outliers
+- Provides feature importance rankings
+- Trade-off: Larger model size and slower inference vs. higher accuracy

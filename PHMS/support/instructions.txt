@@ -153,7 +153,7 @@ Issue 1: "No module named 'models'"
 Solution: Ensure you're running from PHMS directory and venv is activated
 
 Issue 2: Database connection error
-Solution: 
+Solution:
 - Check MySQL server is running
 - Verify database credentials in config.py
 - Ensure database exists in MySQL
