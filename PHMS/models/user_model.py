@@ -1,8 +1,9 @@
-from config import db
+from config import db, login_manager
 from datetime import datetime
 from sqlalchemy import event
+from flask_login import UserMixin
 
-class User(db.Model):
+class User(UserMixin, db.Model):
     __tablename__ = 'user'
 
     user_id = db.Column(db.Integer, primary_key=True)
@@ -48,6 +49,9 @@ class User(db.Model):
     def __repr__(self):
         return f"<User {self.user_id} {self.username} BMI:{self.bmi}>"
 
+    def get_id(self):
+        return str(self.user_id)
+
 
 from sqlalchemy import event
 
@@ -68,3 +72,11 @@ def calculate_bmi(mapper, connection, target):
     except (ValueError, TypeError):
         # Invalid input → don't crash registration
         target.bmi = None
+
+
+@login_manager.user_loader
+def load_user(user_id):
+    try:
+        return User.query.get(int(user_id))
+    except (TypeError, ValueError):
+        return None

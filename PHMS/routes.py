@@ -22,15 +22,23 @@ def register_routes(app):
     def login():
         return auth_controller.login()
 
-    # Logout
-    @app.route('/logout')
+    # Logout (with CSRF protection on POST)
+    @app.route('/logout', methods=['POST'])
     def logout():
         return auth_controller.logout()
 
     # Forgot Password
-    @app.route('/forgotPassword', methods=['POST'])
+    @app.route('/forgotPassword', methods=['GET', 'POST'])
     def forgot_password():
         return auth_controller.forgot_password()
+
+    @app.route('/resetPassword/<token>', methods=['GET', 'POST'])
+    def reset_password(token):
+        return auth_controller.reset_password(token)
+
+    @app.route('/changePassword', methods=['PUT'])
+    def change_password():
+        return auth_controller.change_password()
 
     # ================ DASHBOARD ROUTES ================
     @app.route('/dashboard')
@@ -72,10 +80,6 @@ def register_routes(app):
     @app.route('/addMedication', methods=['POST'])
     def add_medication():
         return medication_controller.add_medication()
-
-    @app.route('/updateMedication/<int:id>', methods=['PUT'])
-    def update_medication(id):
-        return medication_controller.update_medication(id)
 
     @app.route('/deleteMedication/<int:id>', methods=['DELETE'])
     def delete_medication(id):

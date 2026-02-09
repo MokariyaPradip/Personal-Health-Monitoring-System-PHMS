@@ -5,25 +5,35 @@
 PHMS/
 │
 ├── app.py                          # Main Flask application entry point
-├── config.py                       # Database & app configuration
+├── config.py                       # App factory, database & security configuration
 ├── models.py                       # Model imports from models/ folder
 ├── routes.py                       # Route declarations (minimal logic)
+├── requirements.txt                # Project dependencies
+├── SECURITY_ENHANCEMENTS.md        # Security features documentation
+│
 ├── ml/                             # Machine learning module
 │   ├── ml_model.py                 # Prediction interface
 │   ├── README.md                   # ML module documentation
 │   ├── trained_models/             # Current model artifacts (.pkl files)
-│   │   ├── phms_model_v2.pkl       # Trained Decision Tree model v2
-│   │   ├── label_encoder_v2.pkl    # Label encoder for v2 model
+│   │   ├── phms_model_v5.pkl       # RandomForest v5 model (CURRENT - 96% accuracy)
+│   │   ├── label_encoder_v5.pkl    # Label encoder for v5 model
+│   │   ├── phms_model_v4.pkl       # RandomForest v4 model (91% accuracy)
+│   │   ├── label_encoder_v4.pkl    # Label encoder for v4 model
+│   │   ├── phms_model_v3.pkl       # DecisionTree v3 model
+│   │   ├── label_encoder_v3.pkl    # Label encoder for v3 model
 │   │   └── legacy/                 # Legacy model versions (v1, v0)
 │   └── training_scripts/           # Model training scripts
 │       ├── train_model_v1.py       # V1 training script
-│       └── train_model_v2.py       # V2 training script (combined datasets)
-├── reports.py                      # Report generation utilities
-├── requirements.txt                # Project dependencies
+│       ├── train_model_v2.py       # V2 training script
+│       ├── train_model_v3.py       # V3 DecisionTree on combined datasets
+│       ├── train_model_v4.py       # V4 RandomForest on 2 datasets
+│       └── train_model_v5.py       # V5 RandomForest on ALL 4 datasets (CURRENT)
 │
-├── datasets/                       # Sample CSV datasets
-│   ├── health_data.csv
-│   └── health_data_10000.csv
+├── datasets/                       # Training CSV datasets
+│   ├── health_data.csv             # 2,999 records
+│   ├── health_data_885.csv         # 885 records
+│   ├── health_data_10000.csv       # 10,000 records
+│   └── health_data_12000_fuzzy.csv # 12,000 records (fuzzy data)
 │
 ├── controllers/                    # Business logic layer
 │   ├── __init__.py
@@ -44,9 +54,12 @@ PHMS/
 │   └── alert_model.py              # Alert class (health alerts)
 │
 ├── templates/                      # HTML templates
-│   ├── base.html                   # Base template (navigation, layout)
+│   ├── base.html                   # Base template (navigation, layout, CSRF token)
 │   ├── login.html                  # Login page
 │   ├── register.html               # Registration page
+│   ├── forgot_password.html        # Password reset request page
+│   ├── reset_password.html         # Token-based password reset page
+│   ├── reset_password_email.html   # Email template for password reset
 │   ├── dashboard.html              # Dashboard page
 │   ├── profile.html                # User profile page
 │   ├── health.html                 # Health data entry page
@@ -66,8 +79,13 @@ PHMS/
 ├── migrations/                     # Alembic migrations for database schema
 │   ├── alembic.ini
 │   ├── env.py
+│   ├── README
 │   ├── script.py.mako
-│   └── versions/
+│   └── versions/                   # Migration history
+│       ├── 393e4c73d73e_change_blood_pressure_from_string_to_.py
+│       ├── 510931190d74_change_frequency_of_medication_to_.py
+│       ├── 9de5942fba0d_add_bmi_to_user.py
+│       └── f496b9e8af03_add_health_score_and_risk_columns_to_.py
 │
 ├── utils/                          # Utility helpers
 │   └── health_score.py             # Health score computation
@@ -95,9 +113,11 @@ ROOT LEVEL FILES:
 ─────────────────
 app.py
   - Creates Flask app instance
-  - Initializes database
-  - Registers all routes
-  - Entry point: python app.py
+  - App factory pattern (create_app function)
+  - SQLite database configuration
+  - Flask extensions initialization (SQLAlchemy, Flask-Login, Flask-Migrate, CSRF, Flask-Mail)
+  - Security settings (session cookies, CSRF, password salt)
+  - Email configuration (Flask-Mail SMTP).py
 
 config.py
   - Database connection settings
@@ -117,13 +137,21 @@ routes.py
 
 ml/ (folder)
   - Machine learning module with organized structure
-  - ml_model.py: prediction interface for health risk assessment
-  - README.md: comprehensive ML documentation with usage examples
-  - trained_models/: current production models (v2)
-    * phms_model_v2.pkl: Decision Tree classifier (98.46% accuracy)
-    * label_encoder_v2.pkl: label encoder for risk levels
-    * legacy/: archived previous model versions
+  - ml_model.py: prediction interface for health 5)
+    * phms_model_v5.pkl: RandomForest classifier (96.0% accuracy - CURRENT)
+    * label_encoder_v5.pkl: label encoder for risk levels (Low/Medium/High)
+    * phms_model_v4.pkl: RandomForest v4 (91% accuracy on smaller dataset)
+    * phms_model_v3.pkl: DecisionTree v3 (94.2% accuracy)
+    * legacy/: archived previous model versions (v0, v1)
   - training_scripts/: scripts for training and retraining models
+    * train_model_v1.py: trains model on single dataset
+SECURITY_ENHANCEMENTS.md
+  - Comprehensive security documentation
+  - Details Flask-Login integration
+  - Token-based password reset flow
+  - CSRF protection implementation
+  - Password requirements (8+ characters)
+  - Session security configurationLL 4 datasets (25,884 records - CURRENT
     * train_model_v1.py: trains model on single dataset
     * train_model_v2.py: trains model on combined datasets (12,999 records)
 
@@ -132,10 +160,12 @@ reports.py
   - Data aggregation functions
   - Export/PDF generation (if implemented)
 
-requirements.txt
-  - All Python package dependencies
-  - Version specifications for reproducibility
-
+requirements.txt with strong password validation
+  ✓ login()             - Handle user authentication via Flask-Login
+  ✓ logout()            - Clear user session via Flask-Login
+  ✓ forgot_password()   - Send password reset token via email
+  ✓ reset_password()    - Token-based password reset (30-min expiry)
+  ✓ change_password()   - Change password for logged-in users
 
 CONTROLLERS FOLDER:
 ───────────────────
@@ -149,15 +179,16 @@ dashboard_controller.py
   ✓ dashboard()         - Display main dashboard
 
 profile_controller.py
-  ✓ profile()           - Display user profile
-  ✓ update_profile()    - Update profile information
-
+  ✓ profile()           - Display user prowith ML prediction & health score calculation
+  ✓ get_health_data()   - Retrieve health data with pagination
+  ✓ delete_health()     - Delete health entry (cascade alerts)
 health_controller.py
   ✓ health_page()       - Display health tracking page
-  ✓ add_health()        - Add health data entry & check alerts
-  ✓ get_health_data()   - Retrieve health data
-  ✓ delete_health()     - Delete health entry
-
+  ✓ add_health()            - Display user medications with pagination
+  ✓ add_medication()        - Add new medication from medicine catalog
+  ✓ update_medication()     - Update medication details
+  ✓ delete_medication()     - Remove medication
+  ✓ add_medicine_master()   - Add new medicine to catalog (admin)
 medication_controller.py
   ✓ medication_page()   - Display user medications
   ✓ add_medication()    - Add new medication
@@ -168,43 +199,86 @@ reports_controller.py
   ✓ reports()           - Display analytics & reports
 
 
-MODELS FOLDER:
-──────────────
-user_model.py
-  - User(id, username, email, password, age, gender, height, weight)
+MODELS FOuser_id, username, user_email, password, age, gender, height, weight, bmi)
   - Authentication & profile data
-
-health_model.py
-  - HealthData(entry_id, user_id, heart_rate, temperature, steps, sleep_hours, blood_pressure, calories)
+  - Flask-Login UserMixin integration
+  - Auto BMI calculation via SQLAlchemy event listeners
+  - created_at, updated_at timestampssugar)
   - Vital signs & activity tracking
+  - health_score (computed via utils/health_score.py)
+  - rule_based_risk_label (threshold-based classification)
+  - ml_predicted_risk_label (ML model prediction - 96% accuracy)
+  - recorded_at timestamp
+  - User(id, medicine_id, medicine_name, medicine_type, purpose, remark)
+  - Master catalog for available medicines
+  - Unique medicine_name constraint
 
-medicine_model.py
+health_model.pymedication_id, user_id, medicine_id, dosage, frequency, start_date, end_date)
+  - User's prescribed medications
+  - Unique constraint: (user_id, medicine_id)
+  - Cascade delete on user deletion
+  - Restrict delete if medicine referencedaken_at, status)
+  - Medication adherence tracking
+  - Status: taken/missed
+  - Cascade delete with medicationacking
+alert_id, user_id, health_id, medication_id, medication_log_id, message, severity, is_read, created_at)
+  - Health alerts & notifications
+  - Links to health_data, medication, or medication_log
+  - Severity levels: info/warning/critical
+  - is_read flag for notification management
   - Medicine(id, name, purpose, remark)
   - Master data for available medicines
 
 medication_model.py
   - Medication(id, medicine_id, user_id, dosage, frequency)
+  - CSRF token meta tag for all forms
+  - JavaScript CSRF helper function
   - User's prescribed medications
-
-medication_log_model.py
-  - MedicationLog(log_id, medication_id, time_taken, status)
+ with CSRF protection
+  - Email & password fields
+  - Links to register & forgot password pages, time_taken, status)
   - Medication intake history
 
 alert_model.py
   - Alert(id, user_id, health_id, message, date, severity)
   - Health alerts & notifications
+ with CSRF protection
+  - Personal info fields (name, email, password, age, gender, height, weight)
+  - Password strength validation (8+ characters)
+  - Auto BMI calculation on backend
+  - Validation & error messages
 
+forgot_password.html
+  - Password reset request form
+  - Email entry for token generation
+  - Links back to login
 
-TEMPLATES FOLDER:
-─────────────────
-base.html
-  - Master template with navigation
-  - Common header & footer
-  - {% block content %} for child templates
+reset_password.html
+  - Token-based password reset form
+  - New password entry (8+ characters)
+  - Token validation (30-minute expiry)
 
-login.html
-  - User login form
-  - Email & password fields
+reset_password_email.html
+  - HTML email template for password reset
+  - Contains reset link with token
+  - Professional email for with CSRF protection
+  - Fields: heart rate, temperature, steps, sleep hours, blood pressure, sugar
+  - Real-time health score calculation (0-100)
+  - Dual risk assessment display (rule-based + ML prediction)
+  - Health history with pagination
+  - Color-coded risk indicators (Low/Medium/High)
+  - Delete functionality with confirmationwith navigation
+  - Common header & footer with pagination
+  - Add medication from medicine catalog
+  - Medicine selection dropdown
+  - Dosage, frequency, start/end date fields
+  - Edit & delete options with CSRF protection
+  - Add new medicine to catalog (admin feature)
+  - Medication adherence dashboard
+  - Health trend visualizations
+  - Risk assessment history
+  - Medication adherence reports
+  - Exportable data views
   - Links to register & forgot password
 
 register.html
@@ -225,11 +299,20 @@ profile.html
 health.html
   - Health data entry form
   - Heart rate, temperature, steps, sleep, blood pressure, calories
-  - Display health history
+  - Display health h
+  - BMI display formatting
+
+register.css
+  - Registration page specific styles
+  - Misk indicator color coding
+  - Rulti-field form styling
+  - Password strength indicatorsistory
   - Alert indicators
 
 medication.html
   - List of user medications
+  - Health score visualization (0-100)
+  - Risk label color coding (Low=green, Medium=yellow, High=red)
   - Add new medication button
   - Edit & delete options
   - Medication reminders
@@ -270,45 +353,113 @@ health.css
   - Chart & alert styling
 
 medication.css
-  - Medication list styles
-  - Add/edit form styling
-  - Reminder notification styles
+  - Medication list  (Protected Route)
+├── routes.py: @app.route('/health')
+├── Flask-Login: checks @login_required decorator
+├── Calls: health_controller.health_page()
+├── Controller: queries HealthData from models for current_user
+├── Database: fetches user's health entries with pagination
+├── Returns: render_template('health.html', entries=all_entries)
+└── Browser: displays health tracking page
 
-
-SUPPORT FOLDER:
-───────────────
-structure.txt
-  - Project structure documentation
-  - File descriptions & guidelines
-  - Development workflow
-
-databaseAccess.txt
-  - Database connection details
-  - Access credentials (development only)
-
-ER.txt
-  - Entity relationship diagram text format
+EXAMPLE: POST /add_health (Protected + CSRF Protected)
+├── routes.py: @app.route('/add_health', methods=['POST'])
+├── Flask-Login: verifies authentication
+├── CSRF Protection: validates X-CSRFToken header
+├── Calls: health_controller.add_health()
+├── Controller: extracts JSON data from request
+├── Controller: gets user BMI from User model
+├── ML Model: predicts health risk (ml_model.predict_health_risk)
+├── Utils: calculates health score (utils/health_score.py)
+├── Controller: creates new HealthData object with predictions
+├── Database: saves entry with health_score + risk labels
+├── Logic: generates Alert if High Risk detected
+├── Returns: JSON response with status, score, and risk
+└── Browser: updates UI with new entry and risk indicatorormat
   - Database schema documentation
+ [cascade delete]
+User (1) ──→ (many) Medication [cascade delete] ←─ (many) Medicine (master) [restrict delete]
+User (1) ──→ (many) Alert [cascade delete]
+Medication (1) ──→ (many) MedicationLog [cascade delete]
+HealthData (1) ──→ (many) Alert [backref]
+Medication (1) ──→ (many) Alert [backref]
+MedicationLog (1) ──→ (many) Alert [backref]
 
-instructions.txt
-  - Setup & installation guide
-  - Development guidelines
-  - Troubleshooting tips
+CASCADE RULES:
+- Delete User → deletes all HealthData, Medications, Alerts
+- Delete Medication → deletes all Medication, migrations/versions/
+✓ Do edit:     Source files in root, controllers/, models/, templates/, static/, utils/
+✓ Keep clean:  No hardcoded values, use config.py and environment variables
+✓ Security:    Always use @login_required for protected routes
+✓ CSRF:        Include CSRF tokens in all POST/PUT/DELETE requests
+✓ DRY:         Reuse functions from controllers and utils
+✓ Comments:    Add docstrings to functions (especially ML-related)
+✓ Structure:   One model per file, one controller per feature
+✓ Testing:     Test ML predictions before deploying new models
 
-
-================================================================================
-                           ARCHITECTURE FLOW
-================================================================================
-
-REQUEST FLOW:
-1. Browser sends HTTP request
-2. routes.py catches the route
-3. routes.py calls controller function
+NEW FEATURE CHECKLIST:
+1. Add model in models/ folder
+2. Add export in models/__init__.py
+3. Create database migration: flask db migrate -m "description"
+4. Apply migration: flask db upgrade
+5. Add controller in controllers/ folder
+6. Add route in routes.py with @login_required decorator
+7. Add template in templates/ folder with CSRF token
+8. Add styles in static/style/ folder
+9. Test authentication and authorization
+10. Test CSRF protectionn
 4. controller imports models & config
 5. controller queries database via models
 6. controller returns response/renders template
 7. Browser receives & displays response
 
+  - Protect all routes with @login_required (except login/register/forgot_password)
+  - Include CSRF tokens in all state-changing requests
+
+MACHINE LEARNING WORKFLOW:
+  1. Collect health data from user input
+  2. Retrieve user's BMI from User model
+  3. Call ml_model.predict_health_risk() with 7 features:
+     [bmi, heart_rate, temperature, steps, sleep_hours, blood_pressure, sugar]
+  4. Call utils.health_score.calculate_health_score() for rule-based score
+  5. Store both predictions in HealthData table
+  6. Generate alerts for High Risk predictions
+  7. Display results to user with color-coded indicators
+
+MODEL RETRAINING:
+  - Navigate to ml/training_scripts/
+  - Run: python train_model_v5.py (or next version)
+  - New model artifacts saved to ml/trained_models/
+  - Update ml/ml_model.py to load new version
+  - Update ml/README.md with new performance metrics
+  - Test predictions before deploying to production
+
+SECURITY FEATURES:
+  ✓ Flask-Login: Session-based authentication
+  ✓ CSRF Protection: All POST/PUT/DELETE routes protected
+  ✓ Password Reset: Token-based with 30-minute expiry
+  ✓ Strong Passwords: Minimum 8 characters enforced
+  ✓ Secure Cookies: HttpOnly, SameSite, Secure flags
+  ✓ SQL Injection: Prevented by SQLAlchemy ORM
+  ✓ Environment Variables: Secrets stored in .env file
+  ✓ Token Signing: URLSafeTimedSerializer for password reset
+
+DATABASE OPERATIONS:
+  - Database type: SQLite (phms.db)
+  - Location: instance/ folder (auto-created)
+  - Migrations: Alembic/Flask-Migrate for schema changes
+  - Commands:
+    * flask db init (one-time setup)
+    * flask db migrate -m "description" (create migration)
+    * flask db upgrade (apply migrations)
+    * flask db downgrade (rollback)
+
+PERFORMANCE CONSIDERATIONS:
+  - ML model loads once on startup (37MB RandomForest v5)
+  - Predictions are fast (<10ms per request)
+  - Database indexes on foreign keys and email fields
+  - Pagination for health data and medication lists
+  - Health score calculation is lightweight (pure Python)
 EXAMPLE: GET /health
 ├── routes.py: @app.route('/health')
 ├── Calls: health_controller.health_page()

@@ -2,11 +2,19 @@
 <html>
 <head>
     <title>Login | PHMS</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     
     <link rel="stylesheet" href="{{ url_for('static', filename='style/login.css') }}">
     
     <style>
     </style>
+
+    <script>
+    function getCsrfToken() {
+        const el = document.querySelector('meta[name="csrf-token"]');
+        return el ? el.getAttribute('content') : '';
+    }
+    </script>
 </head>
 
 <body>
@@ -23,13 +31,19 @@
     <div class="register-link">
         New user? <a href="/register">Register</a>
     </div>
+    <div class="register-link">
+        Forgot your password? <a href="/forgotPassword">Reset it</a>
+    </div>
 </div>
 
 <script>
 function login() {
     fetch('/login', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
+        },
         body: JSON.stringify({
             email: email.value,
             password: password.value

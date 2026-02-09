@@ -270,7 +270,10 @@ function deleteMedication(medicationId) {
     }
 
     fetch(`/deleteMedication/${medicationId}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: {
+            'X-CSRFToken': window.getCsrfToken()
+        }
     })
     .then(res => res.json())
     .then(data => {
@@ -309,7 +312,10 @@ function addMedication() {
     /* ===== SEND DATA ===== */
     fetch('/addMedication', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': window.getCsrfToken()
+        },
         body: JSON.stringify({
             medicine_name: medicineName,
             dosage: dosage,
@@ -356,7 +362,10 @@ function addMedicine() {
 
     fetch('/addMedicine', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': window.getCsrfToken()
+        },
         body: JSON.stringify({
             medicine_name: name,
             medicine_type: type,

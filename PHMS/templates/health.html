@@ -197,7 +197,10 @@ function deleteHealth(entryId) {
     }
 
     fetch(`/deleteHealth/${entryId}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: {
+            'X-CSRFToken': window.getCsrfToken()
+        }
     })
     .then(res => res.json())
     .then(data => {
@@ -233,14 +236,14 @@ function addHealth() {
         return;
     }
 
-    /* ===== RANGE VALIDATIONS ===== */
-    if (heartRate && (heartRate < 30 || heartRate > 200)) {
-        alert("Heart rate must be between 30 and 200 bpm.");
+    /* ===== RANGE VALIDATIONS (matching backend) ===== */
+    if (heartRate && (heartRate < 30 || heartRate > 220)) {
+        alert("Heart rate must be between 30 and 220 bpm.");
         return;
     }
 
-    if (temperature && (temperature < 30 || temperature > 45)) {
-        alert("Temperature must be between 30°C and 45°C.");
+    if (temperature && (temperature < 35 || temperature > 42)) {
+        alert("Temperature must be between 35°C and 42°C.");
         return;
     }
 
@@ -254,14 +257,14 @@ function addHealth() {
         return;
     }
 
-    if (sugar && sugar < 0) {
-        alert("Sugar cannot be negative.");
+    if (sugar && (sugar < 40 || sugar > 600)) {
+        alert("Blood sugar must be between 40 and 600 mg/dL.");
         return;
     }
 
     /* ===== BLOOD PRESSURE RANGE ===== */
-    if (bp && (bp < 40 || bp > 200)) {
-        alert("Blood pressure must be between 40 and 200 mmHg.");
+    if (bp && (bp < 40 || bp > 250)) {
+        alert("Blood pressure must be between 40 and 250 mmHg.");
         return;
     }
 
@@ -277,7 +280,10 @@ function addHealth() {
 
     fetch('/add_health', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': window.getCsrfToken()
+    },
     body: JSON.stringify(formData)
     })
     .then(res => res.json())

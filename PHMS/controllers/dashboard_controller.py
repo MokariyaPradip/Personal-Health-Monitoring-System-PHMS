@@ -1,16 +1,15 @@
-from flask import render_template, session, redirect
+from flask import render_template, redirect
+from flask_login import login_required, current_user
 from models.user_model import User
 from models.health_model import HealthData
 from models.medication_model import Medication
 from models.alert_model import Alert
 
 
+@login_required
 def dashboard():
     """Display dashboard with user stats"""
-    if 'user_id' not in session:
-        return redirect('/login')
-    
-    user = User.query.get(session['user_id'])
+    user = User.query.get(current_user.user_id)
 
     last_health = HealthData.query.filter_by(
         user_id=user.user_id

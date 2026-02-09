@@ -80,9 +80,7 @@
     <div class="action-section">
         <button class="btn-update" onclick="openUpdate()">✏️ Update Profile</button>
         <button class="btn-password" onclick="openPassword()">🔐 Change Password</button>
-        <a href="/logout" class="btn-logout-link">
-            <button class="btn-logout">🚪 Logout</button>
-        </a>
+        <button class="btn-logout" onclick="logoutUser()">🚪 Logout</button>
     </div>
 
 </div>
@@ -148,25 +146,25 @@
         <div class="modal-body">
             <form id="passwordForm">
                 <div class="form-group">
-                    <label for="fp_email">Email</label>
-                    <input id="fp_email" type="email" placeholder="Your registered email" required>
+                    <label for="current_password">Current Password</label>
+                    <input id="current_password" type="password" placeholder="Enter current password" required>
                 </div>
 
                 <div class="form-group">
-                    <label for="fp_password">New Password</label>
-                    <input id="fp_password" type="password" placeholder="Enter new password" required>
+                    <label for="new_password">New Password</label>
+                    <input id="new_password" type="password" placeholder="Enter new password" required>
                 </div>
 
                 <div class="form-group">
-                    <label for="fp_repeat">Confirm Password</label>
-                    <input id="fp_repeat" type="password" placeholder="Confirm new password" required>
+                    <label for="confirm_password">Confirm Password</label>
+                    <input id="confirm_password" type="password" placeholder="Confirm new password" required>
                 </div>
             </form>
         </div>
 
         <div class="modal-footer">
             <button type="button" class="btn-cancel" onclick="closeAll()">Cancel</button>
-            <button type="button" class="btn-submit" onclick="resetPassword()">Reset Password</button>
+            <button type="button" class="btn-submit" onclick="resetPassword()">Change Password</button>
         </div>
     </div>
 </div>
@@ -202,7 +200,10 @@ function updateProfile() {
 
     fetch('/updateProfile', {
         method: 'PUT',
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': window.getCsrfToken()
+        },
         body: JSON.stringify({
             username: username,
             gender: gender,
@@ -224,31 +225,35 @@ function updateProfile() {
 }
 
 function resetPassword() {
-    const email = document.getElementById('fp_email').value;
-    const password = document.getElementById('fp_password').value;
-    const repeat = document.getElementById('fp_repeat').value;
+    const currentPassword = document.getElementById('current_password').value;
+    const newPassword = document.getElementById('new_password').value;
+    const repeat = document.getElementById('confirm_password').value;
 
-    if (!email || !password || !repeat) {
+    if (!currentPassword || !newPassword || !repeat) {
         alert("Please fill in all fields.");
         return;
     }
 
-    if (password !== repeat) {
+    if (newPassword !== repeat) {
         alert("❌ Passwords do not match. Please try again.");
         return;
     }
 
-    if (password.length < 6) {
-        alert("❌ Password must be at least 6 characters long.");
+    if (newPassword.length < 8) {
+        alert("❌ Password must be at least 8 characters long.");
         return;
     }
 
-    fetch('/forgotPassword', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+    fetch('/changePassword', {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': window.getCsrfToken()
+        },
         body: JSON.stringify({
-            email: email,
-            password: password
+            current_password: currentPassword,
+            new_password: newPassword,
+            confirm_password: repeat
         })
     })
     .then(res => res.json())
@@ -261,6 +266,27 @@ function resetPassword() {
         }
     })
     .catch(err => alert("❌ Error resetting password. Please try again."));
+}
+
+function logoutUser() {
+    fetch('/logout', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': window.getCsrfToken()
+        }
+    })
+    .then(res => {
+        if (res.ok) {
+            window.location.href = '/login';
+        } else {
+            alert('❌ Logout failed. Please try again.');
+        }
+    })
+    .catch(err => {
+        console.error('Logout error:', err);
+        alert('❌ Error during logout. Please try again.');
+    });
 }
 
 // Close modal when clicking outside

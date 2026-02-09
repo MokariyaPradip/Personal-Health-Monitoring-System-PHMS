@@ -76,75 +76,40 @@ Default route: http://127.0.0.1:5000/login
 PROJECT STRUCTURE
 ================================================================================
 PHMS/
-├── app.py                    # Main application entry point
-├── config.py                 # Database configuration
-├── routes.py                 # Route declarations
-├── models.py                 # Model imports
-├── reports.py                # Report generation
-├── requirements.txt          # Project dependencies
-├── controllers/              # Business logic for routes
-│   ├── auth_controller.py
-│   ├── dashboard_controller.py
-│   ├── profile_controller.py
-│   ├── health_controller.py
-│   ├── medication_controller.py
-│   └── reports_controller.py
-├── models/                   # Database models
-│   ├── user_model.py
-│   ├── health_model.py
-│   ├── medicine_model.py
-│   ├── medication_model.py
-│   ├── medication_log_model.py
-│   └── alert_model.py
-├── templates/                # HTML templates
-│   ├── base.html
-│   ├── login.html
-│   ├── register.html
-│   ├── dashboard.html
-│   ├── profile.html
-│   ├── health.html
-│   ├── medication.html
-│   └── reports.html
-├── static/
-│   └── style/                # CSS stylesheets
-│       ├── base.css
-│       ├── login.css
-│       ├── register.css
-│       ├── profile.css
-│       ├── dashboard.css
-│       ├── health.css
-│       └── medication.css
-├── datasets/                 # Sample CSV datasets
-│   ├── health_data.csv
-│   └── health_data_10000.csv
-├── ml/                       # Machine learning module
-│   ├── ml_model.py          # Prediction interface
-│   ├── README.md            # ML documentation
-│   ├── trained_models/      # Current model artifacts
-│   │   ├── phms_model_v2.pkl
-│   │   ├── label_encoder_v2.pkl
-│   │   └── legacy/          # Legacy model versions
-│   └── training_scripts/    # Model training scripts
-│       ├── train_model_v1.py
-│       └── train_model_v2.py
-├── migrations/               # Alembic migrations for DB schema
-│   ├── alembic.ini
-│   ├── env.py
-│   ├── README
-│   ├── script.py.mako
-│   └── versions/
-├── utils/                    # Utility helpers
-│   └── health_score.py
-├── instance/                 # Instance folder (auto-generated)
-├── support/                  # Documentation & support files
-│   ├── structure.txt
-│   ├── databaseAccess.txt
-│   ├── ER.txt
-│   ├── instructions.txt
-│   └── ML_Architecture.txt
-├── __pycache__/
-└── venv/                     # Virtual environment
-
+├── app.py                      # Entry point
+├── config.py                   # App factory, extensions
+├── routes.py                   # Route registration
+├── models.py                   # Model aggregator
+├── requirements.txt
+│
+├── controllers/                # Business logic (MVC pattern)
+│   ├── auth_controller.py      # Login, register, password reset
+│   ├── dashboard_controller.py # Main dashboard
+│   ├── health_controller.py    # Health data CRUD + ML
+│   ├── medication_controller.py# Medication management
+│   ├── profile_controller.py   # User profile updates
+│   └── reports_controller.py   # Analytics/reports
+│
+├── models/                     # Database models
+│   ├── user_model.py           # User + BMI calculation
+│   ├── health_model.py         # Health metrics
+│   ├── medication_model.py     # Prescriptions
+│   ├── medication_log_model.py # Dose tracking
+│   ├── medicine_model.py       # Medicine catalog
+│   └── alert_model.py          # Notifications
+│
+├── ml/                         # Machine learning
+│   ├── ml_model.py             # Prediction interface
+│   ├── trained_models/         # Model artifacts (.pkl)
+│   └── training_scripts/       # Model training (v3-v5)
+│
+├── utils/
+│   └── health_score.py         # Rule-based scoring algorithm
+│
+├── migrations/                 # Alembic migrations
+├── templates/                  # Jinja2 HTML (11 pages)
+├── static/style/               # CSS per page
+└── datasets/                   # Training data (4 CSVs)
 
 TROUBLESHOOTING
 ================================================================================
