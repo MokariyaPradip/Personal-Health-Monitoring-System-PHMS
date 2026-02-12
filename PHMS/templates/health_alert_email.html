@@ -4,57 +4,455 @@
     <meta charset="UTF-8">
     <title>PHMS Health Alert</title>
     <style>
-        body { font-family: Arial, sans-serif; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .alert-header { background: #d32f2f; color: white; padding: 15px; border-radius: 5px; }
-        .content { margin-top: 20px; }
-        .metric { background: #f5f5f5; padding: 10px; margin: 10px 0; border-left: 4px solid #d32f2f; }
-        .label { font-weight: bold; }
-        .action { margin-top: 20px; }
-        .btn { background: #1b74e4; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; }
-        .footer { margin-top: 30px; font-size: 12px; color: #999; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background-color: #f5f5f5;
+            color: #333; 
+            line-height: 1.6;
+        }
+        .wrapper {
+            background-color: #f5f5f5;
+            padding: 20px 0;
+        }
+        .container { 
+            max-width: 700px; 
+            margin: 0 auto; 
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .alert-header { 
+            background: linear-gradient(135deg, #d32f2f 0%, #b71c1c 100%);
+            color: white; 
+            padding: 30px 25px;
+            text-align: center;
+            border-bottom: 5px solid #c62828;
+        }
+        .alert-header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+        .alert-header p {
+            font-size: 14px;
+            opacity: 0.95;
+        }
+        .alert-icon {
+            font-size: 40px;
+            margin-bottom: 10px;
+        }
+        .content { 
+            padding: 30px 25px;
+        }
+        .greeting {
+            font-size: 16px;
+            margin-bottom: 20px;
+        }
+        .greeting strong {
+            color: #d32f2f;
+            font-size: 18px;
+        }
+        .alert-message {
+            background: #fff3e0;
+            border-left: 5px solid #ff9800;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+            font-size: 14px;
+            color: #e65100;
+        }
+        
+        .metrics-section {
+            margin: 30px 0;
+        }
+        .metrics-section h2 {
+            color: #1b74e4;
+            font-size: 18px;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #1b74e4;
+        }
+        .metric-card {
+            background: #f9f9f9;
+            padding: 15px;
+            margin: 12px 0;
+            border-left: 5px solid #d32f2f;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .metric-card.info {
+            background: #e3f2fd;
+            border-left-color: #2196f3;
+        }
+        .metric-label {
+            font-weight: bold;
+            color: #333;
+            font-size: 14px;
+            flex: 1;
+        }
+        .metric-value {
+            font-size: 16px;
+            font-weight: bold;
+            color: #d32f2f;
+            min-width: 100px;
+            text-align: right;
+        }
+        
+        .vitals-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .vital-box {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+            text-align: center;
+        }
+        .vital-box.high {
+            background: #ffebee;
+            border-color: #d32f2f;
+        }
+        .vital-box.low {
+            background: #e3f2fd;
+            border-color: #2196f3;
+        }
+        .vital-box.normal {
+            background: #e8f5e9;
+            border-color: #2e7d32;
+        }
+        .vital-label {
+            font-size: 12px;
+            color: #666;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+        .vital-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+            margin: 8px 0;
+        }
+        .vital-unit {
+            font-size: 12px;
+            color: #999;
+        }
+        .vital-status {
+            font-size: 12px;
+            font-weight: bold;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid #ddd;
+        }
+        .vital-status.high {
+            color: #d32f2f;
+        }
+        .vital-status.low {
+            color: #2196f3;
+        }
+        .vital-status.normal {
+            color: #2e7d32;
+        }
+        .vital-status.unknown {
+            color: #999;
+        }
+        
+        .risk-section {
+            margin: 25px 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #ffebee 0%, #fff3e0 100%);
+            border-radius: 8px;
+            border-left: 5px solid #d32f2f;
+        }
+        .risk-section h3 {
+            color: #c62828;
+            font-size: 16px;
+            margin-bottom: 15px;
+        }
+        .risk-item {
+            display: flex;
+            align-items: flex-start;
+            margin: 12px 0;
+            padding: 10px;
+            background: white;
+            border-radius: 5px;
+            border-left: 3px solid #ff9800;
+        }
+        .risk-icon {
+            font-size: 18px;
+            margin-right: 12px;
+            min-width: 25px;
+        }
+        .risk-text {
+            font-size: 13px;
+            color: #333;
+        }
+        .risk-text strong {
+            color: #d32f2f;
+        }
+        
+        .recommendations {
+            background: #e8f5e9;
+            padding: 20px;
+            margin: 25px 0;
+            border-radius: 8px;
+            border-left: 5px solid #2e7d32;
+        }
+        .recommendations h3 {
+            color: #1b5e20;
+            font-size: 16px;
+            margin-bottom: 15px;
+        }
+        .rec-list {
+            list-style: none;
+        }
+        .rec-list li {
+            padding: 8px 0;
+            padding-left: 28px;
+            position: relative;
+            font-size: 13px;
+            color: #333;
+        }
+        .rec-list li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #2e7d32;
+            font-weight: bold;
+            font-size: 18px;
+        }
+        
+        .action-section {
+            text-align: center;
+            margin: 30px 0;
+            padding: 20px 0;
+            border-top: 1px solid #e0e0e0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .action-text {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 15px;
+        }
+        .cta-button {
+            background: linear-gradient(135deg, #1b74e4 0%, #1565c0 100%);
+            color: white;
+            padding: 12px 40px;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+            display: inline-block;
+            font-size: 14px;
+            box-shadow: 0 2px 8px rgba(27, 116, 228, 0.3);
+        }
+        
+        .urgency-banner {
+            background: #ffcdd2;
+            border-left: 5px solid #c62828;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+            font-size: 13px;
+            color: #b71c1c;
+        }
+        .urgency-banner strong {
+            color: #c62828;
+            font-size: 14px;
+        }
+        
+        .footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e0e0e0;
+            font-size: 11px;
+            color: #999;
+            text-align: center;
+        }
+        .footer p {
+            margin: 5px 0;
+        }
+        .phms-logo {
+            color: #1b74e4;
+            font-weight: bold;
+        }
+        
+        @media only screen and (max-width: 600px) {
+            .vitals-grid {
+                grid-template-columns: 1fr;
+            }
+            .container {
+                border-radius: 0;
+            }
+            .alert-header h1 {
+                font-size: 24px;
+            }
+            .content {
+                padding: 20px 15px;
+            }
+        }
     </style>
 </head>
+
 <body>
-    <div class="container">
-        <div class="alert-header">
-            <h1>⚠️ Health Alert - High Risk Detected</h1>
-            <p>A recent health record shows high-risk indicators.</p>
-        </div>
-
-        <div class="content">
-            <p>Hello <strong>{{ user_name }}</strong>,</p>
-            <p>Your recent health entry has been flagged with high-risk indicators. Please review the details below:</p>
-
-            <div class="metric">
-                <span class="label">Health Score:</span> {{ health_score }}/100
+    <div class="wrapper">
+        <div class="container">
+            <!-- Header -->
+            <div class="alert-header">
+                <div class="alert-icon">⚠️</div>
+                <h1>Health Alert - Action Required</h1>
+                <p>High-Risk Health Indicators Detected</p>
             </div>
 
-            <div class="metric">
-                <span class="label">Rule-Based Assessment:</span> <strong style="color: #d32f2f;">{{ rule_based_label }}</strong>
+            <!-- Content -->
+            <div class="content">
+                <!-- Greeting -->
+                <div class="greeting">
+                    Hello <strong>{{ user_name }}</strong>,
+                </div>
+
+                <!-- Alert Message -->
+                <div class="alert-message">
+                    A recent health entry in your profile shows <strong>high-risk indicators</strong>. Please review your health data below and take appropriate action.
+                </div>
+
+                <!-- Risk Assessment -->
+                <div class="risk-section">
+                    <h3>🔴 Risk Assessment</h3>
+                    <div class="risk-item">
+                        <div class="risk-icon">📊</div>
+                        <div class="risk-text">
+                            <strong>Health Score:</strong> {{ health_score }}/100 
+                            {% if health_score < 50 %}<span style="color: #d32f2f;">(Critical)</span>{% elif health_score < 70 %}<span style="color: #ff9800;">(High Risk)</span>{% else %}<span style="color: #2e7d32;">(Good)</span>{% endif %}
+                        </div>
+                    </div>
+                    <div class="risk-item">
+                        <div class="risk-icon">⚙️</div>
+                        <div class="risk-text">
+                            <strong>Rule-Based Assessment:</strong> {{ rule_based_label }}
+                        </div>
+                    </div>
+                    <div class="risk-item">
+                        <div class="risk-icon">🤖</div>
+                        <div class="risk-text">
+                            <strong>AI Prediction:</strong> {{ ml_label }}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Vital Signs -->
+                <div class="metrics-section">
+                    <h2>📈 Your Vital Signs</h2>
+                    <div class="vitals-grid">
+                        {% if vital_signs.blood_pressure %}
+                        <div class="vital-box {{ vital_signs.blood_pressure.status|lower }}">
+                            <div class="vital-label">Blood Pressure</div>
+                            <div class="vital-value">{{ vital_signs.blood_pressure.value }}</div>
+                            <div class="vital-unit">mmHg</div>
+                            <div class="vital-status {{ vital_signs.blood_pressure.status|lower }}">{{ vital_signs.blood_pressure.status }}</div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if vital_signs.heart_rate %}
+                        <div class="vital-box {{ vital_signs.heart_rate.status|lower }}">
+                            <div class="vital-label">Heart Rate</div>
+                            <div class="vital-value">{{ vital_signs.heart_rate.value }}</div>
+                            <div class="vital-unit">bpm</div>
+                            <div class="vital-status {{ vital_signs.heart_rate.status|lower }}">{{ vital_signs.heart_rate.status }}</div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if vital_signs.temperature %}
+                        <div class="vital-box {{ vital_signs.temperature.status|lower }}">
+                            <div class="vital-label">Temperature</div>
+                            <div class="vital-value">{{ vital_signs.temperature.value }}</div>
+                            <div class="vital-unit">°C</div>
+                            <div class="vital-status {{ vital_signs.temperature.status|lower }}">{{ vital_signs.temperature.status }}</div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if vital_signs.blood_glucose %}
+                        <div class="vital-box {{ vital_signs.blood_glucose.status|lower }}">
+                            <div class="vital-label">Blood Glucose</div>
+                            <div class="vital-value">{{ vital_signs.blood_glucose.value }}</div>
+                            <div class="vital-unit">mg/dL</div>
+                            <div class="vital-status {{ vital_signs.blood_glucose.status|lower }}">{{ vital_signs.blood_glucose.status }}</div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Other Metrics -->
+                <div class="metrics-section">
+                    <h2>📋 Additional Health Metrics</h2>
+                    {% if other_metrics.bmi and other_metrics.bmi != 'N/A' %}
+                    <div class="metric-card info">
+                        <div class="metric-label">BMI (Body Mass Index)</div>
+                        <div class="metric-value">{{ other_metrics.bmi }}</div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if other_metrics.steps and other_metrics.steps != 'N/A' %}
+                    <div class="metric-card info">
+                        <div class="metric-label">Daily Steps</div>
+                        <div class="metric-value">{{ other_metrics.steps }}</div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if other_metrics.sleep_hours and other_metrics.sleep_hours != 'N/A' %}
+                    <div class="metric-card info">
+                        <div class="metric-label">Sleep Duration</div>
+                        <div class="metric-value">{{ other_metrics.sleep_hours }} hrs</div>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Urgency Notice -->
+                {% if health_score < 50 %}
+                <div class="urgency-banner">
+                    <strong>⚡ URGENT:</strong> Your health score indicates critical risk. Please consult with a healthcare professional immediately or call emergency services if experiencing severe symptoms.
+                </div>
+                {% elif health_score < 70 %}
+                <div class="urgency-banner">
+                    <strong>⚠️ IMPORTANT:</strong> Your health requires attention. We recommend scheduling an appointment with your healthcare provider soon.
+                </div>
+                {% endif %}
+
+                <!-- Recommendations -->
+                <div class="recommendations">
+                    <h3>✓ Recommended Actions</h3>
+                    <ul class="rec-list">
+                        <li>Review your complete health data regularly through your dashboard</li>
+                        <li>Consult with a healthcare professional if symptoms persist or worsen</li>
+                        <li>Monitor your vital signs and health metrics daily</li>
+                        <li>Maintain a healthy lifestyle with proper diet and exercise</li>
+                        <li>Keep medications updated if applicable</li>
+                        <li>Stay hydrated and get adequate rest</li>
+                    </ul>
+                </div>
+
+                <!-- Action Section -->
+                <div class="action-section">
+                    <div class="action-text">
+                        Want to see your complete health dashboard with trends and insights?
+                    </div>
+                    <a href="{{ url_for('health_page', _external=True) }}" class="cta-button">View Full Health Dashboard</a>
+                </div>
             </div>
 
-            <div class="metric">
-                <span class="label">ML Prediction:</span> <strong style="color: #d32f2f;">{{ ml_label }}</strong>
+            <!-- Footer -->
+            <div class="footer">
+                <p>This is an automated health alert from <span class="phms-logo">PHMS</span> (Personal Health Monitoring System)</p>
+                <p>Generated on: {{ alert_date }}</p>
+                <p>If you did not create this account or have concerns about this alert, please contact support immediately.</p>
+                <p style="margin-top: 15px; color: #666;">© 2026 PHMS. All rights reserved.</p>
             </div>
-
-            <div class="action">
-                <p>We recommend you:</p>
-                <ul>
-                    <li>Review your health data in detail via the dashboard</li>
-                    <li>Consult with a healthcare professional if symptoms persist</li>
-                    <li>Monitor your health metrics regularly</li>
-                </ul>
-            </div>
-
-            <div class="action">
-                <a href="{{ url_for('health_page', _external=True) }}" class="btn">View Health Details</a>
-            </div>
-        </div>
-
-        <div class="footer">
-            <p>This is an automated alert from PHMS (Personal Health Monitoring System).</p>
-            <p>If you did not create this account, please ignore this email.</p>
         </div>
     </div>
 </body>

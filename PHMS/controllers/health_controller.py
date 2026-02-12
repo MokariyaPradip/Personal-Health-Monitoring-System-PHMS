@@ -8,7 +8,7 @@ from ml.ml_model import predict_health_risk
 from flask_mail import Message
 
 
-def _send_health_alert_email(user_email, user_name, health_score, rule_based_label, ml_label):
+def _send_health_alert_email(user_email, user_name, health_data):
     """Send email notification for high-risk health alert"""
     mail_server = current_app.config.get('MAIL_SERVER')
     if not mail_server:
@@ -28,14 +28,41 @@ def _send_health_alert_email(user_email, user_name, health_score, rule_based_lab
         current_app.logger.warning("Email notification suppressed (missing recipient email)")
         return
 
+    # Create context object with all health data (without entry_id)
+    context = {
+        'user_name': user_name,
+        'health_score': health_data.health_score,
+        'rule_based_label': health_data.rule_based_risk_label,
+        'ml_label': health_data.ml_predicted_risk_label,
+        'alert_date': datetime.now().strftime('%B %d, %Y at %I:%M %p'),
+        'vital_signs': {
+            'blood_pressure': {
+                'value': f"{health_data.blood_pressure}" if health_data.blood_pressure else 'N/A',
+                'status': _get_bp_status(health_data.blood_pressure)
+            },
+            'heart_rate': {
+                'value': str(health_data.heart_rate) if health_data.heart_rate else 'N/A',
+                'status': _get_hr_status(health_data.heart_rate)
+            },
+            'temperature': {
+                'value': f"{health_data.temperature:.1f}" if health_data.temperature else 'N/A',
+                'status': _get_temp_status(health_data.temperature)
+            },
+            'blood_glucose': {
+                'value': f"{health_data.sugar}" if health_data.sugar else 'N/A',
+                'status': _get_glucose_status(health_data.sugar)
+            }
+        },
+        'other_metrics': {
+            'bmi': current_user.bmi if current_user.bmi else 'N/A',
+            'oxygen_level': 'N/A',  # If you have oxygen data, add it here
+            'steps': health_data.steps if health_data.steps else 'N/A',
+            'sleep_hours': f"{health_data.sleep_hours:.1f}" if health_data.sleep_hours else 'N/A'
+        }
+    }
+
     subject = "⚠️ PHMS Health Alert - High Risk Detected"
-    html_body = render_template(
-        'health_alert_email.html',
-        user_name=user_name,
-        health_score=health_score,
-        rule_based_label=rule_based_label,
-        ml_label=ml_label
-    )
+    html_body = render_template('health_alert_email.html', **context)
     msg = Message(subject=subject, recipients=[user_email], html=html_body, sender=sender)
 
     try:
@@ -44,6 +71,57 @@ def _send_health_alert_email(user_email, user_name, health_score, rule_based_lab
     except Exception as exc:
         current_app.logger.exception("Failed to send health alert email: %s", exc)
 
+
+def _get_bp_status(blood_pressure):
+    """Determine blood pressure status"""
+    if not blood_pressure:
+        return 'Unknown'
+    bp = float(blood_pressure)
+    if bp >= 140:
+        return 'High'
+    elif bp < 90:
+        return 'Low'
+    else:
+        return 'Normal'
+
+
+def _get_hr_status(heart_rate):
+    """Determine heart rate status"""
+    if not heart_rate:
+        return 'Unknown'
+    hr = int(heart_rate)
+    if hr >= 100:
+        return 'High'
+    elif hr < 60:
+        return 'Low'
+    else:
+        return 'Normal'
+
+
+def _get_temp_status(temperature):
+    """Determine temperature status"""
+    if not temperature:
+        return 'Unknown'
+    temp = float(temperature)
+    if temp >= 38:
+        return 'High'
+    elif temp < 36.5:
+        return 'Low'
+    else:
+        return 'Normal'
+
+
+def _get_glucose_status(sugar):
+    """Determine blood glucose status"""
+    if not sugar:
+        return 'Unknown'
+    glucose = float(sugar)
+    if glucose >= 126:
+        return 'High'
+    elif glucose < 70:
+        return 'Low'
+    else:
+        return 'Normal'
 
 @login_required
 def health_page():
@@ -184,9 +262,7 @@ def add_health():
         _send_health_alert_email(
             user.user_email,
             user.username,
-            health_score,
-            rule_based_risk_label,
-            ml_predicted_risk_label
+            health
         )
     else:
         current_app.logger.info(f"Low/Medium risk for user {user.username} - No email sent.")

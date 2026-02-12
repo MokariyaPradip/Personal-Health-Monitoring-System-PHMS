@@ -1,4 +1,4 @@
-from flask import redirect
+from flask import app, redirect
 
 # Import controllers
 from controllers import auth_controller, dashboard_controller, profile_controller, health_controller, medication_controller, reports_controller
@@ -27,14 +27,15 @@ def register_routes(app):
     def logout():
         return auth_controller.logout()
 
-    # Forgot Password
+    # Forgot Password - Request OTP
     @app.route('/forgotPassword', methods=['GET', 'POST'])
     def forgot_password():
         return auth_controller.forgot_password()
 
-    @app.route('/resetPassword/<token>', methods=['GET', 'POST'])
-    def reset_password(token):
-        return auth_controller.reset_password(token)
+    # Reset Password (merged - email + OTP + password all in one)
+    @app.route('/resetPassword', methods=['GET', 'POST'])
+    def reset_password():
+        return auth_controller.reset_password()
 
     @app.route('/changePassword', methods=['PUT'])
     def change_password():

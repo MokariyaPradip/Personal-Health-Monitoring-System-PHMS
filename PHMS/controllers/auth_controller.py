@@ -1,10 +1,11 @@
+import secrets
 from flask import jsonify, render_template, request, current_app, url_for
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import login_user, logout_user, current_user, login_required
-from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from flask_mail import Message
 from config import db, mail
-from models import User
+from models import User, PasswordResetOTP
+from datetime import datetime
 
 
 def _get_json():
@@ -21,40 +22,77 @@ def _is_strong_password(password):
     return isinstance(password, str) and len(password) >= 8
 
 
-def _get_serializer():
-    return URLSafeTimedSerializer(current_app.config['SECRET_KEY'])
-
-
-def _send_password_reset_email(email, reset_url):
+def _send_otp_email(email, otp_code):
+    """Send OTP via email"""
     mail_server = current_app.config.get('MAIL_SERVER')
     mail_username = current_app.config.get('MAIL_USERNAME')
     mail_password = current_app.config.get('MAIL_PASSWORD')
     default_sender = current_app.config.get('MAIL_DEFAULT_SENDER')
 
-    # print("Mail Config:", mail_server, "\nMail Username:", mail_username, "\nMail Password:", mail_password, "\nDefault Sender:" , default_sender)
-
     if not mail_server or not mail_username or not mail_password or not default_sender:
-        current_app.logger.info("Password reset link for %s: %s", email, reset_url)
+        current_app.logger.info("OTP for %s: %s", email, otp_code)
         current_app.logger.warning("Email not sent. Configure MAIL_SERVER, MAIL_USERNAME, MAIL_PASSWORD, MAIL_DEFAULT_SENDER.")
-        return
+        return False
 
-    subject = "PHMS Password Reset"
-    html_body = render_template('reset_password_email.html', reset_url=reset_url)
+    subject = "PHMS Password Reset OTP"
+    html_body = render_template('otp_email.html', otp_code=otp_code)
     msg = Message(subject=subject, recipients=[email], html=html_body)
 
     try:
         mail.send(msg)
+        current_app.logger.info("OTP email sent to %s", email)
+        return True
     except Exception as exc:
-        current_app.logger.exception("Failed to send password reset email: %s", exc)
+        current_app.logger.exception("Failed to send OTP email: %s", exc)
+        return False
 
 
-def _load_reset_payload(token):
-    serializer = _get_serializer()
-    return serializer.loads(
-        token,
-        salt=current_app.config['SECURITY_PASSWORD_SALT'],
-        max_age=1800
-    )
+def _send_password_reset_success_email(email):
+    """Send success notification email"""
+    mail_server = current_app.config.get('MAIL_SERVER')
+    mail_username = current_app.config.get('MAIL_USERNAME')
+    mail_password = current_app.config.get('MAIL_PASSWORD')
+    default_sender = current_app.config.get('MAIL_DEFAULT_SENDER')
+
+    if not mail_server or not mail_username or not mail_password or not default_sender:
+        current_app.logger.info("Password reset success notification for %s", email)
+        return False
+
+    subject = "PHMS Password Reset Successful"
+    html_body = render_template('password_reset_success_email.html')
+    msg = Message(subject=subject, recipients=[email], html=html_body)
+
+    try:
+        mail.send(msg)
+        current_app.logger.info("Reset success email sent to %s", email)
+        return True
+    except Exception as exc:
+        current_app.logger.exception("Failed to send reset success email: %s", exc)
+        return False
+
+
+def _send_password_reset_failure_email(email, reason=""):
+    """Send failure notification email"""
+    mail_server = current_app.config.get('MAIL_SERVER')
+    mail_username = current_app.config.get('MAIL_USERNAME')
+    mail_password = current_app.config.get('MAIL_PASSWORD')
+    default_sender = current_app.config.get('MAIL_DEFAULT_SENDER')
+
+    if not mail_server or not mail_username or not mail_password or not default_sender:
+        current_app.logger.info("Password reset failure notification for %s: %s", email, reason)
+        return False
+
+    subject = "PHMS Password Reset Failed"
+    html_body = render_template('password_reset_failure_email.html', reason=reason)
+    msg = Message(subject=subject, recipients=[email], html=html_body)
+
+    try:
+        mail.send(msg)
+        current_app.logger.info("Reset failure email sent to %s", email)
+        return True
+    except Exception as exc:
+        current_app.logger.exception("Failed to send reset failure email: %s", exc)
+        return False
 
 
 def register():
@@ -157,14 +195,13 @@ def login():
 
 def logout():
     """Handle user logout with CSRF protection"""
-    # CSRF protection is automatically enforced by Flask-WTF on POST requests
     logout_user()
     from flask import redirect
     return redirect('/login')
 
 
 def forgot_password():
-    """Handle forgot password"""
+    """Handle forgot password - send OTP"""
     if request.method == 'GET':
         return render_template('forgot_password.html')
 
@@ -175,72 +212,307 @@ def forgot_password():
         return jsonify({"success": False, "message": "Email is required"}), 400
 
     user = User.query.filter_by(user_email=email).first()
+    
     if user:
-        serializer = _get_serializer()
-        token = serializer.dumps(
-            {"user_id": user.user_id, "email": user.user_email},
-            salt=current_app.config['SECURITY_PASSWORD_SALT']
-        )
-        reset_url = url_for('reset_password', token=token, _external=True)
-        _send_password_reset_email(user.user_email, reset_url)
-
+        # Create OTP for this email
+        otp = PasswordResetOTP.create_for_email(email)
+        # Send OTP via email
+        email_sent = _send_otp_email(email, otp.otp_code)
+        
+        if email_sent:
+            return jsonify({
+                "success": True,
+                "message": "OTP has been sent to your email. Please check your inbox."
+            })
+        else:
+            return jsonify({
+                "success": True,
+                "message": "OTP created. Check your email or logs."
+            })
+    
+    # Generic response to prevent email enumeration
     return jsonify({
         "success": True,
-        "message": "If that email exists, a reset link has been sent."
+        "message": "If that email exists, an OTP has been sent."
     })
 
 
-def reset_password(token):
-    """Reset password using a signed token"""
+# def verify_otp():
+#     """Verify OTP and proceed to password reset"""
+#     if request.method == 'GET':
+#         return render_template('verify_otp.html')
+
+#     data = _get_json()
+#     email = _normalize_email(data.get('email'))
+#     otp_code = (data.get('otp') or '').strip()
+
+#     if not email or not otp_code:
+#         return jsonify({
+#             "success": False,
+#             "message": "Email and OTP are required"
+#         }), 400
+
+#     # Find the OTP record
+#     otp_record = PasswordResetOTP.query.filter_by(user_email=email).order_by(PasswordResetOTP.created_at.desc()).first()
+
+#     if not otp_record:
+#         return jsonify({
+#             "success": False,
+#             "message": "No OTP found. Please request a new one."
+#         }), 400
+
+#     # Verify the OTP
+#     is_valid, message = otp_record.verify(otp_code)
+
+#     if not is_valid:
+#         return jsonify({
+#             "success": False,
+#             "message": message
+#         }), 400
+
+#     return jsonify({
+#         "success": True,
+#         "message": "OTP verified successfully"
+#     })
+
+
+# def reset_password():
+#     """Reset password after OTP verification"""
+#     if request.method == 'GET':
+#         return render_template('reset_password_otp.html')
+
+#     data = _get_json() if request.is_json else request.form.to_dict()
+#     email = _normalize_email(data.get('email'))
+#     password = data.get('password')
+#     confirm_password = data.get('confirm_password')
+
+#     if not email or not password or not confirm_password:
+#         return jsonify({
+#             "success": False,
+#             "message": "Email and password fields are required"
+#         }), 400
+
+#     # Verify OTP is verified first
+#     otp_record = PasswordResetOTP.query.filter_by(user_email=email).order_by(PasswordResetOTP.created_at.desc()).first()
+
+#     if not otp_record or not otp_record.is_verified:
+#         _send_password_reset_failure_email(email, "OTP verification failed")
+#         return jsonify({
+#             "success": False,
+#             "message": "OTP verification required"
+#         }), 400
+
+#     if otp_record.is_expired():
+#         _send_password_reset_failure_email(email, "OTP has expired")
+#         return jsonify({
+#             "success": False,
+#             "message": "OTP has expired. Please request a new one."
+#         }), 400
+
+#     if password != confirm_password:
+#         _send_password_reset_failure_email(email, "Passwords do not match")
+#         return jsonify({
+#             "success": False,
+#             "message": "Passwords do not match"
+#         }), 400
+
+#     if not _is_strong_password(password):
+#         _send_password_reset_failure_email(email, "Password too weak")
+#         return jsonify({
+#             "success": False,
+#             "message": "Password must be at least 8 characters long"
+#         }), 400
+
+#     user = User.query.filter_by(user_email=email).first()
+
+#     if not user:
+#         _send_password_reset_failure_email(email, "User not found")
+#         return jsonify({
+#             "success": False,
+#             "message": "User account not found"
+#         }), 400
+
+#     if check_password_hash(user.password, password):
+#         _send_password_reset_failure_email(email, "New password same as old password")
+#         return jsonify({
+#             "success": False,
+#             "message": "New password must be different from the current password"
+#         }), 400
+
+#     try:
+#         user.password = generate_password_hash(password)
+#         db.session.commit()
+        
+#         # Mark OTP as used by deleting it
+#         db.session.delete(otp_record)
+#         db.session.commit()
+        
+#         # Send success email
+#         _send_password_reset_success_email(email)
+
+#         return jsonify({
+#             "success": True,
+#             "message": "Password reset successfully. You can now login with your new password."
+#         })
+#     except Exception as e:
+#         db.session.rollback()
+#         _send_password_reset_failure_email(email, str(e))
+#         return jsonify({
+#             "success": False,
+#             "message": "Password reset failed. Please try again."
+#         }), 500
+
+def reset_password():
+    """Reset password - single page with email, OTP, and new password"""
     if request.method == 'GET':
-        try:
-            _load_reset_payload(token)
-        except SignatureExpired:
-            return render_template('reset_password.html', token=token, message="Reset link has expired"), 400
-        except BadSignature:
-            return render_template('reset_password.html', token=token, message="Invalid reset link"), 400
-        return render_template('reset_password.html', token=token)
+        return render_template('reset_password.html')
 
     data = _get_json() if request.is_json else request.form.to_dict()
+    email = _normalize_email(data.get('email'))
+    otp_code = (data.get('otp') or '').strip()
     password = data.get('password')
     confirm_password = data.get('confirm_password')
 
-    def _respond(message, success=False, status=400):
-        if request.is_json:
-            return jsonify({"success": success, "message": message}), status
-        return render_template('reset_password.html', token=token, message=message), status
+    # Validate all required fields
+    if not email:
+        return jsonify({
+            "success": False,
+            "message": "Email is required"
+        }), 400
 
-    if not password or not confirm_password:
-        return _respond("Password and confirmation are required")
+    # Step 1: If only email provided, send OTP
+    if email and not otp_code and not password:
+        user = User.query.filter_by(user_email=email).first()
+        
+        if user:
+            otp = PasswordResetOTP.create_for_email(email)
+            email_sent = _send_otp_email(email, otp.otp_code)
+            
+            if email_sent:
+                return jsonify({
+                    "success": True,
+                    "message": "OTP has been sent to your email. Check your inbox.",
+                    "step": "otp_sent"
+                })
+            else:
+                return jsonify({
+                    "success": True,
+                    "message": "OTP created. Check your email or logs.",
+                    "step": "otp_sent"
+                })
+        
+        # Generic response to prevent email enumeration
+        return jsonify({
+            "success": True,
+            "message": "If that email exists, an OTP has been sent.",
+            "step": "otp_sent"
+        })
 
-    if password != confirm_password:
-        return _respond("Passwords do not match")
+    # Step 2: If email + OTP provided, verify OTP
+    if email and otp_code and not password:
+        otp_record = PasswordResetOTP.query.filter_by(user_email=email).order_by(
+            PasswordResetOTP.created_at.desc()
+        ).first()
 
-    if not _is_strong_password(password):
-        return _respond("Password must be at least 8 characters long")
+        if not otp_record:
+            return jsonify({
+                "success": False,
+                "message": "No OTP found. Please request a new one."
+            }), 400
 
-    try:
-        payload = _load_reset_payload(token)
-    except SignatureExpired:
-        return _respond("Reset link has expired")
-    except BadSignature:
-        return _respond("Invalid reset link")
+        is_valid, message = otp_record.verify(otp_code)
 
-    user = User.query.get(payload.get('user_id'))
-    if not user or user.user_email != payload.get('email'):
-        return _respond("Invalid reset link")
+        if not is_valid:
+            return jsonify({
+                "success": False,
+                "message": message
+            }), 400
 
-    if check_password_hash(user.password, password):
-        return _respond("New password must be different from the current password")
+        return jsonify({
+            "success": True,
+            "message": "OTP verified successfully. Enter your new password.",
+            "step": "otp_verified"
+        })
 
-    user.password = generate_password_hash(password)
-    db.session.commit()
+    # Step 3: If email + OTP + password provided, reset password
+    if email and otp_code and password and confirm_password:
+        # Validate OTP exists and is verified
+        otp_record = PasswordResetOTP.query.filter_by(user_email=email).order_by(
+            PasswordResetOTP.created_at.desc()
+        ).first()
 
-    if request.is_json:
-        return jsonify({"success": True, "message": "Password updated successfully"})
+        if not otp_record or not otp_record.is_verified:
+            _send_password_reset_failure_email(email, "OTP verification failed")
+            return jsonify({
+                "success": False,
+                "message": "OTP verification required. Please verify OTP first."
+            }), 400
 
-    return render_template('reset_password.html', token=token, message="Password updated successfully. You can log in now.")
+        if otp_record.is_expired():
+            _send_password_reset_failure_email(email, "OTP has expired")
+            return jsonify({
+                "success": False,
+                "message": "OTP has expired. Please request a new one."
+            }), 400
 
+        if password != confirm_password:
+            _send_password_reset_failure_email(email, "Passwords do not match")
+            return jsonify({
+                "success": False,
+                "message": "Passwords do not match"
+            }), 400
+
+        if not _is_strong_password(password):
+            _send_password_reset_failure_email(email, "Password too weak")
+            return jsonify({
+                "success": False,
+                "message": "Password must be at least 8 characters long"
+            }), 400
+
+        user = User.query.filter_by(user_email=email).first()
+
+        if not user:
+            _send_password_reset_failure_email(email, "User not found")
+            return jsonify({
+                "success": False,
+                "message": "User account not found"
+            }), 400
+
+        if check_password_hash(user.password, password):
+            _send_password_reset_failure_email(email, "New password same as old password")
+            return jsonify({
+                "success": False,
+                "message": "New password must be different from the current password"
+            }), 400
+
+        try:
+            user.password = generate_password_hash(password)
+            db.session.commit()
+            
+            # Delete OTP after successful reset
+            db.session.delete(otp_record)
+            db.session.commit()
+            
+            # Send success email
+            _send_password_reset_success_email(email)
+
+            return jsonify({
+                "success": True,
+                "message": "Password reset successfully! You can now login.",
+                "step": "reset_complete"
+            })
+        except Exception as e:
+            db.session.rollback()
+            _send_password_reset_failure_email(email, str(e))
+            return jsonify({
+                "success": False,
+                "message": "Password reset failed. Please try again."
+            }), 500
+
+    return jsonify({
+        "success": False,
+        "message": "Invalid request. Missing required fields."
+    }), 400
 
 @login_required
 def change_password():
