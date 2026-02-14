@@ -16,7 +16,7 @@
     <!-- ===== LAST HEALTH RECORD (PROMINENT) ===== -->
     {% if last_entry %}
     <div class="last-entry-card">
-        <h2>Your Latest Health Record</h2>
+        <h2>❤️ Your Latest Health Record</h2>
         {% set rb_label = (last_entry.rule_based_risk_label or 'N/A') %}
         {% set ml_label = (last_entry.ml_predicted_risk_label or 'N/A') %}
         {% set rb_label_display = rb_label.replace('Risk', ' Risk') %}
@@ -60,7 +60,7 @@
                 <span class="value">{{ last_entry.sugar or 'N/A' }}</span>
             </div>
         </div>
-        <p class="timestamp">Recorded on {{ last_entry.recorded_at.strftime('%d %b %Y at %I:%M %p') }}</p>
+        <p class="timestamp">📅 Recorded on {{ last_entry.recorded_at.strftime('%d %b %Y at %I:%M %p') }}</p>
     </div>
     {% else %}
     <div class="no-data-message">
@@ -77,7 +77,7 @@
             <div class="entry-card">
                 <div class="entry-header">
                     <span class="entry-date">
-                        {{ entry.recorded_at.strftime('%d %b %Y, %I:%M %p') }}
+                        📅 {{ entry.recorded_at.strftime('%d %b %Y, %I:%M %p') }}
                     </span>
 
                     <button class="delete-btn"
@@ -184,7 +184,7 @@
 
         <div class="modal-footer">
             <button type="button" class="btn-cancel" onclick="closeModal()">Cancel</button>
-            <button type="button" class="btn-submit" onclick="addHealth()">Submit</button>
+            <button type="button" class="btn-submit" onclick="addHealth(event)">Submit</button>
         </div>
     </div>
 </div>
@@ -221,7 +221,7 @@ function closeModal() {
     document.getElementById('healthForm').reset();
 }
 
-function addHealth() {
+function addHealth(event) {
 
     const heartRate = document.getElementById('heart_rate').value;
     const temperature = document.getElementById('temperature').value;
@@ -247,8 +247,8 @@ function addHealth() {
         return;
     }
 
-    if (steps && steps < 0) {
-        alert("Steps cannot be negative.");
+    if (steps && (steps < 0 || steps > 60000)) {
+        alert("Steps must be between 0 and 60,000.");
         return;
     }
 
@@ -267,6 +267,11 @@ function addHealth() {
         alert("Blood pressure must be between 40 and 250 mmHg.");
         return;
     }
+
+    /* ===== DISABLE BUTTON & SHOW LOADING STATE ===== */
+    const submitBtn = event.target;
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Submitting...';
 
     /* ===== SEND DATA ===== */
     const formData = {
@@ -294,9 +299,15 @@ function addHealth() {
             location.reload();
         } else {
             alert(data.message || "Failed to save health entry.");
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Submit';
         }
     })
-    .catch(err => alert("❌ Something went wrong. Please try again."));
+    .catch(err => {
+        alert("❌ Something went wrong. Please try again.");
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Submit';
+    });
 }
 
 // Close modal when clicking outside it

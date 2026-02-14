@@ -2,8 +2,12 @@ from flask import render_template, redirect, jsonify, request
 from flask_login import login_required, current_user
 from models.medicine_model import Medicine
 from config import db
-from models import Medication
+from models import Medication, MedicationLog
 from datetime import date, datetime
+from utils.medication_schedule import get_intake_times
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 @login_required
@@ -42,16 +46,26 @@ def medication_page():
 
 @login_required
 def add_medication():
-    """Add new medication"""
+    """Add new medication and create logs if start date is today"""
     data = request.get_json(silent=True) or {}
     
     # Validation
     medicine_name = data.get('medicine_name')
     dosage = data.get('dosage')
     frequency = data.get('frequency')
+    is_critical = data.get('is_critical', False)
     
     if not medicine_name or not dosage or not frequency or not data.get('start_date') or not data.get('end_date'):
         return jsonify({"message": "All fields are required", "success": False}), 400
+
+    # Convert frequency to integer
+    try:
+        frequency = int(frequency)
+    except (ValueError, TypeError):
+        return jsonify({
+            "success": False,
+            "message": "Frequency must be a valid number (1=once, 2=twice, 3=thrice, 4=four times, 6=six times daily)"
+        }), 400
 
     start_date = datetime.strptime(data['start_date'], "%Y-%m-%d").date()
     end_date = datetime.strptime(data['end_date'], "%Y-%m-%d").date()
@@ -87,19 +101,72 @@ def add_medication():
             dosage=dosage,
             frequency=frequency,
             start_date=start_date,
-            end_date=end_date
+            end_date=end_date,
+            is_critical=is_critical
         )
 
         db.session.add(medication)
+        db.session.flush()  # Flush to get medication_id without committing
+        
+        # ✅ IMPROVED: If start date is today, create medication logs for today
+        logs_created = 0
+        if start_date == today:
+            try:
+                logger.info(f"Creating logs for medication {medication.medication_id}, frequency={frequency}")
+                
+                # Get scheduled times based on frequency
+                scheduled_times = get_intake_times(frequency)
+                
+                logger.info(f"get_intake_times({frequency}) returned: {scheduled_times}")
+                
+                if scheduled_times and len(scheduled_times) > 0:
+                    for scheduled_time in scheduled_times:
+                        try:
+                            medication_log = MedicationLog(
+                                user_id=current_user.user_id,
+                                medication_id=medication.medication_id,
+                                log_date=today,
+                                scheduled_time=scheduled_time,
+                                status='pending'
+                            )
+                            db.session.add(medication_log)
+                            logs_created += 1
+                            logger.info(f"Created log for {medication.medication_id} at {scheduled_time}")
+                        except Exception as time_error:
+                            logger.error(f"Error creating individual log: {str(time_error)}", exc_info=True)
+                            continue
+                    
+                    logger.info(f"Successfully created {logs_created} medication logs for medication {medication.medication_id}")
+                else:
+                    logger.warning(f"No scheduled times found for frequency: {frequency}")
+                
+            except Exception as log_error:
+                logger.error(f"Error in medication log creation: {str(log_error)}", exc_info=True)
+                # Continue even if log creation fails - medication is still added
+        
         db.session.commit()
+        
+        msg = "Medication added successfully"
+        if start_date == today and logs_created > 0:
+            msg += f" and {logs_created} dose(s) scheduled for today"
         
         return jsonify({
             "success": True,
-            "message": "Medication added successfully"
+            "message": msg,
+            "logs_created": logs_created
         })
         
     except Exception as e:
         db.session.rollback()
+        logger.error(f"Error adding medication: {str(e)}", exc_info=True)
+        return jsonify({
+            "success": False,
+            "message": f"Error adding medication: {str(e)}"
+            }), 500
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error adding medication: {str(e)}")
         return jsonify({
             "success": False,
             "message": f"Error adding medication: {str(e)}"

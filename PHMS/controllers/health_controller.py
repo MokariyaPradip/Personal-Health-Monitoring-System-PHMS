@@ -62,7 +62,7 @@ def _send_health_alert_email(user_email, user_name, health_data):
     }
 
     subject = "⚠️ PHMS Health Alert - High Risk Detected"
-    html_body = render_template('health_alert_email.html', **context)
+    html_body = render_template('email-templates/health_alert_email.html', **context)
     msg = Message(subject=subject, recipients=[user_email], html=html_body, sender=sender)
 
     try:
@@ -163,8 +163,8 @@ def add_health():
             }), 400
             
         steps = int(data.get('steps')) if data.get('steps') else None
-        if steps and steps < 0:
-            return jsonify({"success": False, "message": "Steps cannot be negative"}), 400
+        if steps and (steps < 0 or steps > 60000):
+            return jsonify({"success": False, "message": "Steps must be between 0 and 60,000"}), 400
             
         sleep_hours = float(data.get('sleep_hours')) if data.get('sleep_hours') else None
         if sleep_hours and (sleep_hours < 0 or sleep_hours > 24):
@@ -247,10 +247,19 @@ def add_health():
     is_high_risk = (rule_based_risk_label == "High Risk" or ml_predicted_risk_label == "High Risk")
     severity = "High" if is_high_risk else "Medium" if rule_based_risk_label == "Medium Risk" else "Low"
     
+    # Determine alert title based on risk level
+    alert_title = (
+        "🔴 High Risk Alert" if is_high_risk
+        else "🟡 Medium Risk Alert" if rule_based_risk_label == "Medium Risk"
+        else "🟢 Health Check-in"
+    )
+    
     alert = Alert(
         user_id=current_user.user_id,
         health_id=health.entry_id,
+        title=alert_title,
         message=f"Health data recorded (Score: {health_score}, Rule-based: {rule_based_risk_label}, ML: {ml_predicted_risk_label})",
+        category="health",
         severity=severity
     )
     db.session.add(alert)

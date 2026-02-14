@@ -11,12 +11,6 @@
 
     {% block head_extra %}{% endblock %}
 
-    <script>
-        window.getCsrfToken = function () {
-            const el = document.querySelector('meta[name="csrf-token"]');
-            return el ? el.getAttribute('content') : '';
-        };
-    </script>
 </head>
 
 <body>
@@ -24,13 +18,32 @@
     <!-- ===== Navigation Bar (Visible on all pages except login/register) ===== -->
     <nav class="navbar">
         <a href="/dashboard" class="logo">PHMS</a>
-        <div>
+        <div class="nav-links">
             <a href="/dashboard">Dashboard</a>
             <a href="/health">Health Data</a>
             <a href="/medication">Medication</a>
             <a href="/reports">Reports</a>
             <a href="/profile">Profile</a>
-            <!-- <a href="/logout" class="logout">Logout</a>  -->
+            
+            <!-- Notification Bell -->
+            <div class="notification-container" onmouseenter="showNotifications()" onmouseleave="hideNotifications()">
+                <a href="/notifications" class="notification-bell-link" aria-label="Notifications">
+                    <span class="bell-icon">🔔</span>
+                    <span class="notification-badge" id="notificationBadge" style="display: none;">0</span>
+                </a>
+                
+                <!-- Notification Dropdown -->
+                <div class="notification-dropdown" id="notificationDropdown" onmouseenter="cancelHideDropdown()" onmouseleave="hideNotifications()">
+                    <div class="notification-header">
+                        <h3>Notifications</h3>
+                        <button class="mark-all-read" onclick="markAllAsRead()" title="Mark all as read">✓</button>
+                    </div>
+                    <div class="notification-list" id="notificationList">
+                        <div class="notification-loading">Loading...</div>
+                    </div>
+                    <a href="/notifications" class="view-all-notifications">View All Notifications →</a>
+                </div>
+            </div>
         </div>
     </nav>
 
@@ -44,6 +57,245 @@
     <footer>
         © 2026 Personal Health Monitoring System
     </footer>
+
+    <script>
+        window.getCsrfToken = function () {
+            const el = document.querySelector('meta[name="csrf-token"]');
+            return el ? el.getAttribute('content') : '';
+        };
+
+        // ===== NOTIFICATION FUNCTIONS =====
+        let notificationPollingInterval = null;
+        let hideDropdownTimeout = null;
+
+        function showNotifications() {
+            // Clear any pending hide timeout
+            if (hideDropdownTimeout) {
+                clearTimeout(hideDropdownTimeout);
+                hideDropdownTimeout = null;
+            }
+            
+            const dropdown = document.getElementById('notificationDropdown');
+            dropdown.style.display = 'block';
+            loadNotifications();
+        }
+
+        function cancelHideDropdown() {
+            // Clear the hide timeout when mouse enters dropdown
+            if (hideDropdownTimeout) {
+                clearTimeout(hideDropdownTimeout);
+                hideDropdownTimeout = null;
+            }
+        }
+
+        function hideNotifications() {
+            // Delay hiding to allow moving mouse to dropdown
+            hideDropdownTimeout = setTimeout(() => {
+                const dropdown = document.getElementById('notificationDropdown');
+                dropdown.style.display = 'none';
+            }, 300);
+        }
+
+        function toggleNotifications() {
+            const dropdown = document.getElementById('notificationDropdown');
+            if (dropdown.style.display === 'block') {
+                dropdown.style.display = 'none';
+            } else {
+                dropdown.style.display = 'block';
+                loadNotifications();
+            }
+        }
+
+        function loadNotifications() {
+            fetch('/notifications/api?limit=15', {
+                method: 'GET',
+                headers: {
+                    'X-CSRFToken': window.getCsrfToken()
+                }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    displayNotifications(data.notifications);
+                    updateNotificationBadge(data.count);
+                }
+            })
+            .catch(err => console.error('Error loading notifications:', err));
+        }
+
+        function displayNotifications(notifications) {
+            const notificationList = document.getElementById('notificationList');
+            
+            if (!notifications || notifications.length === 0) {
+                notificationList.innerHTML = '<div class="notification-empty">No new notifications</div>';
+                return;
+            }
+
+            let html = '';
+            notifications.forEach(notification => {
+                const categoryClass = `category-${notification.category || 'general'}`;
+                const severityClass = `severity-${notification.severity || 'medium'}`;
+                const categoryEmoji = getCategoryEmoji(notification.category);
+                const severityLabel = getSeverityLabel(notification.severity);
+
+                html += `
+                    <div class="notification-item ${categoryClass} ${severityClass}" onclick="handleNotificationClick(${notification.alert_id}, this)">
+                        <div class="notification-icon">${categoryEmoji}</div>
+                        <div class="notification-content">
+                            <div class="notification-title">${escapeHtml(notification.title)}</div>
+                            <div class="notification-message">${escapeHtml(notification.message.substring(0, 80))}${notification.message.length > 80 ? '...' : ''}</div>
+                            <div class="notification-meta">
+                                <span class="notification-severity ${severityClass}">${severityLabel}</span>
+                                <span class="notification-time">${notification.created_at}</span>
+                            </div>
+                        </div>
+                        <button class="notification-close" onclick="deleteNotification(event, ${notification.alert_id})" title="Dismiss">✕</button>
+                    </div>
+                `;
+            });
+
+            notificationList.innerHTML = html;
+        }
+
+        function handleNotificationClick(alertId, element) {
+            // Mark as read
+            fetch(`/notifications/${alertId}/read`, {
+                method: 'PUT',
+                headers: {
+                    'X-CSRFToken': window.getCsrfToken()
+                }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    element.classList.add('read');
+                    loadNotifications();
+                }
+            })
+            .catch(err => console.error('Error marking notification as read:', err));
+        }
+
+        function deleteNotification(event, alertId) {
+            event.stopPropagation();
+            // Remove from UI
+            const notificationItem = event.target.closest('.notification-item');
+            if (notificationItem) {
+                notificationItem.remove();
+            }
+            // Mark as read in backend
+            handleNotificationClick(alertId, notificationItem);
+        }
+
+        function markAllAsRead() {
+            fetch('/notifications/mark-all-read', {
+                method: 'PUT',
+                headers: {
+                    'X-CSRFToken': window.getCsrfToken()
+                }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    loadNotifications();
+                }
+            })
+            .catch(err => console.error('Error marking all as read:', err));
+        }
+
+        function updateNotificationBadge(count) {
+            const badge = document.getElementById('notificationBadge');
+            if (count > 0) {
+                badge.textContent = count > 99 ? '99+' : count;
+                badge.style.display = 'block';
+            } else {
+                badge.style.display = 'none';
+            }
+        }
+
+        function getCategoryEmoji(category) {
+            const emojiMap = {
+                'health': '🏥',
+                'medication': '💊',
+                'appointment': '📅',
+                'alert': '⚠️',
+                'general': 'ℹ️'
+            };
+            return emojiMap[category] || emojiMap['general'];
+        }
+
+        function getSeverityLabel(severity) {
+            const labelMap = {
+                'high': 'High',
+                'medium': 'Medium',
+                'low': 'Low'
+            };
+            return labelMap[severity] || 'Normal';
+        }
+
+        function escapeHtml(text) {
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, m => map[m]);
+        }
+
+        // Load notifications on page load and set up polling
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initial load
+            fetch('/notifications/count', {
+                method: 'GET',
+                headers: {
+                    'X-CSRFToken': window.getCsrfToken()
+                }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    updateNotificationBadge(data.count);
+                }
+            })
+            .catch(err => console.error('Error loading notification count:', err));
+
+            // Poll for new notifications every 30 seconds
+            notificationPollingInterval = setInterval(() => {
+                fetch('/notifications/count', {
+                    method: 'GET',
+                    headers: {
+                        'X-CSRFToken': window.getCsrfToken()
+                    }
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        updateNotificationBadge(data.count);
+                    }
+                })
+                .catch(err => console.error('Error polling notifications:', err));
+            }, 30000); // Poll every 30 seconds
+        });
+
+        // Close notification dropdown when clicking outside
+        window.addEventListener('click', function(event) {
+            const dropdown = document.getElementById('notificationDropdown');
+            const container = document.querySelector('.notification-container');
+            
+            // Only close if clicking outside and not hovering
+            if (!event.target.closest('.notification-container')) {
+                dropdown.style.display = 'none';
+            }
+        });
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', function() {
+            if (notificationPollingInterval) {
+                clearInterval(notificationPollingInterval);
+            }
+        });
+    </script>
 
 </body>
 </html>

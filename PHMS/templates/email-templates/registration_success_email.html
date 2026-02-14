@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 20px;
+        }
+        .email-container {
+            background-color: #ffffff;
+            border-radius: 8px;
+            max-width: 600px;
+            margin: 0 auto;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        .email-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px 20px;
+            text-align: center;
+        }
+        .email-header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 600;
+        }
+        .email-body {
+            padding: 30px 20px;
+            color: #333;
+            line-height: 1.6;
+        }
+        .greeting {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 15px;
+        }
+        .message {
+            font-size: 14px;
+            color: #555;
+            margin-bottom: 20px;
+        }
+        .features {
+            background-color: #f9f9f9;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .features h3 {
+            margin-top: 0;
+            color: #667eea;
+            font-size: 16px;
+        }
+        .features ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        .features li {
+            margin: 8px 0;
+            font-size: 14px;
+            color: #555;
+        }
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 30px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 14px;
+            margin: 20px 0;
+        }
+        .cta-button:hover {
+            opacity: 0.9;
+        }
+        .footer {
+            background-color: #f5f5f5;
+            border-top: 1px solid #e0e0e0;
+            padding: 20px;
+            text-align: center;
+            font-size: 12px;
+            color: #999;
+        }
+        .footer p {
+            margin: 5px 0;
+        }
+        .highlight {
+            color: #667eea;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <!-- Header -->
+        <div class="email-header">
+            <h1>🎉 Welcome to PHMS!</h1>
+            <p style="margin: 10px 0 0 0; font-size: 16px; opacity: 0.9;">Personal Health Monitoring System</p>
+        </div>
+
+        <!-- Body -->
+        <div class="email-body">
+            <div class="greeting">
+                Welcome aboard! 👋
+            </div>
+
+            <div class="message">
+                Your account has been successfully created. We're thrilled to have you join the Personal Health Monitoring System community. Your journey to better health management starts now!
+            </div>
+
+            <!-- Features Section -->
+            <div class="features">
+                <h3>📊 What You Can Do:</h3>
+                <ul>
+                    <li><strong>Track Health Data:</strong> Monitor your vital signs including heart rate, blood pressure, temperature, and more</li>
+                    <li><strong>Manage Medications:</strong> Keep track of your medications, dosages, and schedules</li>
+                    <li><strong>Health Alerts:</strong> Receive smart alerts based on your health metrics</li>
+                    <li><strong>Generate Reports:</strong> Get detailed health reports and insights</li>
+                    <li><strong>Smart Health Scoring:</strong> Get personalized health scores and risk assessments</li>
+                </ul>
+            </div>
+
+            <div class="message">
+                <strong>Getting Started:</strong><br>
+                Log in to your account and complete your health profile. The more information you provide, the better insights we can give you.
+            </div>
+
+            <div style="text-align: center;">
+                <a href="{{ dashboard_url }}" class="cta-button">Go to Dashboard</a>
+            </div>
+
+            <div class="message" style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
+                <strong>Quick Tips:</strong>
+                <ul style="margin: 10px 0; padding-left: 20px; color: #555; font-size: 14px;">
+                    <li>Keep your profile information updated</li>
+                    <li>Add your health data regularly for accurate insights</li>
+                    <li>Enable notifications to stay informed about your health</li>
+                    <li>Check the Reports section for health trends</li>
+                </ul>
+            </div>
+
+            <div class="message">
+                If you have any questions or need support, please don't hesitate to contact us. We're here to help you achieve your health goals!
+            </div>
+
+            <div class="message" style="color: #667eea; font-weight: 600;">
+                Stay Healthy! 💪<br>
+                The PHMS Team
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p><strong>Personal Health Monitoring System</strong></p>
+            <p>© 2026 PHMS. All rights reserved.</p>
+            <p>This email was sent to you because you registered for a PHMS account.</p>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,11 +1,19 @@
 from config import db
-from datetime import datetime
+from datetime import datetime, date
 
 
 class MedicationLog(db.Model):
     __tablename__ = 'medication_log'
 
     log_id = db.Column(db.Integer, primary_key=True)
+    
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey('user.user_id', ondelete="CASCADE"),
+        nullable=True,
+        index=True
+    )
+    
     medication_id = db.Column(
         db.Integer,
         db.ForeignKey('medication.medication_id', ondelete="CASCADE"),
@@ -13,13 +21,20 @@ class MedicationLog(db.Model):
         index=True
     )
 
-    taken_at = db.Column(
-        db.DateTime,
-        default=datetime.utcnow,
-        nullable=False
+    log_date = db.Column(db.Date, default=date.today)
+    status = db.Column(
+        db.Enum('pending', 'taken', 'missed', name='medication_status'),
+        default='pending'
     )
+
+    scheduled_time = db.Column(db.Time, nullable=False)
+    taken_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
-    status = db.Column(db.String(20))  # Taken / Pending / Missed / Skipped
+    user = db.relationship(
+        "User",
+        backref="medication_logs"
+    )
     
     medication = db.relationship(
         "Medication",

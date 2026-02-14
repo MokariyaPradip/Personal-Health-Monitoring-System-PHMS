@@ -25,3 +25,7 @@ matplotlib==3.8.0
 
 # Environment & Configuration
 python-dotenv==1.0.0
+
+# Scheduling & Task Management
+APScheduler==3.10.4
+Flask-APScheduler==1.13.1

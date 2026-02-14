@@ -15,9 +15,21 @@ def dashboard():
         user_id=user.user_id
     ).order_by(HealthData.recorded_at.desc()).first()
 
-    medications = Medication.query.filter_by(
+    # Get all medications for the user
+    all_medications = Medication.query.filter_by(
         user_id=user.user_id
     ).all()
+    
+    # Filter active medications
+    active_medications = [med for med in all_medications if med.is_active()]
+    
+    # Determine which medications to display
+    if len(active_medications) >= 3:
+        # If 3 or more active medications, display only active ones
+        medications = active_medications
+    else:
+        # If less than 3 active, display up to 5 total medications
+        medications = all_medications[:5]
 
     alerts = Alert.query.filter_by(
         user_id=user.user_id

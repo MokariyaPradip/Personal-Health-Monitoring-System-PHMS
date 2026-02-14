@@ -1,0 +1,166 @@
+Triggered by: Scheduler (every minute)
+├─ schedule_notifications()
+│  ├─ Finds pending logs where scheduled_time is near (±1 min)
+│  └─ For each log near scheduled time:
+│     └─ send_medication_notification(log_id)
+│        ├─ Gets medication & medicine details
+│        ├─ Checks: if medication.is_critical ✅ [NEW]
+│        ├─ IF CRITICAL:
+│        │  ├─ severity = 'critical' ✅ [UPDATED from 'high']
+│        │  ├─ title = '🚨 CRITICAL - {medicine_name}'
+│        │  └─ send_critical_medication_reminder_email() ✅ [NEW]
+│        │
+│        ├─ IF NOT CRITICAL:
+│        │  ├─ severity = 'high'
+│        │  ├─ title = '💊 {medicine_name}'
+│        │  └─ No email sent
+│        │
+│        └─ Creates Alert entry:
+│           ├─ category = 'medication'
+│           ├─ medication_log_id = log.log_id
+│           ├─ is_read = False
+│           └─ Saved to database
+
+
+Function: send_critical_medication_reminder_email()
+├─ Triggered at scheduled reminder time (proactive)
+├─ When: if medication.is_critical = True
+├─ Email Content:
+│  ├─ Subject: 🚨 CRITICAL MEDICATION REMINDER - {medicine_name}
+│  ├─ Body:
+│  │  ├─ Medicine name, dosage, type, purpose
+│  │  ├─ Scheduled date & time
+│  │  ├─ Urgent action message
+│  │  └─ Links to dashboard, medication page, help
+│  └─ Priority: HIGH (1)
+└─ Purpose: Proactive reminder before dose time
+
+
+Tab 1: "💊 Medication Reminders" (Alerts)
+
+Displays alerts from Alert table where:
+├─ category = 'medication'
+├─ user_id = current_user.user_id
+├─ Ordered by created_at DESC
+│
+For each alert:
+├─ Title: 💊 {medicine_name} or 🚨 CRITICAL - {medicine_name}
+├─ Severity Badge:
+│  ├─ CRITICAL (red) - if severity='critical'
+│  └─ HIGH (yellow) - if severity='high'
+├─ Message: "Time to take your medication..."
+├─ Timestamp: "Feb 15, 2026 09:00 AM"
+├─ Mark as Read button
+└─ Unread count badge
+
+Tab 2: "📋 Medication Log" (Status Tracking)
+Displays MedicationLog entries from medication_log table where:
+├─ user_id = current_user.user_id
+├─ log_date >= (today - 7 days)
+├─ Ordered by log_date DESC, scheduled_time DESC
+│
+Separated into 3 sections:
+│
+1. ⏳ PENDING
+│  ├─Shows: medicine name, dosage, scheduled date & time
+│  ├─Actions: [✅ Mark as Taken] [❌ Mark as Missed]
+│  └─Badge: PENDING (yellow)
+│
+2. ✅ TAKEN
+│  ├─Shows: medicine name, dosage, taken at timestamp
+│  ├─No actions available
+│  └─Badge: TAKEN (green)
+│
+3. ❌ MISSED
+│  ├─Shows: medicine name, dosage, scheduled date & time
+│  ├─No actions available
+│  └─Badge: MISSED (red)
+
+USER ACTIONS - MARK AS TAKEN ✅
+User clicks "✅ Taken" on pending medication
+├─ Call: PUT /medication-log/{log_id}/taken
+├─ Handler: mark_medication_taken(log_id)
+│  ├─ Validates: log exists for current_user
+│  ├─ Updates:
+│  │  ├─ status = 'taken'
+│  │  ├─ taken_at = datetime.utcnow()
+│  │  └─ db.session.commit()
+│  ├─ Error Handling: ✅ [ADDED]
+│  │  ├─ 404 if log not found
+│  │  ├─ 500 if database error
+│  │  └─ Rollback on exception
+│  └─ Response: {success: true, message: "Medication marked as taken"}
+│
+├─ Template: Reload page to refresh UI
+└─ Result: Medication moves to "✅ TAKEN" section
+
+
+USER ACTIONS - MARK AS TAKEN ✅
+User clicks "❌ Missed" on pending medication
+├─ Call: PUT /medication-log/{log_id}/missed
+├─ Handler: mark_medication_missed(log_id)
+│  ├─ Validates: log exists for current_user
+│  ├─ Updates: status = 'missed'
+│  ├─ Check: if medication.is_critical ✅ [ADDED]
+│  │  └─ Call: send_critical_medication_missed_email()
+│  │     ├─ Email Subject: 🚨 CRITICAL - Medication Missed: {medicine}
+│  │     ├─ Email Body:
+│  │     │  ├─ Full medication details
+│  │     │  ├─ "This requires immediate attention"
+│  │     │  └─ Action links
+│  │     └─ Priority: CRITICAL (1)
+│  │
+│  ├─ Commit changes
+│  ├─ Error Handling: ✅ [ADDED]
+│  │  ├─ 404 if log not found
+│  │  ├─ 500 if database error
+│  │  └─ Rollback on exception
+│  └─ Response: {success: true, message: "Medication marked as missed"}
+│
+├─ Template: Reload page to refresh UI
+└─ Result: Medication moves to "❌ MISSED" section
+
+CRITICAL MEDICATION MISSED EMAIL ✅
+Function: send_critical_medication_missed_email()
+├─ Triggered when: User marks critical medication as missed
+├─ Different from: send_critical_medication_reminder_email() [proactive]
+├─ Email Content:
+│  ├─ Subject: 🚨 CRITICAL - Medication Missed: {medicine_name}
+│  ├─ Body:
+│  │  ├─ "This requires immediate attention"
+│  │  ├─ Full medication details
+│  │  ├─ "Contact your healthcare provider"
+│  │  └─ Links to dashboard, help
+│  └─ Priority: CRITICAL (1)
+└─ Purpose: Reactive alert after dose missed
+
+ALERT MODEL RELATIONSHIPS ✅
+Alert table fields:
+├─ alert_id (PK)
+├─ user_id (FK) → User
+├─ medication_log_id (FK) → MedicationLog ✅ [KEY]
+├─ title (string)
+├─ message (text)
+├─ category = 'medication' (for reminders)
+├─ severity = 'high' or 'critical'
+├─ is_read (boolean)
+├─ created_at (timestamp)
+│
+Query for alerts:
+└─ get_notifications() → Fetches where is_read=False
+
+MEDICATION LOG MODEL ✅
+MedicationLog table fields:
+├─ log_id (PK)
+├─ user_id (FK) → User
+├─ medication_id (FK) → Medication
+├─ log_date (date)
+├─ scheduled_time (time) ← Set by get_intake_times()
+├─ status: ENUM('pending', 'taken', 'missed')
+├─ taken_at (datetime, nullable)
+├─ created_at (timestamp)
+│
+Relationships:
+├─ user → User.medication_logs
+├─ medication → Medication.logs
+└─ alerts → Alert.medication_log (one-to-many)

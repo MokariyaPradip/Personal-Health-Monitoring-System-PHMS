@@ -89,7 +89,7 @@
             {% if medications %}
             <div class="med-list">
                 {% for m in medications %}
-                <div class="med-item">
+                <div class="med-item {% if m.is_critical %}critical-med{% endif %}">
                     <div class="med-name">
                         {{ m.medicine.medicine_name }}
                         {% if m.is_active() %}
@@ -97,11 +97,15 @@
                         {% else %}
                             <span class="status-badge inactive">🔴 Inactive</span>
                         {% endif %}
+                        {% if m.is_critical %}
+                            <span class="status-badge critical-med-badge" title="Critical Medication - Immediate email alerts sent if dose is missed">⚠️ CRITICAL</span>
+                        {% endif %}
                     </div>
                     <div class="med-details">
                         <div><strong>Type:</strong> {{ m.medicine.medicine_type }}</div>
                         <div><strong>Dosage:</strong> {{ m.dosage }}</div>
                         <div><strong>Frequency:</strong> {{ m.frequency }}</div>
+                        
                     </div>
                 </div>
                 {% endfor %}
@@ -123,12 +127,19 @@
             {% if alerts %}
             <div class="alerts-list">
                 {% for alert in alerts %}
-                <div class="alert-item alert-{{ alert.severity|lower }}">
-                    <div class="alert-badge">{{ alert.severity }}</div>
-                    <div class="alert-content">
-                        <div class="alert-message">{{ alert.message }}</div>
-                        <small class="alert-time">{{ alert.created_at.strftime('%d %b %Y, %I:%M %p') }}</small>
+                <div class="alert-item alert-{{ alert.severity|lower }} alert-category-{{ alert.category|lower }} {% if not alert.is_read %}unread{% endif %}">
+                    <div class="alert-left">
+                        <div class="alert-category-badge">{{ alert.category|upper }}</div>
+                        <div class="alert-severity-badge severity-{{ alert.severity|lower }}">{{ alert.severity }}</div>
                     </div>
+                    <div class="alert-content">
+                        <div class="alert-title">{{ alert.title or 'Alert' }}</div>
+                        <div class="alert-message">{{ alert.message[:100] }}{% if alert.message|length > 100 %}...{% endif %}</div>
+                        <small class="alert-time">📅 {{ alert.created_at.strftime('%d %b %Y, %I:%M %p') }}</small>
+                    </div>
+                    {% if not alert.is_read %}
+                    <div class="alert-unread-indicator"></div>
+                    {% endif %}
                 </div>
                 {% endfor %}
             </div>

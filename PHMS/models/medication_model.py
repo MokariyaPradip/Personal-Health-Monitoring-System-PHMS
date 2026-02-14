@@ -23,6 +23,7 @@ class Medication(db.Model):
     frequency = db.Column(db.Integer)
     start_date = db.Column(db.Date)
     end_date = db.Column(db.Date)
+    is_critical = db.Column(db.Boolean, default=False, nullable=False)
 
     user = db.relationship(
         "User",
@@ -40,13 +41,11 @@ class Medication(db.Model):
         cascade="all, delete-orphan"
     )
 
-    __table_args__ = (
-        db.UniqueConstraint(
-            'user_id',
-            'medicine_id',
-            name='uq_user_medicine'
-        ),
-    )
+    # Removed unique constraint to allow users to add same medicine with different:
+    # - dosages (e.g., Aspirin 500mg and 250mg)
+    # - frequencies (e.g., Morning and Evening doses)
+    # - date ranges (e.g., Feb course and March course)
+    # This provides better workflow flexibility
     
     def is_active(self):
         today = date.today()

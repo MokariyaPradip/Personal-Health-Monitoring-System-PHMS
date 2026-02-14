@@ -99,10 +99,11 @@
 .med-header {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
     margin-bottom: 1.5rem;
-    padding-bottom: 1.5rem;
+    /* padding-bottom: 1.5rem; */
     border-bottom: 2px solid var(--border-light);
+    gap: 1rem;
 }
 
 .med-info {
@@ -110,10 +111,15 @@
 }
 
 .med-title {
-    margin: 0;
+    margin: 0 0 0.8rem 0;
     font-size: 1.35rem;
     font-weight: 700;
     color: var(--text-dark);
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.8rem;
+    line-height: 1.6;
 }
 
 .med-purpose {
@@ -132,7 +138,9 @@
     transition: all 0.3s ease;
     padding: 0.5rem;
     border-radius: 6px;
-    width: inherit ;
+    width: inherit;
+    flex-shrink: 0;
+    margin-top: 2px;
 }
 
 .delete-btn:hover {
@@ -376,6 +384,15 @@
         width: 95%;
         margin: 5% auto;
     }
+
+    .med-title {
+        font-size: 1.2rem;
+    }
+
+    .status-badge {
+        font-size: 0.75rem;
+        padding: 0.45rem 0.8rem;
+    }
 }
 
 @media (max-width: 640px) {
@@ -405,6 +422,12 @@
 
     .med-title {
         font-size: 1.15rem;
+        margin-bottom: 0.6rem;
+    }
+
+    .status-badge {
+        font-size: 0.75rem;
+        padding: 0.4rem 0.7rem;
     }
 
     .modal-content {
@@ -743,20 +766,91 @@
 }
 
 .status-badge {
-    font-size: 0.75rem;
-    padding: 4px 10px;
-    border-radius: 14px;
-    margin-left: 10px;
+    font-size: 0.8rem;
+    padding: 0.5rem 0.85rem;
+    border-radius: 16px;
+    margin-left: 0;
     font-weight: 600;
     vertical-align: middle;
+    white-space: nowrap;
+    display: inline-block;
+    transition: all 0.2s ease;
 }
 
 .status-badge.active {
     background-color: #e6f9ee;
     color: #1e8e3e;
+    border: 1px solid #b8e6d5;
+}
+
+.status-badge.active:hover {
+    background-color: #d0f0e2;
 }
 
 .status-badge.inactive {
     background-color: #fdecea;
     color: #c5221f;
+    border: 1px solid #f5b8b0;
+}
+
+.status-badge.inactive:hover {
+    background-color: #fbddd6;
+}
+
+.status-badge.critical {
+    background-color: #ffe5e5;
+    color: #d9534f;
+    font-weight: 700;
+    border: 1.5px solid #d9534f;
+    animation: pulse-critical 0.5s ease-in-out;
+}
+
+.status-badge.critical:hover {
+    background-color: #ffd6d6;
+    box-shadow: 0 2px 8px rgba(217, 83, 79, 0.2);
+}
+
+@keyframes pulse-critical {
+    0%, 100% {
+        box-shadow: 0 0 0 0 rgba(217, 83, 79, 0.4);
+    }
+    50% {
+        box-shadow: 0 0 0 4px rgba(217, 83, 79, 0.1);
+    }
+}
+
+/* Tooltip for status badges */
+.status-badge[title] {
+    cursor: help;
+    position: relative;
+}
+
+.status-badge[title]:hover::after {
+    content: attr(title);
+    position: absolute;
+    bottom: 125%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.9);
+    color: white;
+    padding: 0.6rem 0.8rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    white-space: nowrap;
+    z-index: 1000;
+    pointer-events: none;
+    font-weight: normal;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.status-badge[title]:hover::before {
+    content: '';
+    position: absolute;
+    bottom: 120%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 4px solid transparent;
+    border-top-color: rgba(0, 0, 0, 0.9);
+    z-index: 1000;
+    pointer-events: none;
 }

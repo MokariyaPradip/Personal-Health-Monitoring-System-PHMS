@@ -1,4 +1,5 @@
 import os
+import logging
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
@@ -30,6 +31,18 @@ mail = Mail()
 
 def create_app():
     app = Flask(__name__)
+    
+    # ================== SUPPRESS VERBOSE SMTP LOGGING ==================
+    # Completely suppress SMTP protocol debug output
+    smtp_logger = logging.getLogger('smtplib')
+    smtp_logger.setLevel(logging.ERROR)
+    smtp_logger.propagate = False
+    smtp_logger.addHandler(logging.NullHandler())
+    
+    urllib_logger = logging.getLogger('urllib3')
+    urllib_logger.setLevel(logging.ERROR)
+    urllib_logger.propagate = False
+    urllib_logger.addHandler(logging.NullHandler())
 
     # Load config
     app.config['SQLALCHEMY_DATABASE_URI'] = SQLALCHEMY_DATABASE_URI
@@ -48,6 +61,7 @@ def create_app():
     app.config['MAIL_USE_SSL'] = os.environ.get('MAIL_USE_SSL', '0') == '1'
     app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME', '')
     app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD', '')
+    app.config['MAIL_DEBUG'] = False  # Disable Flask-Mail debug output
     mail_default_sender = os.environ.get('MAIL_DEFAULT_SENDER', '')
     app.config['MAIL_DEFAULT_SENDER'] = mail_default_sender
     app.config['MAIL_SUPPRESS_SEND'] = os.environ.get('MAIL_SUPPRESS_SEND', '0') == '1'

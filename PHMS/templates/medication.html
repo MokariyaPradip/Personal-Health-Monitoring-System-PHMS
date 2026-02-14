@@ -23,12 +23,16 @@
                 <div class="med-header">
                     <div class="med-info">
                         <h3 class="med-title">
-                            {{ med.medicine.medicine_name }}
+                            <span style="flex-basis: 100%;">{{ med.medicine.medicine_name }}</span>
                         
                             {% if med.is_active() %}
                                 <span class="status-badge active">🟢 Active</span>
                             {% else %}
                                 <span class="status-badge inactive">🔴 Inactive</span>
+                            {% endif %}
+                            
+                            {% if med.is_critical %}
+                                <span class="status-badge critical" title="Critical Medication - Immediate email alerts sent if dose is missed">⚠️ CRITICAL</span>
                             {% endif %}
                         </h3>
                     </div>
@@ -212,12 +216,22 @@
                     <input type="date" id="end_date" placeholder="e.g., 2024-01-15" required>
                 </div>
 
+                <div class="form-group">
+                    <label for="is_critical">
+                        <input type="checkbox" id="is_critical" name="is_critical" style="margin-right: 5px; width: auto;">
+                        Mark as Critical Medication
+                    </label>
+                    <small style="display: block; margin-top: 5px; color: #888;">
+                        🚨 Critical medications trigger immediate email notifications if missed
+                    </small>
+                </div>
+
             </form>
         </div>
 
         <div class="modal-footer">
             <button type="button" class="btn-cancel" onclick="closeMedicationModal()">Cancel</button>
-            <button type="button" class="btn-submit" onclick="addMedication()">Add Medication</button>
+            <button type="button" class="btn-submit" onclick="addMedication(event)">Add Medication</button>
         </div>
     </div>
 </div>
@@ -256,7 +270,7 @@
 
         <div class="modal-footer">
             <button class="btn-cancel" onclick="closeMedicineModal()">Cancel</button>
-            <button class="btn-submit" onclick="addMedicine()">Add Medicine</button>
+            <button class="btn-submit" onclick="addMedicine(event)">Add Medicine</button>
         </div>
     </div>
 </div>
@@ -296,17 +310,27 @@ function closeMedicationModal() {
     document.getElementById('medicationForm').reset();
 }
 
-function addMedication() {
+function addMedication(event) {
     const medicineName = document.getElementById('medicine_name').value;
     const dosage = document.getElementById('dosage').value;
     const frequency = document.getElementById('frequency').value;
     const start_date = document.getElementById('start_date').value;
     const end_date = document.getElementById('end_date').value;
+    const is_critical = document.getElementById('is_critical').checked;
 
     /* ===== VALIDATION ===== */
     if (!medicineName || !dosage || !frequency || !start_date || !end_date) {
         alert("Please fill in all fields.");
         return;
+    }
+
+    
+
+    /* ===== DISABLE BUTTON & SHOW LOADING STATE ===== */
+    const submitBtn = event ? event.target : null;
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Adding Medication...';
     }
 
     /* ===== SEND DATA ===== */
@@ -321,7 +345,8 @@ function addMedication() {
             dosage: dosage,
             frequency: frequency,
             start_date: start_date,
-            end_date: end_date
+            end_date: end_date,
+            is_critical: is_critical
         })
     })
     .then(res => res.json())
@@ -332,9 +357,19 @@ function addMedication() {
             location.reload();
         } else {
             alert(data.message || "Failed to add medication.");
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Add Medication';
+            }
         }
     })
-    .catch(err => alert("❌ Something went wrong. Please try again."));
+    .catch(err => {
+        alert("❌ Something went wrong. Please try again.");
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Add Medication';
+        }
+    });
 }
 
 </script>
@@ -349,7 +384,7 @@ function closeMedicineModal() {
     document.getElementById('medicineForm').reset();
 }
 
-function addMedicine() {
+function addMedicine(event) {
     const name = document.getElementById('new_medicine_name').value;
     const type = document.getElementById('new_medicine_type').value;
     const purpose = document.getElementById('new_medicine_purpose').value;
@@ -358,6 +393,12 @@ function addMedicine() {
     if (!name || !purpose) {
         alert("Please fill required fields");
         return;
+    }
+
+    const submitBtn = event ? event.target : null;
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Adding Medicine...';
     }
 
     fetch('/addMedicine', {
@@ -381,6 +422,17 @@ function addMedicine() {
             location.reload();
         } else {
             alert("❌ " + data.message);
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Add Medicine';
+            }
+        }
+    })
+    .catch(() => {
+        alert("❌ Something went wrong. Please try again.");
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Add Medicine';
         }
     });
 }

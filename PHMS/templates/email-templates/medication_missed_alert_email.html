@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Medication Missed Alert - PHMS</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f5;
+            padding: 20px;
+        }
+        
+        .email-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        
+        /* Header */
+        .email-header {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            padding: 30px 20px;
+            text-align: center;
+            color: white;
+        }
+        
+        .email-header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+        
+        .email-header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        
+        /* Main Content */
+        .email-body {
+            padding: 30px 20px;
+        }
+        
+        .greeting {
+            font-size: 16px;
+            color: #1f2937;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+        
+        .alert-box {
+            background-color: #fee2e2;
+            border-left: 4px solid #ef4444;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        
+        .alert-box p {
+            color: #7f1d1d;
+            font-weight: 500;
+            margin: 5px 0;
+        }
+        
+        /* Medication Details */
+        .medication-details {
+            background-color: #f9fafb;
+            padding: 20px;
+            border-radius: 6px;
+            margin: 25px 0;
+            border: 1px solid #e5e7eb;
+        }
+        
+        .detail-section {
+            margin-bottom: 15px;
+        }
+        
+        .detail-section:last-child {
+            margin-bottom: 0;
+        }
+        
+        .detail-label {
+            font-size: 12px;
+            font-weight: 700;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 5px;
+        }
+        
+        .detail-value {
+            font-size: 16px;
+            color: #1f2937;
+            font-weight: 600;
+        }
+        
+        /* Timeline */
+        .timeline {
+            margin: 25px 0;
+            padding: 20px;
+            background-color: #f9fafb;
+            border-radius: 6px;
+        }
+        
+        .timeline-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #1f2937;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .timeline-item {
+            display: flex;
+            margin-bottom: 12px;
+            align-items: flex-start;
+        }
+        
+        .timeline-item:last-child {
+            margin-bottom: 0;
+        }
+        
+        .timeline-icon {
+            width: 30px;
+            height: 30px;
+            background-color: #fee2e2;
+            border: 2px solid #ef4444;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 12px;
+            flex-shrink: 0;
+            font-size: 16px;
+        }
+        
+        .timeline-content {
+            flex: 1;
+        }
+        
+        .timeline-date {
+            font-size: 14px;
+            font-weight: 700;
+            color: #1f2937;
+        }
+        
+        .timeline-status {
+            font-size: 12px;
+            color: #6b7280;
+            margin-top: 2px;
+        }
+        
+        /* Action Box */
+        .action-box {
+            background-color: #eff6ff;
+            border-left: 4px solid #3b82f6;
+            padding: 20px;
+            margin: 25px 0;
+            border-radius: 4px;
+            text-align: center;
+        }
+        
+        .action-box h3 {
+            color: #1e40af;
+            font-size: 14px;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+        
+        .action-box p {
+            color: #1e3a8a;
+            font-size: 13px;
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+        
+        .cta-button {
+            display: inline-block;
+            background-color: #3b82f6;
+            color: white;
+            padding: 12px 30px;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 14px;
+            transition: background-color 0.3s ease;
+        }
+        
+        .cta-button:hover {
+            background-color: #2563eb;
+        }
+        
+        /* Information Box */
+        .info-box {
+            background-color: #fef3c7;
+            border-left: 4px solid #fbbf24;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        
+        .info-box p {
+            color: #78350f;
+            font-size: 13px;
+            line-height: 1.6;
+            margin: 0;
+        }
+        
+        /* Recommendations */
+        .recommendations {
+            background-color: #f0fdf4;
+            border-left: 4px solid #10b981;
+            padding: 20px;
+            margin: 25px 0;
+            border-radius: 4px;
+        }
+        
+        .recommendations h4 {
+            color: #065f46;
+            font-size: 14px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .recommendations ul {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .recommendations li {
+            color: #047857;
+            font-size: 13px;
+            margin-bottom: 8px;
+            padding-left: 20px;
+            position: relative;
+            line-height: 1.5;
+        }
+        
+        .recommendations li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            font-weight: bold;
+            color: #10b981;
+        }
+        
+        /* Health Tip */
+        .health-tip {
+            background-color: #f5f3ff;
+            border: 1px solid #e9d5ff;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 25px 0;
+            text-align: center;
+        }
+        
+        .health-tip-title {
+            color: #6b21a8;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+        
+        .health-tip-text {
+            color: #6b21a8;
+            font-size: 13px;
+            line-height: 1.6;
+            margin: 0;
+        }
+        
+        /* Footer */
+        .email-footer {
+            background-color: #f3f4f6;
+            padding: 20px;
+            text-align: center;
+            border-top: 1px solid #e5e7eb;
+        }
+        
+        .footer-text {
+            font-size: 12px;
+            color: #6b7280;
+            margin: 5px 0;
+            line-height: 1.6;
+        }
+        
+        .footer-links {
+            margin: 10px 0 0 0;
+            padding-top: 10px;
+            border-top: 1px solid #d1d5db;
+        }
+        
+        .footer-links a {
+            color: #3b82f6;
+            text-decoration: none;
+            font-size: 12px;
+            margin: 0 10px;
+            display: inline-block;
+        }
+        
+        .footer-links a:hover {
+            text-decoration: underline;
+        }
+        
+        /* Branding */
+        .brand-section {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #d1d5db;
+        }
+        
+        .brand-icon {
+            font-size: 20px;
+            margin-right: 8px;
+        }
+        
+        .brand-text {
+            font-size: 12px;
+            color: #4b5563;
+            font-weight: 600;
+        }
+        
+        /* Responsive */
+        @media only screen and (max-width: 600px) {
+            .email-container {
+                border-radius: 0;
+            }
+            
+            .email-header {
+                padding: 20px 15px;
+            }
+            
+            .email-header h1 {
+                font-size: 22px;
+            }
+            
+            .email-body {
+                padding: 20px 15px;
+            }
+            
+            .medication-details {
+                padding: 15px;
+            }
+            
+            .detail-value {
+                font-size: 14px;
+            }
+            
+            .recommendations li {
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <!-- Header -->
+        <div class="email-header">
+            <h1>⚠️ Medication Missed Alert</h1>
+            <p>Consecutive Missed Days - Immediate Action Required</p>
+        </div>
+        
+        <!-- Body -->
+        <div class="email-body">
+            <!-- Greeting -->
+            <p class="greeting">
+                Hello <strong>{{ user_name }}</strong>,
+            </p>
+            
+            <!-- Alert Message -->
+            <div class="alert-box">
+                <p>🚨 IMPORTANT NOTICE</p>
+                <p>We noticed that you missed taking your medication for <strong>2 consecutive days</strong>. Regular medication adherence is crucial for your health and treatment effectiveness.</p>
+            </div>
+            
+            <!-- Medication Details -->
+            <div class="medication-details">
+                <div class="detail-section">
+                    <div class="detail-label">💊 Medication Name</div>
+                    <div class="detail-value">{{ medicine_name }}</div>
+                </div>
+                
+                <div class="detail-section">
+                    <div class="detail-label">💉 Dosage</div>
+                    <div class="detail-value">{{ dosage }}</div>
+                </div>
+                
+                <div class="detail-section">
+                    <div class="detail-label">📋 Medicine Type</div>
+                    <div class="detail-value">{{ medicine_type }}</div>
+                </div>
+                
+                <div class="detail-section">
+                    <div class="detail-label">🎯 Purpose</div>
+                    <div class="detail-value">{{ medicine_purpose }}</div>
+                </div>
+            </div>
+            
+            <!-- Missed Dates Timeline -->
+            <div class="timeline">
+                <div class="timeline-title">📅 Dates Missed</div>
+                <div class="timeline-item">
+                    <div class="timeline-icon">❌</div>
+                    <div class="timeline-content">
+                        <div class="timeline-date">{{ yesterday_date }}</div>
+                        <div class="timeline-status">First day missed</div>
+                    </div>
+                </div>
+                <div class="timeline-item">
+                    <div class="timeline-icon">❌</div>
+                    <div class="timeline-content">
+                        <div class="timeline-date">{{ today_date }}</div>
+                        <div class="timeline-status">Second consecutive day missed</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Action Box -->
+            <div class="action-box">
+                <h3>📱 Take Action Now</h3>
+                <p>We recommend you take your medication immediately and log it in your dashboard.</p>
+                <a href="{{ dashboard_url }}" class="cta-button">Go to Medication Log</a>
+            </div>
+            
+            <!-- Information Box -->
+            <div class="info-box">
+                <p><strong>💡 Tip:</strong> Set daily reminders on your phone to help you remember your medication schedule.</p>
+            </div>
+            
+            <!-- Recommendations -->
+            <div class="recommendations">
+                <h4>📋 Health Recommendations</h4>
+                <ul>
+                    <li>Take your medication at the same time each day to establish a routine</li>
+                    <li>Use phone alarms or app notifications as reminders</li>
+                    <li>Keep your medications in a visible, easily accessible location</li>
+                    <li>Consider using a pill organizer to manage multiple medications</li>
+                    <li>Share your schedule with a family member for accountability</li>
+                </ul>
+            </div>
+            
+            <!-- Health Tip -->
+            <div class="health-tip">
+                <div class="health-tip-title">💪 Did You Know?</div>
+                <p class="health-tip-text">Consistent medication adherence can improve treatment effectiveness by up to 80%. Your health is our priority!</p>
+            </div>
+            
+            <!-- Important Notice -->
+            <div class="info-box" style="background-color: #ede9fe; border-left-color: #a78bfa;">
+                <p style="color: #5b21b6;"><strong>⚠️ Important:</strong> If you're experiencing side effects or have concerns about your medication, please consult with your healthcare provider immediately.</p>
+            </div>
+            
+            <!-- Closing -->
+            <p class="greeting" style="margin-top: 30px;">
+                Take care of yourself and prioritize your health!<br>
+                <strong>The PHMS Team</strong>
+            </p>
+        </div>
+        
+        <!-- Footer -->
+        <div class="email-footer">
+            <p class="footer-text">
+                📧 Personal Health Monitoring System (PHMS)<br>
+                Your trusted health companion
+            </p>
+            
+            <div class="footer-links">
+                <a href="{{ settings_url }}">Notification Settings</a>
+                <a href="{{ help_url }}">Help & Support</a>
+                <a href="{{ contact_url }}">Contact Us</a>
+            </div>
+            
+            <div class="brand-section">
+                <span class="brand-icon">❤️</span>
+                <span class="brand-text">PHMS - Caring for Your Health</span>
+            </div>
+            
+            <p class="footer-text" style="margin-top: 15px; font-size: 11px; color: #9ca3af;">
+                This is an automated alert from PHMS. Please do not reply to this email.<br>
+                For inquiries, visit our help center or contact support.
+            </p>
+        </div>
+    </div>
+</body>
+</html>

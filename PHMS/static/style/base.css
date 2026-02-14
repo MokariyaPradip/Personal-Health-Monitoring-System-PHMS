@@ -38,6 +38,328 @@ body {
     font-weight: bold;
 }
 
+/* ===== NOTIFICATION SYSTEM ===== */
+.nav-links {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.notification-container {
+    position: relative;
+    display: inline-block;
+}
+
+.notification-bell-link {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 20px;
+    cursor: pointer;
+    padding: 8px 12px;
+    position: relative;
+    transition: transform 0.2s;
+    text-decoration: none;
+    display: inline-block;
+}
+
+.notification-bell-link:hover {
+    transform: scale(1.1);
+}
+
+.notification-bell {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 20px;
+    cursor: pointer;
+    padding: 8px 12px;
+    position: relative;
+    transition: transform 0.2s;
+}
+
+.notification-bell:hover {
+    transform: scale(1.1);
+}
+
+.notification-badge {
+    position: absolute;
+    top: 0;
+    right: 0;
+    background-color: #e74c3c;
+    color: white;
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    font-size: 12px;
+    font-weight: bold;
+    display: block;
+    align-items: center;
+    justify-content: center;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+}
+
+.notification-dropdown {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    width: 400px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    max-height: 600px;
+    overflow-y: auto;
+    display: none;
+    margin-top: 10px;
+}
+
+.notification-header {
+    padding: 15px 20px;
+    border-bottom: 1px solid #e0e0e0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #f8f9fa;
+    border-radius: 8px 8px 0 0;
+    position: sticky;
+    top: 0;
+}
+
+.notification-header h3 {
+    margin: 0;
+    font-size: 16px;
+    color: #2c3e50;
+}
+
+.mark-all-read {
+    background: none;
+    border: none;
+    color: #3498db;
+    font-size: 18px;
+    cursor: pointer;
+    padding: 4px 8px;
+    width: auto;
+    max-width: none;
+}
+
+.mark-all-read:hover {
+    color: #2980b9;
+}
+
+.notification-list {
+    padding: 10px;
+    max-height: 540px;
+    overflow-y: auto;
+}
+
+.notification-item {
+    display: flex;
+    gap: 12px;
+    padding: 12px;
+    border-left: 4px solid #3498db;
+    background: #f8f9fa;
+    margin-bottom: 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+}
+
+.notification-item:hover {
+    background: #ecf0f1;
+    transform: translateX(4px);
+}
+
+.notification-item.read {
+    opacity: 0.6;
+    background: #ffffff;
+}
+
+/* Category-based colors */
+.notification-item.category-health {
+    border-left-color: #27ae60;
+}
+
+.notification-item.category-medication {
+    border-left-color: #e74c3c;
+}
+
+.notification-item.category-appointment {
+    border-left-color: #9b59b6;
+}
+
+.notification-item.category-alert {
+    border-left-color: #f39c12;
+}
+
+.notification-item.category-general {
+    border-left-color: #3498db;
+}
+
+/* Severity highlighting */
+.notification-item.severity-high {
+    background: #fadbd8;
+}
+
+.notification-item.severity-high:hover {
+    background: #f5b7b1;
+}
+
+.notification-item.severity-medium {
+    background: #fdebd0;
+}
+
+.notification-item.severity-medium:hover {
+    background: #fad7a0;
+}
+
+.notification-item.severity-low {
+    background: #d5f4e6;
+}
+
+.notification-item.severity-low:hover {
+    background: #a9dfbf;
+}
+
+.notification-icon {
+    font-size: 24px;
+    min-width: 30px;
+    text-align: center;
+}
+
+.notification-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.notification-title {
+    font-weight: 600;
+    color: #2c3e50;
+    font-size: 14px;
+    margin-bottom: 4px;
+    word-break: break-word;
+}
+
+.notification-message {
+    font-size: 13px;
+    color: #555;
+    margin-bottom: 6px;
+    line-height: 1.4;
+    word-break: break-word;
+}
+
+.notification-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11px;
+    color: #999;
+}
+
+.notification-severity {
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 10px;
+    text-transform: uppercase;
+}
+
+.notification-severity.severity-high {
+    background: #e74c3c;
+    color: white;
+}
+
+.notification-severity.severity-medium {
+    background: #f39c12;
+    color: white;
+}
+
+.notification-severity.severity-low {
+    background: #27ae60;
+    color: white;
+}
+
+.notification-time {
+    color: #999;
+    font-size: 11px;
+}
+
+.notification-close {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: none;
+    border: none;
+    color: #999;
+    font-size: 16px;
+    cursor: pointer;
+    padding: 4px;
+    width: auto;
+    max-width: none;
+    transition: color 0.2s;
+}
+
+.notification-close:hover {
+    color: #e74c3c;
+}
+
+.notification-empty {
+    padding: 40px 20px;
+    text-align: center;
+    color: #999;
+    font-size: 14px;
+}
+
+.notification-loading {
+    padding: 40px 20px;
+    text-align: center;
+    color: #999;
+    font-size: 14px;
+}
+
+.view-all-notifications {
+    display: block;
+    padding: 12px 20px;
+    text-align: center;
+    background: #f8f9fa;
+    color: #3498db;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 14px;
+    border-top: 1px solid #e0e0e0;
+    border-radius: 0 0 8px 8px;
+    transition: all 0.2s;
+}
+
+.view-all-notifications:hover {
+    background: #3498db;
+    color: white;
+}
+
+/* Scrollbar styling */
+.notification-dropdown::-webkit-scrollbar {
+    width: 6px;
+}
+
+.notification-dropdown::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.notification-dropdown::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 3px;
+}
+
+.notification-dropdown::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
 /* ===== Main Container ===== */
 .container {
     padding: 30px 40px;
