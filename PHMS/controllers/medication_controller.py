@@ -4,7 +4,7 @@ from models.medicine_model import Medicine
 from config import db
 from models import Medication, MedicationLog
 from datetime import date, datetime
-from utils.medication_schedule import get_intake_times
+from utils.medication_schedule import get_scheduled_time_for_frequency
 import logging
 
 logger = logging.getLogger(__name__)
@@ -108,33 +108,40 @@ def add_medication():
         db.session.add(medication)
         db.session.flush()  # Flush to get medication_id without committing
         
-        # ✅ IMPROVED: If start date is today, create medication logs for today
+        # ✅ IMPROVED: If start date is today, create medication logs for upcoming times only
         logs_created = 0
         if start_date == today:
             try:
                 logger.info(f"Creating logs for medication {medication.medication_id}, frequency={frequency}")
                 
                 # Get scheduled times based on frequency
-                scheduled_times = get_intake_times(frequency)
+                scheduled_times = get_scheduled_time_for_frequency(frequency)
                 
-                logger.info(f"get_intake_times({frequency}) returned: {scheduled_times}")
+                logger.info(f"get_scheduled_time_for_frequency({frequency}) returned: {scheduled_times}")
                 
                 if scheduled_times and len(scheduled_times) > 0:
+                    # Get current time to filter out past scheduled times
+                    current_time = datetime.now().time()
+                    
                     for scheduled_time in scheduled_times:
-                        try:
-                            medication_log = MedicationLog(
-                                user_id=current_user.user_id,
-                                medication_id=medication.medication_id,
-                                log_date=today,
-                                scheduled_time=scheduled_time,
-                                status='pending'
-                            )
-                            db.session.add(medication_log)
-                            logs_created += 1
-                            logger.info(f"Created log for {medication.medication_id} at {scheduled_time}")
-                        except Exception as time_error:
-                            logger.error(f"Error creating individual log: {str(time_error)}", exc_info=True)
-                            continue
+                        # Only create log if scheduled time is in the future
+                        if scheduled_time > current_time:
+                            try:
+                                medication_log = MedicationLog(
+                                    user_id=current_user.user_id,
+                                    medication_id=medication.medication_id,
+                                    log_date=today,
+                                    scheduled_time=scheduled_time,
+                                    status='pending'
+                                )
+                                db.session.add(medication_log)
+                                logs_created += 1
+                                logger.info(f"Created log for {medication.medication_id} at {scheduled_time}")
+                            except Exception as time_error:
+                                logger.error(f"Error creating individual log: {str(time_error)}", exc_info=True)
+                                continue
+                        else:
+                            logger.info(f"Skipping past scheduled time {scheduled_time} for medication {medication.medication_id}")
                     
                     logger.info(f"Successfully created {logs_created} medication logs for medication {medication.medication_id}")
                 else:

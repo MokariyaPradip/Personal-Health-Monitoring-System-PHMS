@@ -286,6 +286,7 @@
     margin-bottom: 0.8rem;
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 0.5rem;
 }
 
@@ -606,6 +607,38 @@
     color: #d9534f;
     font-weight: 700;
     border: 1px solid #d9534f;
+}
+
+.critical-badge {
+    background: linear-gradient(135deg, #ff4757, #ff6348);
+    color: #ffffff;
+    font-weight: 800;
+    font-size: 1.1rem;
+    padding: 2px 14px;
+    border-radius: 20px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    box-shadow: 0 4px 12px rgba(255, 71, 87, 0.3);
+    animation: pulse-critical 2s ease-in-out infinite;
+    white-space: nowrap;
+    margin-left: auto;
+}
+.critical-badge:hover {
+    animation: none;
+    box-shadow: 0 4px 20px rgba(255, 71, 87, 0.6);
+    cursor: pointer;
+}
+
+@keyframes pulse-critical {
+    0%, 100% {
+        box-shadow: 0 4px 12px rgba(255, 71, 87, 0.3);
+    }
+    50% {
+        box-shadow: 0 4px 20px rgba(255, 71, 87, 0.6);
+    }
 }
 
 .med-item.critical-med {

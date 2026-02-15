@@ -19,8 +19,26 @@ def init_scheduler():
         print(f"❌ Error initializing scheduler: {str(e)}")
         return None
 
-# Start scheduler when app context exists
+def init_medication_logs():
+    """Initialize medication logs on startup"""
+    try:
+        from controllers.medication_log_controller import MedicationLogManager
+        result = MedicationLogManager.initialize_medication_logs()
+        return result
+    except Exception as e:
+        print(f"❌ Error initializing medication logs: {str(e)}")
+        return None
+
+# Start scheduler and initialize logs when app context exists
 with app.app_context():
+    # Initialize medication logs first (create/verify logs)
+    print("\n🔄 Initializing medication logs...")
+    init_result = init_medication_logs()
+    if init_result and init_result.get('status') == 'success':
+        print(f"✅ Medication logs initialized successfully")
+    
+    # Then start the scheduler
+    print("\n🚀 Starting scheduler...")
     scheduler = init_scheduler()
 
 # ============ CLI COMMANDS ============

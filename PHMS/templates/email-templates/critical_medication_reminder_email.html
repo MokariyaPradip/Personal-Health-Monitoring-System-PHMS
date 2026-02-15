@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Critical Medication Reminder - PHMS</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f5;
+            padding: 20px;
+        }
+        
+        .email-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        
+        /* Header - Red gradient for critical */
+        .email-header {
+            background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+            padding: 30px 20px;
+            text-align: center;
+            color: white;
+        }
+        
+        .email-header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+        
+        .email-header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        
+        /* Main Content */
+        .email-body {
+            padding: 30px 20px;
+        }
+        
+        .greeting {
+            font-size: 16px;
+            color: #1f2937;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+        
+        .critical-alert-box {
+            background-color: #fee2e2;
+            border: 2px solid #dc2626;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .critical-alert-box .icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+        
+        .critical-alert-box h2 {
+            color: #991b1b;
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+        
+        .critical-alert-box p {
+            color: #7f1d1d;
+            font-weight: 500;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        
+        /* Medication Details */
+        .medication-details {
+            background-color: #fef2f2;
+            padding: 20px;
+            border-radius: 6px;
+            margin: 25px 0;
+            border: 1px solid #fecaca;
+        }
+        
+        .detail-section {
+            margin-bottom: 15px;
+        }
+        
+        .detail-section:last-child {
+            margin-bottom: 0;
+        }
+        
+        .detail-label {
+            font-size: 12px;
+            font-weight: 700;
+            color: #991b1b;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 5px;
+        }
+        
+        .detail-value {
+            font-size: 16px;
+            color: #1f2937;
+            font-weight: 600;
+        }
+        
+        /* Time Box */
+        .time-box {
+            background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 25px 0;
+            text-align: center;
+        }
+        
+        .time-box h3 {
+            font-size: 14px;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            opacity: 0.9;
+        }
+        
+        .time-box .time-large {
+            font-size: 36px;
+            font-weight: 700;
+            margin: 10px 0;
+        }
+        
+        .time-box .date {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        
+        /* Action Box */
+        .action-box {
+            background-color: #eff6ff;
+            border-left: 4px solid #3b82f6;
+            padding: 20px;
+            margin: 25px 0;
+            border-radius: 4px;
+            text-align: center;
+        }
+        
+        .action-box h3 {
+            color: #1e40af;
+            font-size: 16px;
+            margin-bottom: 15px;
+            font-weight: 700;
+        }
+        
+        .action-box p {
+            color: #1e3a8a;
+            font-size: 13px;
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+        
+        .cta-button {
+            display: inline-block;
+            background-color: #dc2626;
+            color: white;
+            padding: 14px 35px;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 700;
+            font-size: 15px;
+            transition: background-color 0.3s ease;
+        }
+        
+        .cta-button:hover {
+            background-color: #991b1b;
+        }
+        
+        /* Critical Instructions */
+        .critical-instructions {
+            background-color: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 20px;
+            margin: 25px 0;
+            border-radius: 4px;
+        }
+        
+        .critical-instructions h4 {
+            color: #92400e;
+            font-size: 14px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .critical-instructions ol {
+            padding-left: 20px;
+            margin: 0;
+        }
+        
+        .critical-instructions li {
+            color: #78350f;
+            font-size: 13px;
+            margin-bottom: 8px;
+            line-height: 1.6;
+        }
+        
+        /* Warning Box */
+        .warning-box {
+            background-color: #fef2f2;
+            border: 2px solid #fca5a5;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 25px 0;
+        }
+        
+        .warning-box p {
+            color: #991b1b;
+            font-size: 13px;
+            line-height: 1.6;
+            margin: 0;
+            text-align: center;
+            font-weight: 600;
+        }
+        
+        /* Footer */
+        .email-footer {
+            background-color: #f3f4f6;
+            padding: 20px;
+            text-align: center;
+            border-top: 1px solid #e5e7eb;
+        }
+        
+        .footer-text {
+            font-size: 12px;
+            color: #6b7280;
+            margin: 5px 0;
+            line-height: 1.6;
+        }
+        
+        .footer-links {
+            margin: 10px 0 0 0;
+            padding-top: 10px;
+            border-top: 1px solid #d1d5db;
+        }
+        
+        .footer-links a {
+            color: #3b82f6;
+            text-decoration: none;
+            font-size: 12px;
+            margin: 0 10px;
+            display: inline-block;
+        }
+        
+        .footer-links a:hover {
+            text-decoration: underline;
+        }
+        
+        /* Branding */
+        .brand-section {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #d1d5db;
+        }
+        
+        .brand-icon {
+            font-size: 20px;
+            margin-right: 8px;
+        }
+        
+        .brand-text {
+            font-size: 12px;
+            color: #4b5563;
+            font-weight: 600;
+        }
+        
+        /* Responsive */
+        @media only screen and (max-width: 600px) {
+            .email-container {
+                border-radius: 0;
+            }
+            
+            .email-header {
+                padding: 20px 15px;
+            }
+            
+            .email-header h1 {
+                font-size: 22px;
+            }
+            
+            .email-body {
+                padding: 20px 15px;
+            }
+            
+            .medication-details {
+                padding: 15px;
+            }
+            
+            .detail-value {
+                font-size: 14px;
+            }
+            
+            .time-box .time-large {
+                font-size: 28px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <!-- Header -->
+        <div class="email-header">
+            <h1>🚨 CRITICAL MEDICATION REMINDER</h1>
+            <p>Immediate Action Required</p>
+        </div>
+        
+        <!-- Body -->
+        <div class="email-body">
+            <!-- Greeting -->
+            <p class="greeting">
+                Hello <strong>{{ user_name }}</strong>,
+            </p>
+            
+            <!-- Critical Alert -->
+            <div class="critical-alert-box">
+                <div class="icon">⏰</div>
+                <h2>TIME TO TAKE YOUR CRITICAL MEDICATION</h2>
+                <p>This medication is marked as CRITICAL and requires immediate attention at the scheduled time.</p>
+            </div>
+            
+            <!-- Medication Details -->
+            <div class="medication-details">
+                <div class="detail-section">
+                    <div class="detail-label">💊 Medication Name</div>
+                    <div class="detail-value">{{ medicine_name }}</div>
+                </div>
+                
+                <div class="detail-section">
+                    <div class="detail-label">💉 Dosage</div>
+                    <div class="detail-value">{{ dosage }}</div>
+                </div>
+                
+                <div class="detail-section">
+                    <div class="detail-label">📋 Medicine Type</div>
+                    <div class="detail-value">{{ medicine_type }}</div>
+                </div>
+                
+                <div class="detail-section">
+                    <div class="detail-label">🎯 Purpose</div>
+                    <div class="detail-value">{{ medicine_purpose }}</div>
+                </div>
+            </div>
+            
+            <!-- Scheduled Time -->
+            <div class="time-box">
+                <h3>Scheduled Time</h3>
+                <div class="time-large">{{ scheduled_time }}</div>
+                <div class="date">{{ log_date }}</div>
+            </div>
+            
+            <!-- Critical Instructions -->
+            <div class="critical-instructions">
+                <h4>⚠️ Critical Action Steps</h4>
+                <ol>
+                    <li><strong>Take your medication NOW</strong> at the scheduled time</li>
+                    <li><strong>Log it immediately</strong> in your PHMS dashboard</li>
+                    <li><strong>Do not skip or delay</strong> this critical medication</li>
+                    <li><strong>Contact your doctor</strong> if you experience any issues</li>
+                </ol>
+            </div>
+            
+            <!-- Action Box -->
+            <div class="action-box">
+                <h3>📱 Log Your Medication</h3>
+                <p>Click below to access your medication dashboard and log this dose.</p>
+                <a href="{{ medication_url }}" class="cta-button">Log Medication Now</a>
+            </div>
+            
+            <!-- Warning -->
+            <div class="warning-box">
+                <p>⚠️ Missing critical medications can have serious health consequences. Please take this medication as prescribed.</p>
+            </div>
+            
+            <!-- Closing -->
+            <p class="greeting" style="margin-top: 30px;">
+                Your health is our priority. Take care!<br>
+                <strong>The PHMS Team</strong>
+            </p>
+        </div>
+        
+        <!-- Footer -->
+        <div class="email-footer">
+            <p class="footer-text">
+                📧 Personal Health Monitoring System (PHMS)<br>
+                Your trusted health companion
+            </p>
+            
+            <div class="footer-links">
+                <a href="{{ dashboard_url }}">Dashboard</a>
+                <a href="{{ medication_url }}">Medications</a>
+                <a href="{{ help_url }}">Help & Support</a>
+            </div>
+            
+            <div class="brand-section">
+                <span class="brand-icon">❤️</span>
+                <span class="brand-text">PHMS - Caring for Your Health</span>
+            </div>
+            
+            <p class="footer-text" style="margin-top: 15px; font-size: 11px; color: #9ca3af;">
+                This is a critical automated reminder from PHMS. Please do not reply to this email.<br>
+                For emergencies, contact your healthcare provider immediately.
+            </p>
+        </div>
+    </div>
+</body>
+</html>

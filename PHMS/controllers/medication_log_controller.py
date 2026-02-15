@@ -17,7 +17,7 @@ from flask_login import login_required, current_user
 from models import Medication, MedicationLog, Alert, User
 from config import db
 from datetime import datetime, date, time, timedelta
-from utils.medication_schedule import get_intake_times
+from utils.medication_schedule import get_scheduled_time_for_frequency, get_minimum_dose_gap_minutes
 from pytz import UTC
 import logging
 
@@ -27,8 +27,34 @@ logger = logging.getLogger(__name__)
 class MedicationLogManager:
     """Manager class for medication log operations"""
     
-    GRACE_PERIOD_MINUTES = 30
+    # Minimum grace period is 30 minutes
+    # Actual grace period = max(30 minutes, time_gap_between_doses)
+    MIN_GRACE_PERIOD_MINUTES = 30
     CONSECUTIVE_MISSED_THRESHOLD = 2
+    
+    @staticmethod
+    def get_grace_period_for_medication(medication):
+        """
+        Calculate dynamic grace period based on medication frequency.
+        
+        Grace period = min(30 minutes maximum, time gap between consecutive doses)
+        
+        Args:
+            medication: Medication object with frequency attribute
+        
+        Returns:
+            int: Grace period in minutes
+        """
+        if not medication:
+            return MedicationLogManager.MIN_GRACE_PERIOD_MINUTES
+        
+        # Get minimum gap between doses for this frequency
+        dose_gap_minutes = get_minimum_dose_gap_minutes(medication.frequency)
+        
+        # Grace period is the smaller of 30 minutes or the time gap between doses
+        grace_period = min(MedicationLogManager.MIN_GRACE_PERIOD_MINUTES, dose_gap_minutes)
+        
+        return grace_period
     
     @staticmethod
     def create_daily_logs():
@@ -65,7 +91,7 @@ class MedicationLogManager:
                         continue
                     
                     # Get scheduled times based on frequency
-                    scheduled_times = get_intake_times(medication.frequency)
+                    scheduled_times = get_scheduled_time_for_frequency(medication.frequency)
                     
                     if not scheduled_times:
                         logger.warning(f"No scheduled times found for frequency {medication.frequency}")
@@ -106,6 +132,156 @@ class MedicationLogManager:
             return {
                 'status': 'error',
                 'message': str(e)
+            }
+    
+    @staticmethod
+    def initialize_medication_logs():
+        """
+        Initialize medication logs on application startup.
+        
+        This method:
+        1. Creates logs for today's active medications (only for upcoming scheduled times)
+        2. Verifies existing pending logs and marks as missed if grace period elapsed
+        
+        Should be called once when the application starts
+        
+        Returns:
+            dict: Statistics of initialization
+        """
+        today = date.today()
+        now = datetime.now()
+        current_time = now.time()
+        
+        created_count = 0
+        verified_count = 0
+        marked_missed_count = 0
+        error_count = 0
+        
+        try:
+            logger.info("🔄 Initializing medication logs on startup...")
+            
+            # Find all active medications
+            all_medications = Medication.query.all()
+            active_medications = [med for med in all_medications if med.is_active()]
+            
+            logger.info(f"Found {len(active_medications)} active medications")
+            
+            # ============ PART 1: CREATE LOGS FOR UPCOMING SCHEDULED TIMES ============
+            for medication in active_medications:
+                try:
+                    # Get scheduled times based on frequency
+                    scheduled_times = get_scheduled_time_for_frequency(medication.frequency)
+                    
+                    if not scheduled_times:
+                        logger.warning(f"No scheduled times found for frequency {medication.frequency}")
+                        continue
+                    
+                    # Create logs only for upcoming times (scheduled_time > current_time)
+                    for scheduled_time in scheduled_times:
+                        # Check if log already exists
+                        existing_log = MedicationLog.query.filter_by(
+                            medication_id=medication.medication_id,
+                            log_date=today,
+                            scheduled_time=scheduled_time
+                        ).first()
+                        
+                        if existing_log:
+                            # Log exists, will be verified in Part 2
+                            continue
+                        
+                        # Only create if scheduled time is in the future
+                        scheduled_dt = datetime.combine(today, scheduled_time)
+                        if scheduled_dt > now:
+                            new_log = MedicationLog(
+                                user_id=medication.user_id,
+                                medication_id=medication.medication_id,
+                                log_date=today,
+                                scheduled_time=scheduled_time,
+                                status='pending'
+                            )
+                            db.session.add(new_log)
+                            created_count += 1
+                            logger.info(f"Created log for medication {medication.medication_id} at {scheduled_time}")
+                        
+                except Exception as e:
+                    error_count += 1
+                    logger.error(f"Error creating logs for medication {medication.medication_id}: {str(e)}")
+            
+            # Commit new logs
+            if created_count > 0:
+                db.session.commit()
+                logger.info(f"✓ Created {created_count} new medication logs")
+            
+            # ============ PART 2: VERIFY EXISTING LOGS AND MARK MISSED IF NEEDED ============
+            pending_logs = MedicationLog.query.join(
+                Medication
+            ).filter(
+                MedicationLog.log_date == today,
+                MedicationLog.status == 'pending',
+                db.or_(
+                    Medication.end_date == None,
+                    Medication.end_date >= today
+                )
+            ).all()
+            
+            logger.info(f"Verifying {len(pending_logs)} existing pending logs...")
+            
+            for log in pending_logs:
+                try:
+                    verified_count += 1
+                    
+                    # Get dynamic grace period based on medication frequency
+                    medication = log.medication
+                    grace_period_minutes = MedicationLogManager.get_grace_period_for_medication(medication)
+                    
+                    scheduled_dt = datetime.combine(today, log.scheduled_time)
+                    grace_period_end = scheduled_dt + timedelta(minutes=grace_period_minutes)
+                    
+                    # If current time is past grace period, mark as missed
+                    if now > grace_period_end:
+                        log.status = 'missed'
+                        marked_missed_count += 1
+                        logger.info(f"✓ Marked log {log.log_id} as missed (grace period={grace_period_minutes}min expired)")
+                    
+                except Exception as e:
+                    error_count += 1
+                    logger.error(f"Error verifying log {log.log_id}: {str(e)}")
+            
+            # Commit status updates
+            if marked_missed_count > 0:
+                db.session.commit()
+                logger.info(f"✓ Marked {marked_missed_count} logs as missed")
+            
+            stats = {
+                'date': str(today),
+                'time': str(current_time),
+                'created': created_count,
+                'verified': verified_count,
+                'marked_missed': marked_missed_count,
+                'errors': error_count,
+                'status': 'success'
+            }
+            
+            logger.info("━" * 50)
+            logger.info(f"✅ Medication log initialization completed:")
+            logger.info(f"   📝 Created: {created_count} new logs")
+            logger.info(f"   🔍 Verified: {verified_count} existing logs")
+            logger.info(f"   ❌ Marked missed: {marked_missed_count} logs")
+            logger.info(f"   ⚠️ Errors: {error_count}")
+            logger.info("━" * 50)
+            
+            return stats
+            
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Error in initialize_medication_logs: {str(e)}")
+            return {
+                'status': 'error',
+                'message': str(e),
+                'created': created_count,
+                'verified': verified_count,
+                'marked_missed': marked_missed_count,
+                'errors': error_count
             }
     
     @staticmethod
@@ -210,6 +386,12 @@ class MedicationLogManager:
             notified_count = 0
             
             for log in pending_logs:
+                existing_alert = Alert.query.filter_by(
+                    medication_log_id=log.log_id
+                ).first()
+                if existing_alert:
+                    continue
+
                 scheduled_dt = datetime.combine(today, log.scheduled_time)
                 now_dt = datetime.combine(today, current_time)
                 
@@ -249,6 +431,7 @@ class MedicationLogManager:
             now = datetime.now()
             current_time = now.time()
             today = date.today()
+            yesterday = today - timedelta(days=1)
             
             # Find pending logs for today for active medications only
             pending_logs = MedicationLog.query.join(
@@ -263,25 +446,91 @@ class MedicationLogManager:
             ).all()
             
             marked_missed = 0
+            emails_to_send = []  # Collect email tasks to execute after commit
             
             for log in pending_logs:
+                # Get dynamic grace period based on medication frequency
+                medication = log.medication
+                grace_period_minutes = MedicationLogManager.get_grace_period_for_medication(medication)
+                
                 scheduled_dt = datetime.combine(today, log.scheduled_time)
-                grace_period_end = scheduled_dt + timedelta(minutes=MedicationLogManager.GRACE_PERIOD_MINUTES)
+                grace_period_end = scheduled_dt + timedelta(minutes=grace_period_minutes)
                 now_dt = datetime.combine(today, current_time)
                 
                 # If current time is past grace period, mark as missed
                 if now_dt > grace_period_end:
                     log.status = 'missed'
                     marked_missed += 1
-                    logger.info(f"Log {log.log_id} marked as missed (grace period expired)")
+                    logger.info(f"Log {log.log_id} marked as missed (grace period={grace_period_minutes}min expired)")
+                    
+                    # Check for consecutive missed days using no_autoflush to avoid database lock
+                    try:
+                        with db.session.no_autoflush:
+                            yesterday_log = MedicationLog.query.filter_by(
+                                user_id=log.user_id,
+                                medication_id=log.medication_id,
+                                log_date=yesterday,
+                                status='missed'
+                            ).first()
+                            
+                            if yesterday_log:
+                                # Store email task to send after commit (for all medications)
+                                user = medication.user
+                                emails_to_send.append({
+                                    'type': 'consecutive',
+                                    'user': user,
+                                    'medication': medication,
+                                    'today': today,
+                                    'yesterday': yesterday,
+                                    'log_id': log.log_id
+                                })
+                    except Exception as consecutive_error:
+                        logger.error(f"Error checking consecutive missed: {str(consecutive_error)}")
+                    
+                    # Also check if medication is critical
+                    if medication and medication.is_critical:
+                        try:
+                            user = medication.user
+                            emails_to_send.append({
+                                'type': 'critical',
+                                'user': user,
+                                'medication': medication,
+                                'log': log,
+                                'log_id': log.log_id
+                            })
+                        except Exception as email_error:
+                            logger.error(f"Error preparing critical medication email for log {log.log_id}: {str(email_error)}")
             
+            # Commit all database changes first
             if marked_missed > 0:
                 db.session.commit()
                 logger.info(f"Marked {marked_missed} medications as missed")
             
+            # Now send emails after database is committed (avoids locking issues)
+            for email_task in emails_to_send:
+                try:
+                    if email_task['type'] == 'consecutive':
+                        MedicationLogManager.send_consecutive_missed_email(
+                            email_task['user'],
+                            email_task['medication'],
+                            email_task['today'],
+                            email_task['yesterday']
+                        )
+                        logger.info(f"Consecutive missed email sent for medication {email_task['medication'].medication_id} (log {email_task['log_id']})")
+                    elif email_task['type'] == 'critical':
+                        MedicationLogManager.send_critical_medication_missed_email(
+                            email_task['user'],
+                            email_task['medication'],
+                            email_task['log']
+                        )
+                        logger.info(f"Critical medication missed email sent for log {email_task['log_id']}")
+                except Exception as email_send_error:
+                    logger.error(f"Error sending email: {str(email_send_error)}")
+            
             return {
                 'status': 'success',
                 'marked_missed': marked_missed,
+                'emails_sent': len(emails_to_send),
                 'timestamp': str(now)
             }
             
@@ -340,7 +589,7 @@ class MedicationLogManager:
                         ).first()
                         
                         if not existing_alert:
-                            # Send email
+                            # Send email for consecutive missed (all medications)
                             MedicationLogManager.send_consecutive_missed_email(
                                 user,
                                 medication,
@@ -348,7 +597,7 @@ class MedicationLogManager:
                                 yesterday
                             )
                             email_count += 1
-                            logger.info(f"Email sent to {user.user_email} for consecutive missed {medication.medicine.medicine_name}")
+                            logger.info(f"Consecutive missed email sent to {user.user_email} for {medication.medicine.medicine_name}")
             
             return {
                 'status': 'success',
@@ -384,7 +633,7 @@ class MedicationLogManager:
             
             # Prepare email template variables
             email_context = {
-                'user_name': user.user_name,
+                'user_name': user.username,
                 'medicine_name': medication.medicine.medicine_name,
                 'dosage': medication.dosage,
                 'medicine_type': medication.medicine.medicine_type or 'Tablet',
@@ -405,7 +654,7 @@ class MedicationLogManager:
             
             # Also create plain text version as fallback
             plain_text_body = f"""
-Hello {user.user_name},
+Hello {user.username},
 
 MEDICATION MISSED ALERT - 2 CONSECUTIVE DAYS
 
@@ -433,7 +682,8 @@ Your trusted health companion
                 subject=subject,
                 recipients=[user.user_email],
                 body=plain_text_body,
-                html=html_body
+                html=html_body,
+                extra_headers={'X-Priority': '1 (Highest)'}
             )
             
             mail.send(msg)
@@ -478,7 +728,13 @@ Your trusted health companion
                 'help_url': 'http://localhost:5000/help'
             }
             
-            # Plain text version
+            # Render HTML email template
+            html_body = render_template(
+                'email-templates/critical_medication_reminder_email.html',
+                **email_context
+            )
+            
+            # Plain text version as fallback
             plain_text_body = f"""
 Hello {user.username},
 
@@ -508,7 +764,8 @@ This is an automated critical medication reminder from your Personal Health Moni
                 subject=subject,
                 recipients=[user.user_email],
                 body=plain_text_body,
-                priority=1  # High priority
+                html=html_body,
+                extra_headers={'X-Priority': '1 (Highest)'}
             )
             
             mail.send(msg)
@@ -555,7 +812,13 @@ This is an automated critical medication reminder from your Personal Health Moni
                 'help_url': 'http://localhost:5000/help'
             }
             
-            # Plain text version
+            # Render HTML email template
+            html_body = render_template(
+                'email-templates/critical_medication_missed_email.html',
+                **email_context
+            )
+            
+            # Plain text version as fallback
             plain_text_body = f"""
 Hello {user.username},
 
@@ -584,7 +847,8 @@ This is an automated critical notification from your Personal Health Monitoring 
                 subject=subject,
                 recipients=[user.user_email],
                 body=plain_text_body,
-                priority=1  # High priority
+                html=html_body,
+                extra_headers={'X-Priority': '1 (Highest)'}
             )
             
             mail.send(msg)
@@ -853,19 +1117,37 @@ def mark_medication_taken(log_id):
                 'message': 'Medication log not found'
             }), 404
         
-        # Check if scheduled time has arrived
-        current_datetime = datetime.utcnow()
+        # Check if scheduled time has arrived and within grace period
+        current_datetime = datetime.now()
         current_date = current_datetime.date()
         current_time = current_datetime.time()
         scheduled_time = log.scheduled_time
         log_date = log.log_date
         
+        # Check if scheduled time has not arrived yet
         if log_date > current_date or (log_date == current_date and current_time < scheduled_time):
             return jsonify({
                 'success': False,
                 'message': f'Cannot mark medication until scheduled time {scheduled_time.strftime("%I:%M %p")}',
                 'scheduled_time': scheduled_time.isoformat(),
                 'available_at': f"{scheduled_time.strftime('%I:%M %p')}"
+            }), 400
+        
+        # Check if grace period has expired
+        # Calculate grace period based on medication frequency
+        medication = log.medication
+        grace_period_minutes = MedicationLogManager.get_grace_period_for_medication(medication)
+        
+        scheduled_dt = datetime.combine(log_date, scheduled_time)
+        grace_period_end = scheduled_dt + timedelta(minutes=grace_period_minutes)
+        now_dt = datetime.combine(current_date, current_time)
+        
+        if now_dt > grace_period_end:
+            return jsonify({
+                'success': False,
+                'message': f'Grace period expired ({grace_period_minutes} minutes). This medication should be marked as missed.',
+                'grace_period_expired': True,
+                'grace_period_minutes': grace_period_minutes
             }), 400
         
         log.status = 'taken'
@@ -910,13 +1192,14 @@ def mark_medication_missed(log_id):
                 'message': 'Medication log not found'
             }), 404
         
-        # Check if scheduled time has arrived
-        current_datetime = datetime.utcnow()
+        # Check if scheduled time has arrived and within grace period
+        current_datetime = datetime.now()
         current_date = current_datetime.date()
         current_time = current_datetime.time()
         scheduled_time = log.scheduled_time
         log_date = log.log_date
         
+        # Check if scheduled time has not arrived yet
         if log_date > current_date or (log_date == current_date and current_time < scheduled_time):
             return jsonify({
                 'success': False,
@@ -925,17 +1208,59 @@ def mark_medication_missed(log_id):
                 'available_at': f"{scheduled_time.strftime('%I:%M %p')}"
             }), 400
         
+        # Check if grace period has expired
+        # Calculate grace period based on medication frequency
+        medication = log.medication
+        grace_period_minutes = MedicationLogManager.get_grace_period_for_medication(medication)
+        
+        scheduled_dt = datetime.combine(log_date, scheduled_time)
+        grace_period_end = scheduled_dt + timedelta(minutes=grace_period_minutes)
+        now_dt = datetime.combine(current_date, current_time)
+        
+        if now_dt > grace_period_end:
+            return jsonify({
+                'success': False,
+                'message': f'Grace period expired ({grace_period_minutes} minutes). This medication should already be marked as missed.',
+                'grace_period_expired': True,
+                'grace_period_minutes': grace_period_minutes
+            }), 400
+        
         log.status = 'missed'
         
-        # Check if medication is critical and send immediate email alert
-        medication = log.medication
-        if medication and medication.is_critical:
+        # Check for 2 consecutive missed days FIRST (higher priority)
+        consecutive_email_sent = False
+        try:
+            yesterday = log_date - timedelta(days=1)
+            yesterday_log = MedicationLog.query.filter_by(
+                user_id=current_user.user_id,
+                medication_id=log.medication_id,
+                log_date=yesterday,
+                status='missed'
+            ).first()
+            
+            if yesterday_log:
+                # Found 2 consecutive missed days - send email (this takes priority)
+                MedicationLogManager.send_consecutive_missed_email(
+                    current_user,
+                    medication,
+                    log_date,
+                    yesterday
+                )
+                consecutive_email_sent = True
+                logger.info(f"Consecutive missed email sent for medication {medication.medication_id}")
+        except Exception as consecutive_error:
+            logger.error(f"Error checking/sending consecutive missed email: {str(consecutive_error)}")
+        
+        # Send critical email ONLY if consecutive email was NOT sent
+        # (to avoid duplicate emails for same event)
+        if not consecutive_email_sent and medication and medication.is_critical:
             # Send immediate email notification for critical medication
             MedicationLogManager.send_critical_medication_missed_email(
                 current_user,
                 medication,
                 log
             )
+            logger.info(f"Critical medication missed email sent for log {log_id}")
         
         db.session.commit()
         

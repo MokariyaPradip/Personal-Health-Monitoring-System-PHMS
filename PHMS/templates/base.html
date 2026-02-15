@@ -9,6 +9,9 @@
 
     <link rel="stylesheet" href="{{ url_for('static', filename='style/base.css') }}">
 
+    <!-- Shared notification utilities -->
+    <script src="{{ url_for('static', filename='js/notifications-common.js') }}"></script>
+
     {% block head_extra %}{% endblock %}
 
 </head>
@@ -59,13 +62,7 @@
     </footer>
 
     <script>
-        window.getCsrfToken = function () {
-            const el = document.querySelector('meta[name="csrf-token"]');
-            return el ? el.getAttribute('content') : '';
-        };
-
-        // ===== NOTIFICATION FUNCTIONS =====
-        let notificationPollingInterval = null;
+        // ===== NOTIFICATION DROPDOWN FUNCTIONS =====
         let hideDropdownTimeout = null;
 
         function showNotifications() {
@@ -94,16 +91,6 @@
                 const dropdown = document.getElementById('notificationDropdown');
                 dropdown.style.display = 'none';
             }, 300);
-        }
-
-        function toggleNotifications() {
-            const dropdown = document.getElementById('notificationDropdown');
-            if (dropdown.style.display === 'block') {
-                dropdown.style.display = 'none';
-            } else {
-                dropdown.style.display = 'block';
-                loadNotifications();
-            }
         }
 
         function loadNotifications() {
@@ -158,21 +145,11 @@
         }
 
         function handleNotificationClick(alertId, element) {
-            // Mark as read
-            fetch(`/notifications/${alertId}/read`, {
-                method: 'PUT',
-                headers: {
-                    'X-CSRFToken': window.getCsrfToken()
-                }
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    element.classList.add('read');
-                    loadNotifications();
-                }
-            })
-            .catch(err => console.error('Error marking notification as read:', err));
+            // Mark as read using shared function
+            markAsRead(alertId, function() {
+                element.classList.add('read');
+                loadNotifications();
+            });
         }
 
         function deleteNotification(event, alertId) {
@@ -182,117 +159,23 @@
             if (notificationItem) {
                 notificationItem.remove();
             }
-            // Mark as read in backend
-            handleNotificationClick(alertId, notificationItem);
-        }
-
-        function markAllAsRead() {
-            fetch('/notifications/mark-all-read', {
-                method: 'PUT',
-                headers: {
-                    'X-CSRFToken': window.getCsrfToken()
-                }
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    loadNotifications();
-                }
-            })
-            .catch(err => console.error('Error marking all as read:', err));
-        }
-
-        function updateNotificationBadge(count) {
-            const badge = document.getElementById('notificationBadge');
-            if (count > 0) {
-                badge.textContent = count > 99 ? '99+' : count;
-                badge.style.display = 'block';
-            } else {
-                badge.style.display = 'none';
-            }
-        }
-
-        function getCategoryEmoji(category) {
-            const emojiMap = {
-                'health': '🏥',
-                'medication': '💊',
-                'appointment': '📅',
-                'alert': '⚠️',
-                'general': 'ℹ️'
-            };
-            return emojiMap[category] || emojiMap['general'];
-        }
-
-        function getSeverityLabel(severity) {
-            const labelMap = {
-                'high': 'High',
-                'medium': 'Medium',
-                'low': 'Low'
-            };
-            return labelMap[severity] || 'Normal';
-        }
-
-        function escapeHtml(text) {
-            const map = {
-                '&': '&amp;',
-                '<': '&lt;',
-                '>': '&gt;',
-                '"': '&quot;',
-                "'": '&#039;'
-            };
-            return text.replace(/[&<>"']/g, m => map[m]);
+            // Mark as read using shared function
+            markAsRead(alertId, () => loadNotifications());
         }
 
         // Load notifications on page load and set up polling
         document.addEventListener('DOMContentLoaded', function() {
-            // Initial load
-            fetch('/notifications/count', {
-                method: 'GET',
-                headers: {
-                    'X-CSRFToken': window.getCsrfToken()
-                }
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    updateNotificationBadge(data.count);
-                }
-            })
-            .catch(err => console.error('Error loading notification count:', err));
-
-            // Poll for new notifications every 30 seconds
-            notificationPollingInterval = setInterval(() => {
-                fetch('/notifications/count', {
-                    method: 'GET',
-                    headers: {
-                        'X-CSRFToken': window.getCsrfToken()
-                    }
-                })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) {
-                        updateNotificationBadge(data.count);
-                    }
-                })
-                .catch(err => console.error('Error polling notifications:', err));
-            }, 30000); // Poll every 30 seconds
+            // Start notification polling (every 30 seconds)
+            startNotificationPolling(30000);
         });
 
         // Close notification dropdown when clicking outside
         window.addEventListener('click', function(event) {
             const dropdown = document.getElementById('notificationDropdown');
-            const container = document.querySelector('.notification-container');
             
             // Only close if clicking outside and not hovering
             if (!event.target.closest('.notification-container')) {
                 dropdown.style.display = 'none';
-            }
-        });
-
-        // Cleanup on page unload
-        window.addEventListener('beforeunload', function() {
-            if (notificationPollingInterval) {
-                clearInterval(notificationPollingInterval);
             }
         });
     </script>

@@ -182,7 +182,9 @@ class SchedulerSetup:
                 id='schedule_notifications',
                 name='Schedule medication notifications',
                 replace_existing=True,
-                max_instances=1
+                max_instances=1,
+                misfire_grace_time=10,  # Allow 10 seconds grace for late starts
+                coalesce=True  # Merge multiple pending executions into one
             )
             logger.info("✓ Scheduled: Send notifications every minute")
             
@@ -194,7 +196,9 @@ class SchedulerSetup:
                 id='check_grace_period',
                 name='Check grace period and mark missed',
                 replace_existing=True,
-                max_instances=1
+                max_instances=1,
+                misfire_grace_time=10,  # Allow 10 seconds grace for late starts
+                coalesce=True  # Merge multiple pending executions into one
             )
             logger.info("✓ Scheduled: Check grace period every minute")
             

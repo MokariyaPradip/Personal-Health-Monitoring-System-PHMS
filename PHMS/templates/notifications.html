@@ -4,6 +4,8 @@
 
 {% block head_extra %}
 <link rel="stylesheet" href="{{ url_for('static', filename='style/notifications.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='style/notifications-animations.css') }}">
+<!-- Shared notification utilities already loaded in base.html -->
 {% endblock %}
 
 {% block content %}
@@ -15,7 +17,7 @@
         </div>
         <div class="header-actions">
             {% if unread_count > 0 %}
-            <button class="btn btn-secondary" onclick="markAllAsRead()">
+            <button class="btn btn-secondary" id="mark-all-btn">
                 ✓ Mark All as Read
             </button>
             {% endif %}
@@ -28,25 +30,25 @@
 
     <!-- Category Tabs -->
     <div class="category-tabs">
-        <button class="tab-btn active" data-category="all" onclick="filterByCategory('all')">
+        <button class="tab-btn active" data-category="all">
             All Notifications
             {% if unread_count > 0 %}
             <span class="tab-badge">{{ unread_count }}</span>
             {% endif %}
         </button>
-        <button class="tab-btn" data-category="health" onclick="filterByCategory('health')">
+        <button class="tab-btn" data-category="health">
             ❤️ Health Alerts
             {% if health_unread > 0 %}
             <span class="tab-badge">{{ health_unread }}</span>
             {% endif %}
         </button>
-        <button class="tab-btn" data-category="medication" onclick="filterByCategory('medication')">
+        <button class="tab-btn" data-category="medication">
             💊 Medication Reminders
             {% if medication_unread > 0 %}
             <span class="tab-badge">{{ medication_unread }}</span>
             {% endif %}
         </button>
-        <button class="tab-btn" data-category="medication-logs" onclick="filterByCategory('medication-logs')">
+        <button class="tab-btn" data-category="medication-logs">
             📋 Medication Log
             {% if pending_count > 0 %}
             <span class="tab-badge">{{ pending_count }}</span>
@@ -77,7 +79,7 @@
                         </div>
                         <div class="notification-actions">
                             {% if not alert.is_read %}
-                            <button class="btn-icon" onclick="markAsRead({{ alert.alert_id }})" title="Mark as read">
+                            <button class="btn-icon" title="Mark as read" data-alert-id="{{ alert.alert_id }}">
                                 ✓
                             </button>
                             {% else %}
@@ -123,7 +125,7 @@
                         </div>
                         <div class="notification-actions">
                             {% if not alert.is_read %}
-                            <button class="btn-icon" onclick="markAsRead({{ alert.alert_id }})" title="Mark as read">
+                            <button class="btn-icon" title="Mark as read" data-alert-id="{{ alert.alert_id }}">
                                 ✓
                             </button>
                             {% else %}
@@ -169,7 +171,7 @@
                         </div>
                         <div class="notification-actions">
                             {% if not alert.is_read %}
-                            <button class="btn-icon" onclick="markAsRead({{ alert.alert_id }})" title="Mark as read">
+                            <button class="btn-icon" title="Mark as read" data-alert-id="{{ alert.alert_id }}">
                                 ✓
                             </button>
                             {% else %}
@@ -212,44 +214,57 @@
         <!-- Pending Medications -->
         {% if pending_logs %}
         <div class="log-section">
-            <h3 class="log-section-title">⏳ Pending Medications</h3>
+            <h3 class="log-section-title">⏳ Pending Medications <span style="color: #f59e0b; font-weight: 600; background: rgba(245, 158, 11, 0.1); padding: 2px 8px; border-radius: 4px; font-size: 0.9em;">{{ pending_logs|length }} items</span></h3>
+            <div class="log-items-container" style="max-height: 500px; overflow-y: auto; padding-right: 8px;">
             {% for log in pending_logs %}
-            <div class="medication-log-card pending" data-log-id="{{ log.log_id }}" data-log-date="{{ log.log_date.strftime('%Y-%m-%d') }}" data-scheduled-time="{{ log.scheduled_time.strftime('%H:%M:%S') }}">
+            <div class="medication-log-card pending" data-log-id="{{ log.log_id }}" data-log-date="{{ log.log_date.strftime('%Y-%m-%d') }}" data-scheduled-time="{{ log.scheduled_time.strftime('%H:%M:%S') }}" data-grace-period="{{ log.grace_period_minutes }}">
                 <div class="log-icon">💊</div>
                 <div class="log-body">
                     <div class="log-header">
                         <h4 class="log-medicine-name">{{ log.medication.medicine.medicine_name }}</h4>
-                        <span class="log-status-badge pending">PENDING</span>
+                        <div class="badge-group">
+                            {% if log.medication.is_critical %}
+                            <span class="log-status-badge critical" title="This is a critical medication">⚠️ CRITICAL</span>
+                            {% endif %}
+                            <span class="log-status-badge pending">PENDING</span>
+                        </div>
                     </div>
                     <div class="log-details">
                         <p class="log-dosage">💉 Dosage: <strong>{{ log.medication.dosage }}</strong></p>
                         <p class="log-schedule">⏰ Scheduled: <strong>{{ log.log_date.strftime('%b %d, %Y') }} at {{ log.scheduled_time.strftime('%I:%M %p') }}</strong></p>
                     </div>
                     <div class="log-actions">
-                        <button class="btn-log-action taken" id="btn-taken-{{ log.log_id }}" onclick="markMedicationTaken({{ log.log_id }})" data-log-id="{{ log.log_id }}">
+                        <button class="btn-log-action taken" id="btn-taken-{{ log.log_id }}" data-log-id="{{ log.log_id }}">
                             ✅ Mark as Taken
                         </button>
-                        <button class="btn-log-action missed" id="btn-missed-{{ log.log_id }}" onclick="markMedicationMissed({{ log.log_id }})" data-log-id="{{ log.log_id }}">
+                        <button class="btn-log-action missed" id="btn-missed-{{ log.log_id }}" data-log-id="{{ log.log_id }}">
                             ❌ Mark as Missed
                         </button>
                     </div>
                 </div>
             </div>
             {% endfor %}
+            </div>
         </div>
         {% endif %}
 
         <!-- Taken Medications -->
         {% if taken_logs %}
         <div class="log-section">
-            <h3 class="log-section-title">✅ Taken Medications</h3>
+            <h3 class="log-section-title">✅ Taken Medications <span style="color: #10b981; font-weight: 600; background: rgba(16, 185, 129, 0.1); padding: 2px 8px; border-radius: 4px; font-size: 0.9em;">{{ taken_logs|length }} items</span></h3>
+            <div class="log-items-container" style="max-height: 400px; overflow-y: auto; padding-right: 8px;">
             {% for log in taken_logs %}
             <div class="medication-log-card taken" data-log-id="{{ log.log_id }}">
                 <div class="log-icon">✅</div>
                 <div class="log-body">
                     <div class="log-header">
                         <h4 class="log-medicine-name">{{ log.medication.medicine.medicine_name }}</h4>
-                        <span class="log-status-badge taken">TAKEN</span>
+                        <div class="badge-group">
+                            {% if log.medication.is_critical %}
+                            <span class="log-status-badge critical" title="This is a critical medication">⚠️ CRITICAL</span>
+                            {% endif %}
+                            <span class="log-status-badge taken">TAKEN</span>
+                        </div>
                     </div>
                     <div class="log-details">
                         <p class="log-dosage">💉 Dosage: <strong>{{ log.medication.dosage }}</strong></p>
@@ -261,20 +276,27 @@
                 </div>
             </div>
             {% endfor %}
+            </div>
         </div>
         {% endif %}
 
         <!-- Missed Medications -->
         {% if missed_logs %}
         <div class="log-section">
-            <h3 class="log-section-title">❌ Missed Medications</h3>
+            <h3 class="log-section-title">❌ Missed Medications <span style="color: #ef4444; font-weight: 600; background: rgba(239, 68, 68, 0.1); padding: 2px 8px; border-radius: 4px; font-size: 0.9em;">{{ missed_logs|length }} items</span></h3>
+            <div class="log-items-container" style="max-height: 400px; overflow-y: auto; padding-right: 8px;">
             {% for log in missed_logs %}
             <div class="medication-log-card missed" data-log-id="{{ log.log_id }}">
                 <div class="log-icon">❌</div>
                 <div class="log-body">
                     <div class="log-header">
                         <h4 class="log-medicine-name">{{ log.medication.medicine.medicine_name }}</h4>
-                        <span class="log-status-badge missed">MISSED</span>
+                        <div class="badge-group">
+                            {% if log.medication.is_critical %}
+                            <span class="log-status-badge critical" title="This is a critical medication">⚠️ CRITICAL</span>
+                            {% endif %}
+                            <span class="log-status-badge missed">MISSED</span>
+                        </div>
                     </div>
                     <div class="log-details">
                         <p class="log-dosage">💉 Dosage: <strong>{{ log.medication.dosage }}</strong></p>
@@ -283,6 +305,7 @@
                 </div>
             </div>
             {% endfor %}
+            </div>
         </div>
         {% endif %}
 
@@ -296,338 +319,5 @@
     </div>
 </div>
 
-<script>
-    // Helper functions for scheduled time validation
-    function isScheduledTimeArrived(logDate, scheduledTime) {
-        const now = new Date();
-        const currentDate = now.toISOString().split('T')[0];
-        const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
-        
-        // Compare dates
-        if (logDate > currentDate) {
-            return false; // Future date
-        }
-        
-        // Same date, compare times
-        if (logDate === currentDate) {
-            return currentTime >= scheduledTime;
-        }
-        
-        return true; // Past date
-    }
-    
-    function updateMedicationButtonStatus(logId, logDate, scheduledTime) {
-        const logCard = document.querySelector(`.medication-log-card.pending[data-log-id="${logId}"]`);
-        if (!logCard) return;
-
-        const takenBtn = logCard.querySelector('.btn-log-action.taken');
-        const missedBtn = logCard.querySelector('.btn-log-action.missed');
-        if (!takenBtn || !missedBtn) return;
-        
-        const hasArrived = isScheduledTimeArrived(logDate, scheduledTime);
-        
-        if (!hasArrived) {
-            takenBtn.disabled = true;
-            missedBtn.disabled = true;
-            takenBtn.style.opacity = '0.5';
-            missedBtn.style.opacity = '0.5';
-            takenBtn.style.cursor = 'not-allowed';
-            missedBtn.style.cursor = 'not-allowed';
-        } else {
-            takenBtn.disabled = false;
-            missedBtn.disabled = false;
-            takenBtn.style.opacity = '1';
-            missedBtn.style.opacity = '1';
-            takenBtn.style.cursor = 'pointer';
-            missedBtn.style.cursor = 'pointer';
-        }
-    }
-    
-    function initializeScheduledTimeValidation() {
-        // Find all pending medication logs and validate their scheduled times
-        document.querySelectorAll('.medication-log-card.pending').forEach(card => {
-            const logId = card.getAttribute('data-log-id');
-            const logDate = card.getAttribute('data-log-date');
-            const scheduledTime = card.getAttribute('data-scheduled-time');
-
-            if (logId && logDate && scheduledTime) {
-                updateMedicationButtonStatus(logId, logDate, scheduledTime);
-
-                // Update every 10 seconds to reflect real-time scheduled time changes
-                setInterval(() => {
-                    updateMedicationButtonStatus(logId, logDate, scheduledTime);
-                }, 10000);
-            }
-        });
-    }
-
-    function filterByCategory(category) {
-        // Update active tab
-        document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.classList.remove('active');
-        });
-        document.querySelector(`[data-category="${category}"]`).classList.add('active');
-
-        // Show/hide containers
-        document.querySelectorAll('.notifications-container').forEach(container => {
-            container.classList.add('hidden');
-        });
-
-        if (category === 'all') {
-            document.getElementById('all-container').classList.remove('hidden');
-        } else if (category === 'health') {
-            document.getElementById('health-container').classList.remove('hidden');
-        } else if (category === 'medication') {
-            document.getElementById('medication-container').classList.remove('hidden');
-        } else if (category === 'medication-logs') {
-            document.getElementById('medication-logs-container').classList.remove('hidden');
-            // Re-initialize validation when medication-logs tab is shown
-            initializeScheduledTimeValidation();
-        }
-    }
-
-    function markMedicationTaken(logId) {
-        // Get the log card to access scheduled time info
-        const logCard = document.querySelector(`.medication-log-card.pending[data-log-id="${logId}"]`);
-        if (!logCard) {
-            showToast('Unable to find medication log', 'error');
-            return;
-        }
-
-        const logDate = logCard.getAttribute('data-log-date');
-        const scheduledTime = logCard.getAttribute('data-scheduled-time');
-        
-        // Validate scheduled time on frontend before sending request
-        if (!isScheduledTimeArrived(logDate, scheduledTime)) {
-            const timeObj = new Date(`2000-01-01T${scheduledTime}`);
-            const formattedTime = timeObj.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
-            showToast(`Medication not available until ${formattedTime}`, 'error');
-            return;
-        }
-        
-        fetch(`/medication-log/${logId}/taken`, {
-            method: 'PUT',
-            headers: {
-                'X-CSRFToken': window.getCsrfToken(),
-                'Content-Type': 'application/json'
-            }
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                showToast('Medication marked as taken!');
-                // Reload page to update the log
-                setTimeout(() => location.reload(), 1000);
-            } else {
-                showToast(data.message || 'Failed to update medication', 'error');
-            }
-        })
-        .catch(err => {
-            console.error('Error marking medication as taken:', err);
-            showToast('Failed to update medication', 'error');
-        });
-    }
-
-    function markMedicationMissed(logId) {
-        // Get the log card to access scheduled time info
-        const logCard = document.querySelector(`.medication-log-card.pending[data-log-id="${logId}"]`);
-        if (!logCard) {
-            showToast('Unable to find medication log', 'error');
-            return;
-        }
-
-        const logDate = logCard.getAttribute('data-log-date');
-        const scheduledTime = logCard.getAttribute('data-scheduled-time');
-        
-        // Validate scheduled time on frontend before sending request
-        if (!isScheduledTimeArrived(logDate, scheduledTime)) {
-            const timeObj = new Date(`2000-01-01T${scheduledTime}`);
-            const formattedTime = timeObj.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
-            showToast(`Medication not available until ${formattedTime}`, 'error');
-            return;
-        }
-        
-        fetch(`/medication-log/${logId}/missed`, {
-            method: 'PUT',
-            headers: {
-                'X-CSRFToken': window.getCsrfToken(),
-                'Content-Type': 'application/json'
-            }
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                showToast('Medication marked as missed', 'error');
-                // Reload page to update the log
-                setTimeout(() => location.reload(), 1000);
-            } else {
-                showToast(data.message || 'Failed to update medication', 'error');
-            }
-        })
-        .catch(err => {
-            console.error('Error marking medication as missed:', err);
-            showToast('Failed to update medication', 'error');
-        });
-    }
-
-    function markAsRead(alertId) {
-        fetch(`/notifications/${alertId}/read`, {
-            method: 'PUT',
-            headers: {
-                'X-CSRFToken': window.getCsrfToken(),
-                'Content-Type': 'application/json'
-            }
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                // Update UI
-                const cards = document.querySelectorAll(`[data-alert-id="${alertId}"]`);
-                cards.forEach(card => {
-                    card.classList.remove('unread');
-                    const actionBtn = card.querySelector('.btn-icon');
-                    if (actionBtn) {
-                        actionBtn.outerHTML = '<span class="read-indicator" title="Read">✓</span>';
-                    }
-                });
-                
-                // Update badge counts
-                updateBadgeCounts();
-                
-                // Show success message
-                showToast('Notification marked as read');
-            }
-        })
-        .catch(err => {
-            console.error('Error marking notification as read:', err);
-            showToast('Failed to mark notification as read', 'error');
-        });
-    }
-
-    function markAllAsRead() {
-        if (!confirm('Mark all notifications as read?')) {
-            return;
-        }
-
-        fetch('/notifications/mark-all-read', {
-            method: 'PUT',
-            headers: {
-                'X-CSRFToken': window.getCsrfToken(),
-                'Content-Type': 'application/json'
-            }
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                // Reload page to update UI
-                location.reload();
-                
-                showToast('All notifications marked as read', 'success');
-            }
-        })
-        .catch(err => {
-            console.error('Error marking all as read:', err);
-            showToast('Failed to mark all notifications as read', 'error');
-        });
-    }
-
-    function updateBadgeCounts() {
-        // Count unread notifications
-        const allUnread = document.querySelectorAll('.notification-card.unread').length;
-        const healthUnread = document.querySelectorAll('#health-container .notification-card.unread').length;
-        const medicationUnread = document.querySelectorAll('#medication-container .notification-card.unread').length;
-
-        // Update badges
-        const allBadge = document.querySelector('[data-category="all"] .tab-badge');
-        const healthBadge = document.querySelector('[data-category="health"] .tab-badge');
-        const medicationBadge = document.querySelector('[data-category="medication"] .tab-badge');
-
-        if (allBadge) {
-            if (allUnread > 0) {
-                allBadge.textContent = allUnread;
-            } else {
-                allBadge.remove();
-            }
-        }
-
-        if (healthBadge) {
-            if (healthUnread > 0) {
-                healthBadge.textContent = healthUnread;
-            } else {
-                healthBadge.remove();
-            }
-        }
-
-        if (medicationBadge) {
-            if (medicationUnread > 0) {
-                medicationBadge.textContent = medicationUnread;
-            } else {
-                medicationBadge.remove();
-            }
-        }
-
-        // Update header stats
-        const unreadStat = document.querySelector('.stat-badge.unread strong');
-        if (unreadStat) {
-            unreadStat.textContent = allUnread;
-        }
-
-        // Update/hide mark all button
-        const markAllBtn = document.querySelector('.header-actions .btn-secondary');
-        if (markAllBtn && allUnread === 0) {
-            markAllBtn.style.display = 'none';
-        }
-    }
-
-    function showToast(message, type = 'success') {
-        // Simple toast notification
-        const toast = document.createElement('div');
-        toast.className = `toast toast-${type}`;
-        toast.textContent = message;
-        toast.style.cssText = `
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            padding: 12px 24px;
-            background: ${type === 'success' ? '#10b981' : '#ef4444'};
-            color: white;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            z-index: 10000;
-            animation: slideIn 0.3s ease;
-        `;
-        document.body.appendChild(toast);
-        setTimeout(() => {
-            toast.style.animation = 'fadeOut 0.3s ease';
-            setTimeout(() => toast.remove(), 300);
-        }, 3000);
-    }
-    
-    // Initialize scheduled time validation on page load
-    document.addEventListener('DOMContentLoaded', () => {
-        initializeScheduledTimeValidation();
-    });
-</script>
-
-<style>
-    @keyframes slideIn {
-        from {
-            transform: translateX(400px);
-            opacity: 0;
-        }
-        to {
-            transform: translateX(0);
-            opacity: 1;
-        }
-    }
-
-    @keyframes fadeOut {
-        from {
-            opacity: 1;
-        }
-        to {
-            opacity: 0;
-        }
-    }
-</style>
+<script src="{{ url_for('static', filename='js/notifications.js') }}"></script>
 {% endblock %}

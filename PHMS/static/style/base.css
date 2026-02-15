@@ -50,7 +50,7 @@ body {
     display: inline-block;
 }
 
-.notification-bell-link {
+.notification-container .notification-bell-link {
     background: none;
     border: none;
     color: white;
@@ -63,8 +63,9 @@ body {
     display: inline-block;
 }
 
-.notification-bell-link:hover {
-    transform: scale(1.1);
+.notification-container .notification-bell-link:hover {
+    transform: scale(1.2);
+    text-decoration: none;
 }
 
 .notification-bell {

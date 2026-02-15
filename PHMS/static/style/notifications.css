@@ -489,6 +489,7 @@
     border-radius: 8px;
     font-size: 0.875rem;
     font-weight: 600;
+    -webkit-backdrop-filter: blur(10px);
     backdrop-filter: blur(10px);
 }
 
@@ -598,6 +599,32 @@
 .log-status-badge.missed {
     background: #fee2e2;
     color: #991b1b;
+}
+
+.log-status-badge.critical {
+    background: #dc2626;
+    color: #ffffff;
+    animation: pulse-critical 2s ease-in-out infinite;
+}
+
+.log-status-badge.critical:hover {
+    background: #b91c1c;
+    animation: none;
+}
+
+@keyframes pulse-critical {
+    0%, 100% {
+        box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7);
+    }
+    50% {
+        box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.3);
+    }
+}
+
+.badge-group {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
 }
 
 .log-details {
