@@ -505,6 +505,10 @@
     background: rgba(239, 68, 68, 0.3);
 }
 
+.stat-item.skipped {
+    background: rgba(107, 114, 128, 0.3);
+}
+
 .log-section {
     margin-bottom: 2.5rem;
 }
@@ -542,6 +546,11 @@
 .medication-log-card.missed {
     border-left-color: #ef4444;
     opacity: 0.85;
+}
+
+.medication-log-card.skipped {
+    border-left-color: #6b7280;
+    opacity: 0.75;
 }
 
 .medication-log-card:hover {
@@ -599,6 +608,11 @@
 .log-status-badge.missed {
     background: #fee2e2;
     color: #991b1b;
+}
+
+.log-status-badge.skipped {
+    background: #e5e7eb;
+    color: #374151;
 }
 
 .log-status-badge.critical {

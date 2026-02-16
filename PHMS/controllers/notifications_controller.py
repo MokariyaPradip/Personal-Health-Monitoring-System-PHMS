@@ -67,8 +67,20 @@ def notifications_page():
             MedicationLog.scheduled_time.desc()
         ).all()
 
+        # Fetch skipped logs - ordered by most recent first (descending)
+        skipped_logs = MedicationLog.query.join(
+            Medication
+        ).filter(
+            MedicationLog.user_id == current_user.user_id,
+            MedicationLog.log_date >= week_ago,
+            MedicationLog.status == 'skipped'
+        ).order_by(
+            MedicationLog.log_date.desc(),
+            MedicationLog.scheduled_time.desc()
+        ).all()
+
         # Combine all logs for total count
-        medication_logs = pending_logs + taken_logs + missed_logs
+        medication_logs = pending_logs + taken_logs + missed_logs + skipped_logs
 
         return render_template(
             'notifications.html',
@@ -83,9 +95,11 @@ def notifications_page():
             pending_logs=pending_logs,
             taken_logs=taken_logs,
             missed_logs=missed_logs,
+            skipped_logs=skipped_logs,
             pending_count=len(pending_logs),
             taken_count=len(taken_logs),
-            missed_count=len(missed_logs)
+            missed_count=len(missed_logs),
+            skipped_count=len(skipped_logs)
         )
     except Exception:
         db.session.rollback()

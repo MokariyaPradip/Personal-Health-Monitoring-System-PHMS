@@ -9,7 +9,14 @@ Features:
 2. Send notifications at scheduled times
 3. 30-minute grace period for taking medication
 4. Auto-mark as missed after grace period
-5. Send email alerts for 2 consecutive missed days
+5. Auto-mark past pending logs as skipped
+6. Send email alerts for 2 consecutive missed days
+
+Status Values:
+- pending: Medication scheduled but not yet taken
+- taken: Medication was taken on time or within grace period
+- missed: Medication was not taken within grace period (same day)
+- skipped: Past pending logs that were never taken (from previous days)
 """
 
 from flask import jsonify, request
@@ -55,6 +62,52 @@ class MedicationLogManager:
         grace_period = min(MedicationLogManager.MIN_GRACE_PERIOD_MINUTES, dose_gap_minutes)
         
         return grace_period
+
+    @staticmethod
+    def get_consecutive_missed_count(log, medication):
+        """
+        Get the number of consecutive missed logs for the same medication.
+
+        Consecutive means each missed log is within the minimum dose gap
+        of the previous missed log, walking backward in time.
+
+        Returns:
+            tuple: (consecutive_count, last_gap_minutes)
+        """
+        if not log or not medication:
+            return 1, None
+
+        dose_gap_minutes = get_minimum_dose_gap_minutes(medication.frequency)
+        current_missed_dt = datetime.combine(log.log_date, log.scheduled_time)
+        consecutive_count = 1
+        last_gap_minutes = None
+
+        with db.session.no_autoflush:
+            previous_missed_logs = MedicationLog.query.filter_by(
+                user_id=log.user_id,
+                medication_id=log.medication_id,
+                status='missed'
+            ).filter(
+                MedicationLog.log_id != log.log_id
+            ).order_by(
+                MedicationLog.log_date.desc(),
+                MedicationLog.scheduled_time.desc()
+            ).all()
+
+        last_missed_dt = current_missed_dt
+        for previous_log in previous_missed_logs:
+            previous_missed_dt = datetime.combine(previous_log.log_date, previous_log.scheduled_time)
+            gap_minutes = (last_missed_dt - previous_missed_dt).total_seconds() / 60
+            last_gap_minutes = gap_minutes
+
+            # Stop once the gap exceeds the allowed dose gap.
+            if gap_minutes > dose_gap_minutes:
+                break
+
+            consecutive_count += 1
+            last_missed_dt = previous_missed_dt
+
+        return consecutive_count, last_gap_minutes
     
     @staticmethod
     def create_daily_logs():
@@ -252,12 +305,40 @@ class MedicationLogManager:
                 db.session.commit()
                 logger.info(f"✓ Marked {marked_missed_count} logs as missed")
             
+            # ============ PART 3: CHECK PAST LOGS AND MARK AS SKIPPED ============
+            skipped_count = 0
+            
+            # Find all pending logs from past dates (before today)
+            past_pending_logs = MedicationLog.query.filter(
+                MedicationLog.log_date < today,
+                MedicationLog.status == 'pending'
+            ).all()
+            
+            logger.info(f"Found {len(past_pending_logs)} pending logs from past dates...")
+            
+            for past_log in past_pending_logs:
+                try:
+                    # Mark as skipped since the scheduled date has passed
+                    past_log.status = 'skipped'
+                    skipped_count += 1
+                    logger.info(f"✓ Marked log {past_log.log_id} as skipped (date={past_log.log_date}, scheduled={past_log.scheduled_time})")
+                    
+                except Exception as e:
+                    error_count += 1
+                    logger.error(f"Error marking log {past_log.log_id} as skipped: {str(e)}")
+            
+            # Commit skipped status updates
+            if skipped_count > 0:
+                db.session.commit()
+                logger.info(f"✓ Marked {skipped_count} past logs as skipped")
+            
             stats = {
                 'date': str(today),
                 'time': str(current_time),
                 'created': created_count,
                 'verified': verified_count,
                 'marked_missed': marked_missed_count,
+                'marked_skipped': skipped_count,
                 'errors': error_count,
                 'status': 'success'
             }
@@ -267,6 +348,7 @@ class MedicationLogManager:
             logger.info(f"   📝 Created: {created_count} new logs")
             logger.info(f"   🔍 Verified: {verified_count} existing logs")
             logger.info(f"   ❌ Marked missed: {marked_missed_count} logs")
+            logger.info(f"   ⏭️  Marked skipped: {skipped_count} past logs")
             logger.info(f"   ⚠️ Errors: {error_count}")
             logger.info("━" * 50)
             
@@ -281,6 +363,7 @@ class MedicationLogManager:
                 'created': created_count,
                 'verified': verified_count,
                 'marked_missed': marked_missed_count,
+                'marked_skipped': 0,
                 'errors': error_count
             }
     
@@ -420,7 +503,7 @@ class MedicationLogManager:
         """
         Check pending medications whose grace period has expired and mark them as missed
         
-        Grace Period: 30 minutes after scheduled time
+        Grace period: min(30 minutes maximum, time gap between consecutive doses)
         
         This should be run every minute via a scheduled task
         
@@ -463,31 +546,7 @@ class MedicationLogManager:
                     marked_missed += 1
                     logger.info(f"Log {log.log_id} marked as missed (grace period={grace_period_minutes}min expired)")
                     
-                    # Check for consecutive missed days using no_autoflush to avoid database lock
-                    try:
-                        with db.session.no_autoflush:
-                            yesterday_log = MedicationLog.query.filter_by(
-                                user_id=log.user_id,
-                                medication_id=log.medication_id,
-                                log_date=yesterday,
-                                status='missed'
-                            ).first()
-                            
-                            if yesterday_log:
-                                # Store email task to send after commit (for all medications)
-                                user = medication.user
-                                emails_to_send.append({
-                                    'type': 'consecutive',
-                                    'user': user,
-                                    'medication': medication,
-                                    'today': today,
-                                    'yesterday': yesterday,
-                                    'log_id': log.log_id
-                                })
-                    except Exception as consecutive_error:
-                        logger.error(f"Error checking consecutive missed: {str(consecutive_error)}")
-                    
-                    # Also check if medication is critical
+                    # If medication is critical, send critical email and skip consecutive check
                     if medication and medication.is_critical:
                         try:
                             user = medication.user
@@ -500,6 +559,34 @@ class MedicationLogManager:
                             })
                         except Exception as email_error:
                             logger.error(f"Error preparing critical medication email for log {log.log_id}: {str(email_error)}")
+                    else:
+                        # Check for consecutive missed logs of the SAME medication based on time gap
+                        try:
+                            consecutive_missed_count, gap_minutes = MedicationLogManager.get_consecutive_missed_count(
+                                log,
+                                medication
+                            )
+                                
+                            if consecutive_missed_count >= 2:
+                                user = medication.user
+                                emails_to_send.append({
+                                    'type': 'consecutive_missed',
+                                    'user': user,
+                                    'medication': medication,
+                                    'log': log,
+                                    'log_id': log.log_id,
+                                    'consecutive_count': consecutive_missed_count
+                                })
+                                if gap_minutes is not None:
+                                    logger.info(
+                                        f"Flagged {consecutive_missed_count} consecutive missed logs for medication {log.medication_id} (gap_minutes={gap_minutes:.1f})"
+                                    )
+                                else:
+                                    logger.info(
+                                        f"Flagged {consecutive_missed_count} consecutive missed logs for medication {log.medication_id}"
+                                    )
+                        except Exception as consecutive_error:
+                            logger.error(f"Error checking consecutive missed logs: {str(consecutive_error)}")
             
             # Commit all database changes first
             if marked_missed > 0:
@@ -509,14 +596,14 @@ class MedicationLogManager:
             # Now send emails after database is committed (avoids locking issues)
             for email_task in emails_to_send:
                 try:
-                    if email_task['type'] == 'consecutive':
+                    if email_task['type'] == 'consecutive_missed':
                         MedicationLogManager.send_consecutive_missed_email(
                             email_task['user'],
                             email_task['medication'],
-                            email_task['today'],
-                            email_task['yesterday']
+                            email_task['log'],
+                            email_task['consecutive_count']
                         )
-                        logger.info(f"Consecutive missed email sent for medication {email_task['medication'].medication_id} (log {email_task['log_id']})")
+                        logger.info(f"Consecutive missed email sent for medication {email_task['medication'].medication_id} (log {email_task['log_id']}, count={email_task['consecutive_count']})")
                     elif email_task['type'] == 'critical':
                         MedicationLogManager.send_critical_medication_missed_email(
                             email_task['user'],
@@ -545,82 +632,35 @@ class MedicationLogManager:
     @staticmethod
     def check_consecutive_missed_and_email():
         """
-        Check for 2 consecutive missed days and send email alert
+        [DEPRECATED - Logic moved to check_grace_period_and_mark_missed()]
         
-        This should be run daily (e.g., at 11:59 PM)
+        Consecutive missed detection is now done in check_grace_period_and_mark_missed()
+        when each log is marked as missed. This method is kept for backward compatibility
+        but does nothing.
         
         Returns:
-            dict: Statistics of email alerts sent
+            dict: Empty success response
         """
-        try:
-            today = date.today()
-            yesterday = today - timedelta(days=1)
-            
-            # Get all users
-            users = User.query.all()
-            email_count = 0
-            
-            for user in users:
-                # Get all medications for this user
-                medications = Medication.query.filter_by(user_id=user.user_id).all()
-                
-                for medication in medications:
-                    # Check logs for today and yesterday
-                    today_logs = MedicationLog.query.filter(
-                        MedicationLog.medication_id==medication.medication_id,
-                        MedicationLog.log_date == today,
-                        MedicationLog.status == 'missed'
-                    ).all()
-                    
-                    yesterday_logs = MedicationLog.query.filter(
-                        MedicationLog.medication_id==medication.medication_id,
-                        MedicationLog.log_date == yesterday,
-                        MedicationLog.status == 'missed'
-                    ).all()
-                    
-                    # If both today and yesterday have missed medications
-                    if len(today_logs) > 0 and len(yesterday_logs) > 0:
-                        # Check if email was already sent
-                        existing_alert = Alert.query.filter(
-                            Alert.user_id==user.user_id,
-                            Alert.medication_log_id == None,
-                            Alert.title.ilike('%consecutive%'),
-                            Alert.created_at >= (today - timedelta(days=1))
-                        ).first()
-                        
-                        if not existing_alert:
-                            # Send email for consecutive missed (all medications)
-                            MedicationLogManager.send_consecutive_missed_email(
-                                user,
-                                medication,
-                                today,
-                                yesterday
-                            )
-                            email_count += 1
-                            logger.info(f"Consecutive missed email sent to {user.user_email} for {medication.medicine.medicine_name}")
-            
-            return {
-                'status': 'success',
-                'emails_sent': email_count,
-                'timestamp': str(today)
-            }
-            
-        except Exception as e:
-            logger.error(f"Error in check_consecutive_missed_and_email: {str(e)}")
-            return {'status': 'error', 'message': str(e)}
+        logger.info("check_consecutive_missed_and_email is deprecated. Logic moved to check_grace_period_and_mark_missed()")
+        return {
+            'status': 'success',
+            'message': 'Deprecated - logic moved to check_grace_period_and_mark_missed()',
+            'timestamp': str(date.today())
+        }
     
     @staticmethod
-    def send_consecutive_missed_email(user, medication, today, yesterday):
+    def send_consecutive_missed_email(user, medication, log, consecutive_count):
         """
-        Send email alert for consecutive missed medications
+        Send email alert for 2+ consecutive missed medication logs of the same medication.
         
-        Uses HTML email template from templates/email-templates/medication_missed_alert_email.html
+        This is triggered when a medication is marked as missed and there are 2 or more
+        consecutive missed logs for that same medication (not based on dates).
         
         Args:
             user: User object
             medication: Medication object
-            today: Date object for today
-            yesterday: Date object for yesterday
+            log: MedicationLog object (the current log that was just marked as missed)
+            consecutive_count: Number of consecutive missed logs for this medication
         """
         try:
             from flask_mail import Mail, Message
@@ -629,7 +669,7 @@ class MedicationLogManager:
             
             mail = Mail(app)
             
-            subject = f"⚠️ Medication Missed Alert - {medication.medicine.medicine_name}"
+            subject = f"⚠️ CONSECUTIVE MISSED DOSES - {medication.medicine.medicine_name} ⚠️"
             
             # Prepare email template variables
             email_context = {
@@ -638,17 +678,17 @@ class MedicationLogManager:
                 'dosage': medication.dosage,
                 'medicine_type': medication.medicine.medicine_type or 'Tablet',
                 'medicine_purpose': medication.medicine.purpose or 'Health maintenance',
-                'yesterday_date': yesterday.strftime('%B %d, %Y'),
-                'today_date': today.strftime('%B %d, %Y'),
-                'dashboard_url': 'http://localhost:5000/notifications',  # Update with actual domain
-                'settings_url': 'http://localhost:5000/profile/settings',  # Update with actual domain
-                'help_url': 'http://localhost:5000/help',  # Update with actual domain
-                'contact_url': 'http://localhost:5000/support'  # Update with actual domain
+                'consecutive_count': consecutive_count,
+                'current_log_date': log.log_date.strftime('%B %d, %Y'),
+                'current_log_time': log.scheduled_time.strftime('%I:%M %p'),
+                # 'dashboard_url': 'http://localhost:5000/notifications',
+                # 'medication_url': 'http://localhost:5000/medication',
+                # 'help_url': 'http://localhost:5000/help'
             }
             
             # Render HTML email template
             html_body = render_template(
-                'email-templates/medication_missed_alert_email.html',
+                'email-templates/consecutive_missed_alert_email.html',
                 **email_context
             )
             
@@ -656,22 +696,24 @@ class MedicationLogManager:
             plain_text_body = f"""
 Hello {user.username},
 
-MEDICATION MISSED ALERT - 2 CONSECUTIVE DAYS
+⚠️ CONSECUTIVE MISSED MEDICATION DOSES ALERT
 
-We noticed that you missed taking your medication for 2 consecutive days:
+We noticed that you have missed {consecutive_count} consecutive doses of your medication:
 
 Medication: {medication.medicine.medicine_name}
 Dosage: {medication.dosage}
-Dates Missed: {yesterday.strftime('%B %d, %Y')} and {today.strftime('%B %d, %Y')}
+Last Missed: {log.log_date.strftime('%B %d, %Y')} at {log.scheduled_time.strftime('%I:%M %p')}
+Type: {medication.medicine.medicine_type or 'Tablet'}
+Purpose: {medication.medicine.purpose or 'Health maintenance'}
 
-Please ensure you take your medication as prescribed. If you're experiencing any issues or side effects, please consult with your healthcare provider.
+IMPORTANT: Missing consecutive doses of your medication can be harmful to your health.
+Regular medication adherence is crucial for your treatment effectiveness.
 
-IMPORTANT: Regular medication adherence is crucial for your health and treatment effectiveness.
-
-ACTION NEEDED:
-1. Take your medication immediately
-2. Log it in your PHMS dashboard
-3. Review your medication schedule
+IMMEDIATE ACTION REQUIRED:
+1. Take your medication as soon as possible
+2. Update your medication log in PHMS
+3. Review your schedule to prevent future missed doses
+4. Contact your healthcare provider if you're experiencing issues
 
 ---
 Personal Health Monitoring System (PHMS)
@@ -681,16 +723,16 @@ Your trusted health companion
             msg = Message(
                 subject=subject,
                 recipients=[user.user_email],
-                body=plain_text_body,
                 html=html_body,
-                extra_headers={'X-Priority': '1 (Highest)'}
+                body=plain_text_body,
+                # extra_headers={'X-Priority': '1 (Highest)'}
             )
             
             mail.send(msg)
-            logger.info(f"Medication missed alert email sent to {user.user_email} for {medication.medicine.medicine_name}")
+            logger.info(f"Consecutive missed alert email sent to {user.user_email} for {medication.medicine.medicine_name} ({consecutive_count} consecutive misses)")
             
         except Exception as e:
-            logger.error(f"Error sending medication alert email to {user.user_email}: {str(e)}")
+            logger.error(f"Error sending consecutive missed alert email to {user.user_email}: {str(e)}")
     
     @staticmethod
     def send_critical_medication_reminder_email(user, medication, log):
@@ -723,9 +765,9 @@ Your trusted health companion
                 'medicine_purpose': medication.medicine.purpose or 'Critical health maintenance',
                 'scheduled_time': log.scheduled_time.strftime('%I:%M %p'),
                 'log_date': log.log_date.strftime('%B %d, %Y'),
-                'dashboard_url': 'http://localhost:5000/notifications',
-                'medication_url': 'http://localhost:5000/medication',
-                'help_url': 'http://localhost:5000/help'
+                # 'dashboard_url': 'http://localhost:5000/notifications',
+                # 'medication_url': 'http://localhost:5000/medication',
+                # 'help_url': 'http://localhost:5000/help'
             }
             
             # Render HTML email template
@@ -763,9 +805,9 @@ This is an automated critical medication reminder from your Personal Health Moni
             msg = Message(
                 subject=subject,
                 recipients=[user.user_email],
-                body=plain_text_body,
                 html=html_body,
-                extra_headers={'X-Priority': '1 (Highest)'}
+                body=plain_text_body,
+                # extra_headers={'X-Priority': '1 (Highest)'}
             )
             
             mail.send(msg)
@@ -807,9 +849,9 @@ This is an automated critical medication reminder from your Personal Health Moni
                 'medicine_purpose': medication.medicine.purpose or 'Critical health maintenance',
                 'scheduled_time': log.scheduled_time.strftime('%I:%M %p'),
                 'log_date': log.log_date.strftime('%B %d, %Y'),
-                'dashboard_url': 'http://localhost:5000/notifications',
-                'medication_url': 'http://localhost:5000/medication',
-                'help_url': 'http://localhost:5000/help'
+                # 'dashboard_url': 'http://localhost:5000/notifications',
+                # 'medication_url': 'http://localhost:5000/medication',
+                # 'help_url': 'http://localhost:5000/help'
             }
             
             # Render HTML email template
@@ -846,9 +888,9 @@ This is an automated critical notification from your Personal Health Monitoring 
             msg = Message(
                 subject=subject,
                 recipients=[user.user_email],
-                body=plain_text_body,
                 html=html_body,
-                extra_headers={'X-Priority': '1 (Highest)'}
+                body=plain_text_body,
+                # extra_headers={'X-Priority': '1 (Highest)'}
             )
             
             mail.send(msg)
@@ -896,6 +938,7 @@ This is an automated critical notification from your Personal Health Monitoring 
         taken = sum(1 for log in logs if log.status == 'taken')
         missed = sum(1 for log in logs if log.status == 'missed')
         pending = sum(1 for log in logs if log.status == 'pending')
+        skipped = sum(1 for log in logs if log.status == 'skipped')
         total = len(logs)
         
         adherence_rate = (taken / total * 100) if total > 0 else 0
@@ -905,6 +948,7 @@ This is an automated critical notification from your Personal Health Monitoring 
             'taken': taken,
             'missed': missed,
             'pending': pending,
+            'skipped': skipped,
             'adherence_rate': round(adherence_rate, 2),
             'period': f"Last 7 days (from {week_ago.strftime('%b %d')} to {today.strftime('%b %d')})"
         }
@@ -915,7 +959,7 @@ This is an automated critical notification from your Personal Health Monitoring 
 @login_required
 def update_medication_log_status(log_id):
     """
-    Update medication log status (taken/missed)
+    Update medication log status (taken/missed/skipped/pending)
     
     Endpoint: PUT /medication-log/<log_id>/status
     """
@@ -923,7 +967,7 @@ def update_medication_log_status(log_id):
         data = request.get_json(silent=True) or {}
         status = data.get('status')
         
-        if status not in ['taken', 'missed', 'pending']:
+        if status not in ['taken', 'missed', 'pending', 'skipped']:
             return jsonify({
                 'success': False,
                 'message': 'Invalid status'
@@ -1227,40 +1271,39 @@ def mark_medication_missed(log_id):
         
         log.status = 'missed'
         
-        # Check for 2 consecutive missed days FIRST (higher priority)
-        consecutive_email_sent = False
-        try:
-            yesterday = log_date - timedelta(days=1)
-            yesterday_log = MedicationLog.query.filter_by(
-                user_id=current_user.user_id,
-                medication_id=log.medication_id,
-                log_date=yesterday,
-                status='missed'
-            ).first()
-            
-            if yesterday_log:
-                # Found 2 consecutive missed days - send email (this takes priority)
-                MedicationLogManager.send_consecutive_missed_email(
-                    current_user,
-                    medication,
-                    log_date,
-                    yesterday
-                )
-                consecutive_email_sent = True
-                logger.info(f"Consecutive missed email sent for medication {medication.medication_id}")
-        except Exception as consecutive_error:
-            logger.error(f"Error checking/sending consecutive missed email: {str(consecutive_error)}")
-        
-        # Send critical email ONLY if consecutive email was NOT sent
-        # (to avoid duplicate emails for same event)
-        if not consecutive_email_sent and medication and medication.is_critical:
-            # Send immediate email notification for critical medication
+        # If medication is critical, send critical email and skip consecutive check
+        if medication and medication.is_critical:
             MedicationLogManager.send_critical_medication_missed_email(
                 current_user,
                 medication,
                 log
             )
             logger.info(f"Critical medication missed email sent for log {log_id}")
+        else:
+            # Check for consecutive missed logs of the SAME medication based on time gap
+            try:
+                consecutive_missed_count, gap_minutes = MedicationLogManager.get_consecutive_missed_count(
+                    log,
+                    medication
+                )
+                
+                if consecutive_missed_count >= 2:
+                    MedicationLogManager.send_consecutive_missed_email(
+                        current_user,
+                        medication,
+                        log,
+                        consecutive_missed_count
+                    )
+                    if gap_minutes is not None:
+                        logger.info(
+                            f"Consecutive missed email sent for medication {medication.medication_id} (gap_minutes={gap_minutes:.1f})"
+                        )
+                    else:
+                        logger.info(
+                            f"Consecutive missed email sent for medication {medication.medication_id}"
+                        )
+            except Exception as consecutive_error:
+                logger.error(f"Error checking/sending consecutive missed email: {str(consecutive_error)}")
         
         db.session.commit()
         

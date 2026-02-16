@@ -30,7 +30,7 @@ The Notification and Medication Log Management System is a comprehensive solutio
 
 - **Medication Log Manager**: Core business logic for log creation and management
 - **Scheduler**: APScheduler-based automated task execution
-- **Email System**: HTML-based email alerts for critical and consecutive missed medications
+- **Email System**: HTML-based email alerts for critical and consecutive missed doses (same medication)
 - **Frontend UI**: Interactive medication log display with real-time button state management
 - **Database**: SQLite with SQLAlchemy ORM for persistent storage
 
@@ -40,7 +40,7 @@ The Notification and Medication Log Management System is a comprehensive solutio
 ✅ Send timely notifications at scheduled times  
 ✅ Provide grace period for medication intake  
 ✅ Auto-mark medications as missed after grace period  
-✅ Send email alerts for consecutive missed medications  
+✅ Send email alerts for consecutive missed doses (same medication)  
 ✅ Provide real-time UI feedback to users  
 ✅ Prevent database locking during operations  
 
@@ -66,7 +66,7 @@ PHMS/
 │   └── email-templates/
 │       ├── critical_medication_reminder_email.html
 │       ├── critical_medication_missed_email.html
-│       └── medication_missed_alert_email.html
+│       └── consecutive_missed_alert_email.html
 ├── static/js/
 │   └── notifications.js                # Frontend button logic
 ├── utils/
@@ -118,30 +118,21 @@ PHMS/
    ↓
    For each pending log:
    ├─ Check if current_time > (scheduled_time + grace_period)
-   ├─ If yes: Mark as missed AND check for consecutive days
-   ├─ If 2 consecutive missed: Add to email queue (send_consecutive_missed_email)
+    ├─ If yes: Mark as missed AND check for consecutive missed doses of same medication
+    ├─ If 2+ consecutive missed: Add to email queue (send_consecutive_missed_email)
    ├─ If not consecutive but critical: Add to email queue (send_critical_medication_missed_email)
    └─ Commit to database
    ↓
    After commit: Send queued emails
    
-5. CONSECUTIVE MISSED CHECK (Daily at 23:59)
-   ↓
-   Scheduler triggers check_consecutive_missed_and_email()
-   ↓
-   For each medication:
-   ├─ Check if today AND yesterday were both missed
-   ├─ If yes: Send email (send_consecutive_missed_email)
-   └─ Flag: Only if not already sent in grace period check
-   
-6. MARK AS MISSED (User action)
+5. MARK AS MISSED (User action)
    ↓
    User clicks "Mark as Missed" button
    ↓
    Backend receives request
    ↓
-   Check for consecutive missed (2 days):
-   ├─ If found: Send email (send_consecutive_missed_email) - HIGHEST PRIORITY
+    Check for consecutive missed doses (same medication):
+    ├─ If count >= 2: Send email (send_consecutive_missed_email) - HIGHEST PRIORITY
    ├─ Else if critical: Send email (send_critical_medication_missed_email)
    └─ Update database
 ```
@@ -266,8 +257,8 @@ Examples:
    ├─ Calculate grace_period_end = scheduled_time + grace_period_minutes
    ├─ If current_time > grace_period_end:
    │  ├─ Set status='missed'
-   │  ├─ Check for consecutive missed (yesterday was also missed):
-   │  │  ├─ If yes, consecutive: Queue email (send_consecutive_missed_email)
+    │  ├─ Check for consecutive missed doses of same medication:
+    │  │  ├─ If count >= 2: Queue email (send_consecutive_missed_email)
    │  │  ├─ Else if critical: Queue email (send_critical_medication_missed_email)
    │  │  └─ Log the action
    │  └─ Mark as processed
@@ -292,7 +283,7 @@ Three types of email notifications are sent for medication adherence:
 |------|---------|-----------|-----------|
 | **Critical Reminder** | Scheduled time arrives | Critical medications | Real-time |
 | **Critical Missed** | User marks critical med as missed OR after grace period | Critical medications only | Real-time |
-| **Consecutive Missed** | 2 consecutive days missed | **ALL** medications | Real-time |
+| **Consecutive Missed** | 2+ consecutive missed doses (same medication) | **ALL** medications | Real-time |
 
 #### Email Type 1: Critical Medication Reminder Email
 
@@ -333,25 +324,26 @@ Three types of email notifications are sent for medication adherence:
 
 ---
 
-#### Email Type 3: Consecutive Missed Medication Alert Email
+#### Email Type 3: Consecutive Missed Dose Alert Email
 
-**Function:** `send_consecutive_missed_email(user, medication, today, yesterday)`  
-**Trigger:** When medication is missed for 2 consecutive days  
+**Function:** `send_consecutive_missed_email(user, medication, log, consecutive_count)`  
+**Trigger:** When the same medication is missed for 2+ consecutive doses  
 **Recipients:** **ALL medications** (critical and non-critical)
 
-**Template:** [medication_missed_alert_email.html](PHMS/templates/email-templates/medication_missed_alert_email.html)
+**Template:** [consecutive_missed_alert_email.html](PHMS/templates/email-templates/consecutive_missed_alert_email.html)
 
 **Features:**
-- ⚠️ "MEDICATION MISSED ALERT" header
-- 📅 Timeline showing dates missed (yesterday + today)
+- ⚠️ "CONSECUTIVE MISSED DOSES" header
+- 🔢 Consecutive missed count displayed
+- 🕒 Most recent missed scheduled date/time
 - 📊 Health maintenance importance
 - 🎯 Action items:
-  1. Take medication immediately
-  2. Log it in dashboard
-  3. Review medication schedule
-- 🔗 Direct links to dashboard and support
+    1. Take medication immediately
+    2. Log it in dashboard
+    3. Review medication schedule
+- 🔗 Direct links to dashboard and help
 
-**Email Subject:** ⚠️ Medication Missed Alert - [Medication Name]
+**Email Subject:** ⚠️ CONSECUTIVE MISSED DOSES - [Medication Name]
 
 ---
 
@@ -388,7 +380,7 @@ CREATE TABLE medication_log (
     log_date DATE NOT NULL,
     scheduled_time TIME NOT NULL,
     status VARCHAR(20) DEFAULT 'pending',
-    -- status: 'pending', 'taken', 'missed'
+    -- status: 'pending', 'taken', 'missed', 'skipped'
     taken_at TIMESTAMP NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(medication_id) REFERENCES medication(medication_id),
@@ -477,16 +469,16 @@ Located in: [scheduler_config.py](PHMS/scheduler_config.py)
 | **Duration** | ~100-300ms per run |
 | **Max Instances** | 1 (prevents overlap) |
 
-### Task 4: Consecutive Missed Check
+### Task 4: Consecutive Missed Check (Deprecated)
 
 | Property | Value |
 |----------|-------|
 | **Function** | `MedicationLogManager.check_consecutive_missed_and_email()` |
-| **Trigger** | Cron: 23:59 (11:59 PM) daily |
-| **Frequency** | Once per day |
-| **Action** | Sends emails for 2 consecutive missed days |
-| **Duration** | ~500-2000ms (depends on users/medications) |
-| **Error Handling** | Logs errors, continues processing |
+| **Trigger** | Deprecated (no-op) |
+| **Frequency** | N/A |
+| **Action** | No-op (logic handled during missed marking) |
+| **Duration** | ~0ms |
+| **Error Handling** | Logs deprecation notice |
 
 ### Task 5: Initialize on Startup
 
@@ -506,7 +498,7 @@ Located in: [scheduler_config.py](PHMS/scheduler_config.py)
 
 **Process Flow:**
 ```
-1. Email trigger detected (notification/missed/consecutive check)
+1. Email trigger detected (notification/missed/consecutive check - deprecated)
 2. Email function prepares:
    ├─ Recipient: user.user_email
    ├─ Subject: [TYPE] - [MEDICATION NAME]
@@ -549,7 +541,7 @@ Located in: [scheduler_config.py](PHMS/scheduler_config.py)
 }
 ```
 
-**For medication_missed_alert_email:**
+**For consecutive_missed_alert_email:**
 ```python
 {
     'user_name': 'John Doe',
@@ -557,12 +549,12 @@ Located in: [scheduler_config.py](PHMS/scheduler_config.py)
     'dosage': '500mg',
     'medicine_type': 'Tablet',
     'medicine_purpose': 'Pain relief',
-    'yesterday_date': 'February 14, 2026',
-    'today_date': 'February 15, 2026',
+    'consecutive_count': 2,
+    'current_log_date': 'February 15, 2026',
+    'current_log_time': '08:00 AM',
     'dashboard_url': 'http://localhost:5000/notifications',
-    'settings_url': 'http://localhost:5000/profile/settings',
-    'help_url': 'http://localhost:5000/help',
-    'contact_url': 'http://localhost:5000/support'
+    'medication_url': 'http://localhost:5000/medication',
+    'help_url': 'http://localhost:5000/help'
 }
 ```
 
@@ -583,7 +575,7 @@ except Exception as e:
 ```python
 # Use no_autoflush context during queries
 with db.session.no_autoflush:
-    yesterday_log = MedicationLog.query.filter_by(...).first()
+    missed_logs_for_med = MedicationLog.query.filter_by(...).all()
 
 # Commit database first
 db.session.commit()
@@ -839,7 +831,7 @@ Response (Success - 200):
 
 Features:
 - Validates grace period before marking
-- Checks for consecutive missed days
+- Checks for consecutive missed doses
 - Sends emergency emails accordingly
 - Logs action with medication details
 ```
@@ -858,6 +850,7 @@ Response (200):
         "taken": 28,
         "missed": 5,
         "pending": 2,
+        "skipped": 0,
         "adherence_rate": 80.0,
         "period": "Last 7 days (from Feb 08 to Feb 15)"
     }
@@ -872,7 +865,7 @@ Authorization: Required (login_required)
 
 Query Parameters:
 - days: Number of days in past (default: 7)
-- status: Filter by status (taken/missed/pending, optional)
+- status: Filter by status (taken/missed/pending/skipped, optional)
 
 Response (200):
 {
@@ -960,7 +953,7 @@ Response:
     "success": true,
     "data": {
         "status": "success",
-        "emails_sent": 2,
+        "message": "Deprecated - logic moved to check_grace_period_and_mark_missed()",
         "timestamp": "2026-02-15"
     }
 }
@@ -1016,9 +1009,9 @@ Log: ✅ LATE ADHERENCE RECORDED (but acceptable)
   ├─ 08:31 AM (Scheduler runs)
   │   └─ check_grace_period_and_mark_missed() triggers
   │       ├─ Marks as 'missed'
-  │       ├─ Checks for consecutive missed
+    │       ├─ Checks for consecutive missed doses (same medication)
   │       ├─ If critical: Sends email
-  │       └─ If 2 consecutive: Sends email
+    │       └─ If 2+ consecutive: Sends email
   │
   ├─ 08:32 AM (User checks dashboard)
   │   └─ Sees "Aspirin - MISSED"
@@ -1031,33 +1024,29 @@ Log: ❌ MISSED MEDICATION RECORDED
      📧 Email sent to user (if critical or consecutive)
 ```
 
-### Workflow 4: Consecutive Missed Medications
+### Workflow 4: Consecutive Missed Doses (Same Medication)
 
 ```
-Day 1 (Monday)
-  ├─ 08:30 AM: Aspirin missed (grace period expires)
-  ├─ Scheduled tasks mark as missed
-  ├─ Check consecutive: Only 1 day → No email sent yet
-  ├─ 23:59 PM: Daily check runs
-  └─ Result: 1 day missed
+Dose 1 (Monday)
+    ├─ 08:30 AM: Aspirin missed (grace period expires)
+    ├─ Scheduler marks as missed
+    ├─ Check consecutive: Only 1 missed dose → No email sent yet
+    └─ Result: 1 missed dose
   
-Day 2 (Tuesday)
-  ├─ 08:30 AM: Aspirin missed again (grace period expires)
-  ├─ Scheduled task checks consecutive:
-  │   └─ Yesterday = missed ✓
-  │   └─ Today = missed ✓
-  │   └─ 2 consecutive! → SEND EMAIL
-  ├─ Email sent: "Medication Missed Alert"
-  ├─ Email subject: "⚠️ Medication Missed Alert - Aspirin"
-  ├─ 23:59 PM: Daily check would skip (already sent)
-  └─ Result: 2 days missed → EMAIL ALERT SENT 📧
+Dose 2 (Same medication, next scheduled time)
+    ├─ Missed again (grace period expires)
+    ├─ Scheduled task checks consecutive doses:
+    │   └─ Count = 2 → SEND EMAIL
+    ├─ Email sent: "Consecutive Missed Doses"
+    ├─ Email subject: "⚠️ CONSECUTIVE MISSED DOSES - Aspirin"
+    └─ Result: 2 missed doses → EMAIL ALERT SENT 📧
   
-Day 3 (Wednesday)
-  ├─ User takes medication: Aspirin taken at 08:05 AM
-  ├─ Status: 'taken'
-  ├─ Consecutive counter resets
-  └─ Result: Back on track ✅
-  ↓
+Next dose taken
+    ├─ User takes medication
+    ├─ Status: 'taken'
+    ├─ Consecutive counter resets
+    └─ Result: Back on track ✅
+    ↓
 Log: ✅ ADHERENCE RECOVERED
 ```
 
@@ -1074,7 +1063,7 @@ Log: ✅ ADHERENCE RECOVERED
 08:05 AM (User marks as missed)
   ├─ Validates grace period ✓
   ├─ Marks as moved
-  ├─ Checks consecutive → Not 2 days yet
+    ├─ Checks consecutive → Not 2 doses yet
   ├─ is_critical=true → Send email
   ├─ 📧 CRITICAL MISSED EMAIL SENT
   ├─ Email subject: "⚠️ CRITICAL ALERT - Medication Missed"
@@ -1150,6 +1139,7 @@ JOBS = [
         'trigger': 'cron',
         'hour': 23,
         'minute': 59
+        # Deprecated (no-op): logic handled during missed marking
     }
 ]
 ```
@@ -1293,7 +1283,7 @@ logger = logging.getLogger('flask_mail')
 # CORRECT - No autoflush during query
 try:
     with db.session.no_autoflush:
-        yesterday_log = MedicationLog.query.filter_by(...).first()
+        missed_logs_for_med = MedicationLog.query.filter_by(...).all()
     
     # Database operations here
     log.status = 'missed'
@@ -1321,17 +1311,16 @@ grep -n "no_autoflush" PHMS/controllers/medication_log_controller.py
 
 **Cause Analysis:**
 1. Email sent in grace_period check AND user manual mark_missed
-2. Email sent in grace_period check AND next day consecutive check
-3. Duplicate task entries in email queue
+2. Duplicate task entries in email queue
 
 **Solution:** 
 
 ```python
 # Check for consecutive FIRST (highest priority)
 consecutive_email_sent = False
-if yesterday_log:
-    # Found consecutive - send this email
-    emails_to_send.append({'type': 'consecutive', ...})
+if consecutive_missed_count >= 2:
+    # Found consecutive missed doses - send this email
+    emails_to_send.append({'type': 'consecutive_missed', ...})
     consecutive_email_sent = True
 
 # Only send critical missed if consecutive was NOT sent

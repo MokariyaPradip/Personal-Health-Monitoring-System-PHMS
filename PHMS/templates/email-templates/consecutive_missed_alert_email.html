@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Medication Missed Alert - PHMS</title>
+    <title>Consecutive Missed Doses Alert - PHMS</title>
     <style>
         * {
             margin: 0;
@@ -372,8 +372,8 @@
     <div class="email-container">
         <!-- Header -->
         <div class="email-header">
-            <h1>⚠️ Medication Missed Alert</h1>
-            <p>Consecutive Missed Days - Immediate Action Required</p>
+            <h1>⚠️ Consecutive Missed Doses</h1>
+            <p>Immediate Action Required</p>
         </div>
         
         <!-- Body -->
@@ -386,7 +386,7 @@
             <!-- Alert Message -->
             <div class="alert-box">
                 <p>🚨 IMPORTANT NOTICE</p>
-                <p>We noticed that you missed taking your medication for <strong>2 consecutive days</strong>. Regular medication adherence is crucial for your health and treatment effectiveness.</p>
+                <p>We noticed that you missed <strong>{{ consecutive_count }}</strong> consecutive doses of your medication. Regular adherence is crucial for your health and treatment effectiveness.</p>
             </div>
             
             <!-- Medication Details -->
@@ -412,31 +412,26 @@
                 </div>
             </div>
             
-            <!-- Missed Dates Timeline -->
+            <!-- Missed Dose Timeline -->
             <div class="timeline">
-                <div class="timeline-title">📅 Dates Missed</div>
+                <div class="timeline-title">📅 Most Recent Missed Dose</div>
                 <div class="timeline-item">
                     <div class="timeline-icon">❌</div>
                     <div class="timeline-content">
-                        <div class="timeline-date">{{ yesterday_date }}</div>
-                        <div class="timeline-status">First day missed</div>
-                    </div>
-                </div>
-                <div class="timeline-item">
-                    <div class="timeline-icon">❌</div>
-                    <div class="timeline-content">
-                        <div class="timeline-date">{{ today_date }}</div>
-                        <div class="timeline-status">Second consecutive day missed</div>
+                        <div class="timeline-date">{{ current_log_date }} at {{ current_log_time }}</div>
+                        <div class="timeline-status">{{ consecutive_count }} consecutive missed doses</div>
                     </div>
                 </div>
             </div>
             
             <!-- Action Box -->
-            <div class="action-box">
-                <h3>📱 Take Action Now</h3>
-                <p>We recommend you take your medication immediately and log it in your dashboard.</p>
-                <a href="{{ dashboard_url }}" class="cta-button">Go to Medication Log</a>
-            </div>
+             <!--
+                <div class="action-box">
+                    <h3>📱 Take Action Now</h3>
+                    <p>We recommend you take your medication immediately and log it in your dashboard.</p>
+                    <a href="{{ dashboard_url }}" class="cta-button">Go to Medication Log</a>
+                </div>
+            -->
             
             <!-- Information Box -->
             <div class="info-box">
@@ -480,11 +475,11 @@
                 Your trusted health companion
             </p>
             
+            <!--
             <div class="footer-links">
-                <a href="{{ settings_url }}">Notification Settings</a>
                 <a href="{{ help_url }}">Help & Support</a>
-                <a href="{{ contact_url }}">Contact Us</a>
             </div>
+            -->
             
             <div class="brand-section">
                 <span class="brand-icon">❤️</span>

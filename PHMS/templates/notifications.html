@@ -208,6 +208,7 @@
                 <span class="stat-item pending">⏳ Pending: {{ pending_count }}</span>
                 <span class="stat-item taken">✅ Taken: {{ taken_count }}</span>
                 <span class="stat-item missed">❌ Missed: {{ missed_count }}</span>
+                <span class="stat-item skipped">⏭️ Skipped: {{ skipped_count }}</span>
             </div>
         </div>
 
@@ -301,6 +302,36 @@
                     <div class="log-details">
                         <p class="log-dosage">💉 Dosage: <strong>{{ log.medication.dosage }}</strong></p>
                         <p class="log-schedule">⏰ Scheduled: <strong>{{ log.log_date.strftime('%b %d, %Y') }} at {{ log.scheduled_time.strftime('%I:%M %p') }}</strong></p>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Skipped Medications (Past Pending) -->
+        {% if skipped_logs %}
+        <div class="log-section">
+            <h3 class="log-section-title">⏭️ Skipped Medications <span style="color: #6b7280; font-weight: 600; background: rgba(107, 114, 128, 0.1); padding: 2px 8px; border-radius: 4px; font-size: 0.9em;">{{ skipped_logs|length }} items</span></h3>
+            <div class="log-items-container" style="max-height: 400px; overflow-y: auto; padding-right: 8px;">
+            {% for log in skipped_logs %}
+            <div class="medication-log-card skipped" data-log-id="{{ log.log_id }}">
+                <div class="log-icon">⏭️</div>
+                <div class="log-body">
+                    <div class="log-header">
+                        <h4 class="log-medicine-name">{{ log.medication.medicine.medicine_name }}</h4>
+                        <div class="badge-group">
+                            {% if log.medication.is_critical %}
+                            <span class="log-status-badge critical" title="This is a critical medication">⚠️ CRITICAL</span>
+                            {% endif %}
+                            <span class="log-status-badge skipped">SKIPPED</span>
+                        </div>
+                    </div>
+                    <div class="log-details">
+                        <p class="log-dosage">💉 Dosage: <strong>{{ log.medication.dosage }}</strong></p>
+                        <p class="log-schedule">⏰ Was Scheduled: <strong>{{ log.log_date.strftime('%b %d, %Y') }} at {{ log.scheduled_time.strftime('%I:%M %p') }}</strong></p>
+                        <p class="log-info" style="color: #6b7280; font-size: 0.9em; margin-top: 4px;">📝 Past pending log marked as skipped</p>
                     </div>
                 </div>
             </div>

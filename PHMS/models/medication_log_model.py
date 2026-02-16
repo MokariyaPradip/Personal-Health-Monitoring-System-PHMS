@@ -23,7 +23,7 @@ class MedicationLog(db.Model):
 
     log_date = db.Column(db.Date, default=date.today)
     status = db.Column(
-        db.Enum('pending', 'taken', 'missed', name='medication_status'),
+        db.Enum('pending', 'taken', 'missed', 'skipped', name='medication_status'),
         default='pending'
     )
 

@@ -23,7 +23,7 @@ SETUP INSTRUCTIONS
 
 Step 1: Navigate to Project Directory
 --------
-cd c:\Users\Admin\Desktop\Sem-06\2_SDP\project\PHMS
+cd .\PHMS
 
 Step 2: Create Virtual Environment
 --------
