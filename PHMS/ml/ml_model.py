@@ -9,7 +9,8 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # ===============================
 # v3: DecisionTree trained on ALL 4 datasets (25,884 samples)
 # v4: RandomForest trained on health_data_885.csv + health_data.csv (3,885 samples)
-# v5: RandomForest trained on ALL 4 datasets (25,884 samples) - CURRENT
+# v5: RandomForest trained on ALL 4 datasets (25,884 samples)
+# v6: RandomForest trained on ALL 4 datasets with epoch tracking/robustness - CURRENT
 
 # # Load v3 artifacts (DecisionTree - deprecated)
 # model = joblib.load(os.path.join(BASE_DIR, "trained_models", "phms_model_v3.pkl"))
@@ -19,20 +20,24 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # model = joblib.load(os.path.join(BASE_DIR, "trained_models", "phms_model_v4.pkl"))
 # label_encoder = joblib.load(os.path.join(BASE_DIR, "trained_models", "label_encoder_v4.pkl"))
 
-# Load v5 artifacts (RandomForest - all datasets combined, best performance)
-model = joblib.load(os.path.join(BASE_DIR, "trained_models", "phms_model_v5.pkl"))
-label_encoder = joblib.load(os.path.join(BASE_DIR, "trained_models", "label_encoder_v5.pkl"))
+# # Load v5 artifacts (RandomForest - all datasets combined)
+# model = joblib.load(os.path.join(BASE_DIR, "trained_models", "phms_model_v5.pkl"))
+# label_encoder = joblib.load(os.path.join(BASE_DIR, "trained_models", "label_encoder_v5.pkl"))
+
+# Load v6 artifacts (RandomForest - robust training with epoch tracking)
+model = joblib.load(os.path.join(BASE_DIR, "trained_models", "phms_model_v6.pkl"))
+label_encoder = joblib.load(os.path.join(BASE_DIR, "trained_models", "label_encoder_v6.pkl"))
 
 # Feature names must match training data order
 FEATURE_NAMES = ['bmi', 'blood_pressure', 'sugar', 'heart_rate', 'sleep_hours', 'steps', 'temperature']
 
 
 def predict_health_risk(bmi, heart_rate, temperature, steps, sleep_hours, blood_pressure, sugar):
-    """Predict health risk using Random Forest classifier (v5).
+    """Predict health risk using Random Forest classifier (v6).
     
-    Model: RandomForestClassifier with 200 estimators, max_depth=20
+    Model: RandomForestClassifier (v6)
     Trained on: 25,884 samples from 4 combined datasets
-    Accuracy: 96.0% on test set
+    Accuracy: ~96.0% on test set
     
     Training feature order: [bmi, blood_pressure, sugar, heart_rate, sleep_hours, steps, temperature]
     Controller passes: (bmi, heart_rate, temperature, steps, sleep_hours, blood_pressure, sugar)

@@ -1,10 +1,13 @@
 from flask import app, redirect
 
 # Import controllers
-from controllers import auth_controller, dashboard_controller, profile_controller, health_controller, medication_controller, reports_controller, notifications_controller, medication_log_controller
+from controllers import auth_controller, dashboard_controller, profile_controller, health_controller, medication_controller, notifications_controller, medication_log_controller
+from reports import reports_bp
 
 
 def register_routes(app):
+
+    app.register_blueprint(reports_bp)
 
     # ---------------- HOME ----------------
     @app.route('/')
@@ -91,11 +94,6 @@ def register_routes(app):
         return medication_controller.add_medicine_master()
 
 
-    # ================ REPORTS ROUTES ================
-    @app.route('/reports')
-    def reports():
-        return reports_controller.reports()
-    
     # ================ NOTIFICATION ROUTES ================
     @app.route('/notifications')
     def notifications_page():

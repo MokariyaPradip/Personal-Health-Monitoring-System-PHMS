@@ -2,10 +2,438 @@
 
 {% block title %}Reports & Analytics | PHMS{% endblock %}
 
-{% block content %}
+{% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='style/reports.css') }}">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+{% endblock %}
 
-<div class="box">
-<h2>Report</h2>
+{% block content %}
+<div class="reports-container">
+<div class="report-card">
+	<h2 class="report-title">Reports & Analytics</h2>
+	<p class="report-subtitle">Weekly, monthly, yearly and custom reports with trend analysis, risk indicators, adherence and alerts.</p>
+</div>
+
+{% set meta = report_data.meta if report_data else {} %}
+{% set user = report_data.user if report_data else {} %}
+
+<div class="report-card">
+	<form method="GET" action="/reports/custom" class="report-form">
+		<div class="report-form-row report-form-dates">
+			<div class="field-item">
+				<label for="start_date">Start Date</label>
+				<input id="start_date" type="date" name="start_date" value="{{ meta.start_date if meta.start_date else '' }}" required>
+			</div>
+			<div class="field-item">
+				<label for="end_date">End Date</label>
+				<input id="end_date" type="date" name="end_date" value="{{ meta.end_date if meta.end_date else '' }}" required>
+			</div>
+		</div>
+		
+		<div class="report-form-row date-presets field-item">
+			<label>Quick Presets</label>
+			<button type="button" class="preset-btn" onclick="setDateRange(7)">Last 7 Days</button>
+			<button type="button" class="preset-btn" onclick="setDateRange(30)">Last 30 Days</button>
+			<button type="button" class="preset-btn" onclick="setDateRange('month')">This Month</button>
+			<button type="button" class="preset-btn" onclick="setDateRange('year')">This Year</button>
+		</div>
+
+		<div class="report-form-row">
+			<div class="field-item field-full">
+				<label for="feature">Feature Filter</label>
+				<select id="feature" name="feature">
+					<option value="all" {% if meta.feature_filter == 'all' %}selected{% endif %}>All</option>
+					<option value="vital" {% if meta.feature_filter == 'vital' %}selected{% endif %}>Vital Only</option>
+					<option value="activity" {% if meta.feature_filter == 'activity' %}selected{% endif %}>Activity & Fitness</option>
+					<option value="medication" {% if meta.feature_filter == 'medication' %}selected{% endif %}>Medication</option>
+					<option value="chronic" {% if meta.feature_filter == 'chronic' %}selected{% endif %}>Chronic Conditions</option>
+				</select>
+			</div>
+		</div>
+
+		<div class="report-form-row">
+			<button class="report-btn" type="submit">Generate Custom</button>
+		</div>
+
+		<div class="report-form-row report-form-periods">
+			<label>Or View Predefined Reports</label>
+			<a class="report-link-btn" href="/reports/weekly?feature={{ meta.feature_filter if meta.feature_filter else 'all' }}">Weekly</a>
+			<a class="report-link-btn" href="/reports/monthly?feature={{ meta.feature_filter if meta.feature_filter else 'all' }}">Monthly</a>
+			<a class="report-link-btn" href="/reports/yearly?feature={{ meta.feature_filter if meta.feature_filter else 'all' }}">Yearly</a>
+		</div>
+	</form>
+</div>
+
+{% if report_data %}
+<div class="report-card report-header-meta">
+	<div class="header-grid">
+		<div class="header-section">
+			<h3>Report Summary</h3>
+			<p><strong>User:</strong> {{ user.username }}</p>
+			<p><strong>Type:</strong> {{ meta.report_type|capitalize }} | <strong>Period:</strong> {{ meta.start_date }} to {{ meta.end_date }}</p>
+			<p><strong>Records:</strong> {{ meta.record_count }} <span class="data-quality-badge">{{ meta.records_per_day }} per day</span></p>
+			<p class="timestamp"><strong>Generated:</strong> {{ meta.generated_at }}</p>
+		</div>
+		<div class="header-section user-profile">
+			<h3>Patient Profile</h3>
+			<div class="profile-grid">
+				<div><strong>Age:</strong> {{ user.age if user.age else 'N/A' }}</div>
+				<div><strong>Gender:</strong> {{ user.gender|capitalize if user.gender else 'N/A' }}</div>
+				<div><strong>Height:</strong> {{ user.height if user.height else 'N/A' }} cm</div>
+				<div><strong>Weight:</strong> {{ user.weight if user.weight else 'N/A' }} kg</div>
+				<div><strong>BMI:</strong> <span class="bmi-value {% if user.bmi %}{% if user.bmi < 18.5 %}risk-pill critical{% elif user.bmi < 25 %}risk-pill normal{% elif user.bmi < 30 %}risk-pill warning{% else %}risk-pill critical{% endif %}{% endif %}">{{ '%.1f'|format(user.bmi) if user.bmi else 'N/A' }}</span></div>
+			</div>
+		</div>
+	</div>
+	<div class="report-actions">
+		<a class="report-btn" href="{{ request.path }}?{% if request.query_string %}{{ request.query_string.decode() }}&{% endif %}format=json">Download JSON</a>
+		<a class="report-btn" href="{{ request.path }}?{% if request.query_string %}{{ request.query_string.decode() }}&{% endif %}format=csv">Download CSV</a>
+		<a class="report-btn" href="/reports/{{ meta.report_type }}/pdf?feature={{ meta.feature_filter }}{% if meta.report_type == 'custom' %}&start_date={{ meta.start_date }}&end_date={{ meta.end_date }}{% endif %}">Download PDF</a>
+		<button class="report-btn" onclick="window.print()">Print Report</button>
+	</div>
+</div>
+
+<div class="report-card">
+	<h3>Visual Insights</h3>
+	{% set adherence_pct = report_data.medication_adherence.adherence_percentage if report_data.medication_adherence and report_data.medication_adherence.adherence_percentage is not none else 0 %}
+	{% set critical_alerts = report_data.alert_summary.critical_alerts if report_data.alert_summary and report_data.alert_summary.critical_alerts is not none else 0 %}
+	{% set avg_health_score = report_data.summary_statistics.health_score.avg if report_data.summary_statistics and report_data.summary_statistics.health_score and report_data.summary_statistics.health_score.avg is not none else None %}
+	{% set record_count = meta.record_count if meta.record_count is not none else 0 %}
+
+	<div class="kpi-grid">
+		<div class="kpi-card">
+			<p class="kpi-label">Adherence %</p>
+			<p class="kpi-value">{{ adherence_pct }}%</p>
+			{% if adherence_pct >= 85 %}
+			<span class="kpi-badge good">Excellent</span>
+			{% elif adherence_pct >= 65 %}
+			<span class="kpi-badge warn">Needs Attention</span>
+			{% else %}
+			<span class="kpi-badge critical">Low</span>
+			{% endif %}
+		</div>
+
+		<div class="kpi-card">
+			<p class="kpi-label">Critical Alerts</p>
+			<p class="kpi-value">{{ critical_alerts }}</p>
+			{% if critical_alerts == 0 %}
+			<span class="kpi-badge good">Stable</span>
+			{% elif critical_alerts <= 2 %}
+			<span class="kpi-badge warn">Monitor</span>
+			{% else %}
+			<span class="kpi-badge critical">High</span>
+			{% endif %}
+		</div>
+
+		<div class="kpi-card">
+			<p class="kpi-label">Avg Health Score</p>
+			<p class="kpi-value">{{ avg_health_score if avg_health_score is not none else '-' }}</p>
+			{% if avg_health_score is none %}
+			<span class="kpi-badge warn">No Data</span>
+			{% elif avg_health_score >= 82 %}
+			<span class="kpi-badge good">Good</span>
+			{% elif avg_health_score >= 60 %}
+			<span class="kpi-badge warn">Moderate</span>
+			{% else %}
+			<span class="kpi-badge critical">Risky</span>
+			{% endif %}
+		</div>
+
+		<div class="kpi-card">
+			<p class="kpi-label">Records</p>
+			<p class="kpi-value">{{ record_count }}</p>
+			{% if record_count > 0 %}
+			<span class="kpi-badge info">Available</span>
+			{% else %}
+			<span class="kpi-badge warn">No Data</span>
+			{% endif %}
+		</div>
+	</div>
+
+	<div class="visual-grid">
+		<div class="visual-item">
+			<h4>Risk Distribution</h4>
+			<canvas id="riskPieChart" aria-label="Risk Distribution Chart"></canvas>
+		</div>
+		<div class="visual-item">
+			<h4>Medication Adherence</h4>
+			<canvas id="adherencePieChart" aria-label="Medication Adherence Chart"></canvas>
+		</div>
+		<div class="visual-item visual-item-wide">
+			<h4>Trend % Change by Metric</h4>
+			<canvas id="trendBarChart" aria-label="Trend Comparison Chart"></canvas>
+		</div>
+	</div>
+</div>
+
+<div class="report-card table-wrap">
+	<h3>Section 1: Summary Statistics</h3>
+	{% if report_data.summary_statistics %}
+	<table class="report-table">
+		<thead>
+			<tr>
+				<th>Metric</th>
+				<th>Average</th>
+				<th>Minimum</th>
+				<th>Maximum</th>
+				<th>Unit</th>
+			</tr>
+		</thead>
+		<tbody>
+			{% for metric, stats in report_data.summary_statistics.items() %}
+			<tr>
+				<td>{{ metric.replace('_', ' ')|title }}</td>
+				<td>{{ stats.avg if stats.avg is not none else '-' }}</td>
+				<td>{{ stats.min if stats.min is not none else '-' }}</td>
+				<td>{{ stats.max if stats.max is not none else '-' }}</td>
+				<td class="unit-cell">{% if metric == 'heart_rate' %}bpm{% elif metric == 'blood_pressure' %}mmHg{% elif metric == 'sugar' %}mg/dL{% elif metric == 'temperature' %}°C{% elif metric == 'steps' %}count{% elif metric == 'sleep_hours' %}hours{% elif metric == 'health_score' %}score{% else %}-{% endif %}</td>
+			</tr>
+			{% endfor %}
+		</tbody>
+	</table>
+	{% else %}
+	<p class="empty-message">No data available for the selected period.</p>
+	{% endif %}
+</div>
+
+<div class="report-card table-wrap">
+	<h3>Section 2: Trend Comparison</h3>
+	{% if report_data.trend_analysis %}
+	<table class="report-table">
+		<thead>
+			<tr>
+				<th>Metric</th>
+				<th>Current Avg</th>
+				<th>Previous Avg</th>
+				<th>Change</th>
+				<th>Trend</th>
+			</tr>
+		</thead>
+		<tbody>
+			{% for metric, stats in report_data.trend_analysis.items() %}
+			<tr>
+				<td>{{ metric.replace('_', ' ')|title }}</td>
+				<td>{{ stats.current_avg if stats.current_avg is not none else '-' }}</td>
+				<td>{{ stats.previous_avg if stats.previous_avg is not none else '-' }}</td>
+				<td>{{ stats.pct_change if stats.pct_change is not none else '-' }}{% if stats.pct_change is not none %}%{% endif %}</td>
+				<td class="trend-cell">{% if stats.pct_change is not none %}{% if stats.pct_change > 0 %}<span class="trend-arrow up">▲</span>{% elif stats.pct_change < 0 %}<span class="trend-arrow down">▼</span>{% else %}<span class="trend-arrow neutral">●</span>{% endif %}{% else %}-{% endif %}</td>
+			</tr>
+			{% endfor %}
+		</tbody>
+	</table>
+	{% else %}
+	<p class="empty-message">No trend data available.</p>
+	{% endif %}
+</div>
+
+<div class="report-card table-wrap">
+	<h3>Section 3: Risk Indicators</h3>
+	<table class="report-table">
+		<thead>
+			<tr>
+				<th>Metric</th>
+				<th>Average</th>
+				<th>Risk</th>
+			</tr>
+		</thead>
+		<tbody>
+			{% for metric, stats in report_data.risk_indicators.items() %}
+			<tr>
+				<td>{{ metric }}</td>
+				<td>{{ stats.avg }}</td>
+				<td><span class="risk-pill {{ stats.status }}">{{ stats.status|capitalize }}</span></td>
+			</tr>
+			{% endfor %}
+		</tbody>
+	</table>
+</div>
+
+<div class="report-card table-wrap">
+	<h3>Section 4: Medication Adherence</h3>
+	<table class="report-table">
+		<tbody>
+			<tr><th>Total Scheduled Doses</th><td>{{ report_data.medication_adherence.total_scheduled_doses }}</td></tr>
+			<tr><th>Total Taken Doses</th><td>{{ report_data.medication_adherence.total_taken_doses }}</td></tr>
+			<tr><th>Adherence Percentage</th><td>{{ report_data.medication_adherence.adherence_percentage }}%</td></tr>
+		</tbody>
+	</table>
+</div>
+
+<div class="report-card table-wrap">
+	<h3>Section 5: Alerts Summary</h3>
+	<table class="report-table">
+		<tbody>
+			<tr><th>Total Alerts</th><td>{{ report_data.alert_summary.total_alerts }}</td></tr>
+			<tr><th>Critical Alerts</th><td>{{ report_data.alert_summary.critical_alerts }}</td></tr>
+		</tbody>
+	</table>
+	<div class="chronic-summary">
+		<h4>Chronic Condition Indicators</h4>
+		<div class="chronic-grid">
+			<div class="chronic-item">
+				<span class="chronic-label">Diabetes Risk:</span>
+				<span class="risk-pill {{ report_data.chronic_condition_summary.diabetes.status }}">{{ report_data.chronic_condition_summary.diabetes.status|capitalize }}</span>
+				{% if report_data.chronic_condition_summary.diabetes.reference_metric %}<small>(Avg Sugar: {{ '%.1f'|format(report_data.chronic_condition_summary.diabetes.reference_metric) }} mg/dL)</small>{% endif %}
+			</div>
+			<div class="chronic-item">
+				<span class="chronic-label">Hypertension Risk:</span>
+				<span class="risk-pill {{ report_data.chronic_condition_summary.hypertension.status }}">{{ report_data.chronic_condition_summary.hypertension.status|capitalize }}</span>
+				{% if report_data.chronic_condition_summary.hypertension.reference_metric %}<small>(Avg BP: {{ '%.1f'|format(report_data.chronic_condition_summary.hypertension.reference_metric) }} mmHg)</small>{% endif %}
+			</div>
+		</div>
+	</div>
+</div>
+
+<script>
+	(function () {
+		if (typeof Chart === 'undefined') return;
+
+		const riskIndicators = {{ report_data.risk_indicators | tojson }};
+		const trendAnalysis = {{ report_data.trend_analysis | tojson }};
+		const medicationAdherence = {{ report_data.medication_adherence | tojson }};
+
+		const riskCounts = { normal: 0, warning: 0, critical: 0 };
+		Object.values(riskIndicators || {}).forEach((item) => {
+			const status = (item && item.status ? item.status : '').toLowerCase();
+			if (status in riskCounts) {
+				riskCounts[status] += 1;
+			}
+		});
+
+		const taken = Number(medicationAdherence.total_taken_doses || 0);
+		const total = Number(medicationAdherence.total_scheduled_doses || 0);
+		const missed = Math.max(total - taken, 0);
+
+		const trendLabels = [];
+		const trendValues = [];
+		Object.entries(trendAnalysis || {}).forEach(([metric, stats]) => {
+			trendLabels.push(metric.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()));
+			const v = stats && stats.pct_change !== null ? Number(stats.pct_change) : 0;
+			trendValues.push(Number.isFinite(v) ? v : 0);
+		});
+
+		const riskCtx = document.getElementById('riskPieChart');
+		if (riskCtx) {
+			new Chart(riskCtx, {
+				type: 'doughnut',
+				data: {
+					labels: ['Normal', 'Warning', 'Critical'],
+					datasets: [{
+						data: [riskCounts.normal, riskCounts.warning, riskCounts.critical],
+						backgroundColor: ['#27ae60', '#f39c12', '#e74c3c'],
+						borderWidth: 1,
+						borderColor: '#ffffff'
+					}]
+				},
+				options: {
+					responsive: true,
+					maintainAspectRatio: false,
+					plugins: {
+						legend: { position: 'bottom' }
+					}
+				}
+			});
+		}
+
+		const adherenceCtx = document.getElementById('adherencePieChart');
+		if (adherenceCtx) {
+			new Chart(adherenceCtx, {
+				type: 'pie',
+				data: {
+					labels: ['Taken', 'Missed'],
+					datasets: [{
+						data: [taken, missed],
+						backgroundColor: ['#3498db', '#e74c3c'],
+						borderWidth: 1,
+						borderColor: '#ffffff'
+					}]
+				},
+				options: {
+					responsive: true,
+					maintainAspectRatio: false,
+					plugins: {
+						legend: { position: 'bottom' }
+					}
+				}
+			});
+		}
+
+		const trendCtx = document.getElementById('trendBarChart');
+		if (trendCtx) {
+			new Chart(trendCtx, {
+				type: 'bar',
+				data: {
+					labels: trendLabels,
+					datasets: [{
+						label: '% Change',
+						data: trendValues,
+						backgroundColor: trendValues.map(v => v >= 0 ? '#667eea' : '#ef4444'),
+						borderRadius: 6
+					}]
+				},
+				options: {
+					responsive: true,
+					maintainAspectRatio: false,
+					scales: {
+						y: {
+							ticks: {
+								callback: function (value) { return value + '%'; }
+							}
+						}
+					},
+					plugins: {
+						legend: { display: false }
+					}
+				}
+			});
+		}
+	})();
+
+	// Date preset handlers
+	function setDateRange(preset) {
+		const today = new Date();
+		let startDate, endDate = today;
+		
+		if (typeof preset === 'number') {
+			startDate = new Date(today);
+			startDate.setDate(today.getDate() - preset + 1);
+		} else if (preset === 'month') {
+			startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+		} else if (preset === 'year') {
+			startDate = new Date(today.getFullYear(), 0, 1);
+		}
+		
+		const formatDate = (d) => d.toISOString().split('T')[0];
+		document.getElementById('start_date').value = formatDate(startDate);
+		document.getElementById('end_date').value = formatDate(endDate);
+	}
+
+	// Date validation and constraints
+	document.addEventListener('DOMContentLoaded', function() {
+		const today = new Date().toISOString().split('T')[0];
+		const endInput = document.getElementById('end_date');
+		const startInput = document.getElementById('start_date');
+		
+		// Set max date to today for end date
+		if (endInput) {
+			endInput.setAttribute('max', today);
+		}
+		
+		// Dynamic max date based on start date selection
+		if (startInput) {
+			startInput.addEventListener('change', function() {
+				if (endInput && this.value) {
+					endInput.setAttribute('min', this.value);
+				}
+			});
+		}
+	});
+</script>
+{% else %}
+<div class="report-card empty-state">
+	<p>No report data available yet.</p>
+</div>
+{% endif %}
 </div>
 
 {% endblock %}
