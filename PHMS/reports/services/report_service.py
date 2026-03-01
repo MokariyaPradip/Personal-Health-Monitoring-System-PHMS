@@ -18,14 +18,15 @@ METRIC_COLUMNS = [
     "steps",
     "sleep_hours",
     "health_score",
+    "ml_regression_health_score",
 ]
 
 FEATURE_FILTER_MAP = {
     "all": METRIC_COLUMNS,
-    "vital": ["heart_rate", "blood_pressure", "sugar", "temperature", "health_score"],
-    "activity": ["steps", "sleep_hours", "heart_rate", "health_score"],
-    "medication": ["health_score", "sugar", "blood_pressure"],
-    "chronic": ["sugar", "blood_pressure", "health_score", "heart_rate"],
+    "vital": ["heart_rate", "blood_pressure", "sugar", "temperature", "health_score", "ml_regression_health_score"],
+    "activity": ["steps", "sleep_hours", "heart_rate", "health_score", "ml_regression_health_score"],
+    "medication": ["health_score", "ml_regression_health_score", "sugar", "blood_pressure"],
+    "chronic": ["sugar", "blood_pressure", "health_score", "ml_regression_health_score", "heart_rate"],
 }
 
 
@@ -49,7 +50,7 @@ class ReportDateRange:
 
 def _to_health_dataframe(records: list[HealthData]) -> pd.DataFrame:
     if not records:
-        return pd.DataFrame(columns=["recorded_at", *METRIC_COLUMNS])
+        return pd.DataFrame(columns=["recorded_at", *METRIC_COLUMNS, "ml_classifier_risk_label"])
 
     rows = []
     for item in records:
@@ -63,6 +64,8 @@ def _to_health_dataframe(records: list[HealthData]) -> pd.DataFrame:
                 "steps": item.steps,
                 "sleep_hours": item.sleep_hours,
                 "health_score": item.health_score,
+                "ml_regression_health_score": item.ml_regression_health_score,
+                "ml_classifier_risk_label": item.ml_classifier_risk_label,
             }
         )
     return pd.DataFrame(rows)
@@ -150,6 +153,27 @@ def _alert_summary(user_id: int, dr: ReportDateRange) -> dict:
     }
 
 
+def _ml_classifier_distribution(df: pd.DataFrame) -> dict:
+    """Analyze distribution of ML classifier risk labels"""
+    if "ml_classifier_risk_label" not in df.columns:
+        return {"Low Risk": 0, "Medium Risk": 0, "High Risk": 0, "total_predictions": 0}
+    
+    labels = df["ml_classifier_risk_label"].dropna()
+    total = len(labels)
+    
+    if total == 0:
+        return {"Low Risk": 0, "Medium Risk": 0, "High Risk": 0, "total_predictions": 0}
+    
+    counts = labels.value_counts().to_dict()
+    
+    return {
+        "Low Risk": counts.get("Low Risk", 0),
+        "Medium Risk": counts.get("Medium Risk", 0),
+        "High Risk": counts.get("High Risk", 0),
+        "total_predictions": total,
+    }
+
+
 def _chronic_condition_flags(summary: dict) -> dict:
     sugar_avg = summary.get("sugar", {}).get("avg")
     bp_avg = summary.get("blood_pressure", {}).get("avg")
@@ -206,6 +230,7 @@ def build_report_for_range(
     adherence = _medication_adherence(user_id, dr)
     alerts = _alert_summary(user_id, dr)
     chronic_flags = _chronic_condition_flags(summary)
+    ml_classifier_dist = _ml_classifier_distribution(current_df)
 
     record_count = len(current_records)
     records_per_day = round(record_count / dr.days, 1) if dr.days > 0 else 0.0
@@ -237,4 +262,5 @@ def build_report_for_range(
         "medication_adherence": adherence,
         "alert_summary": alerts,
         "chronic_condition_summary": chronic_flags,
+        "ml_classifier_distribution": ml_classifier_dist,
     }

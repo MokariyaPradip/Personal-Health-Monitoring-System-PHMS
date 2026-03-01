@@ -112,6 +112,15 @@ def _generate_csv(report_data: dict) -> str:
     alerts = report_data.get("alert_summary", {})
     writer.writerow(["Total Alerts", alerts.get("total_alerts", 0)])
     writer.writerow(["Critical Alerts", alerts.get("critical_alerts", 0)])
+    writer.writerow([])
+    
+    # ML Classifier Distribution
+    writer.writerow(["ML Classifier Risk Distribution"])
+    ml_dist = report_data.get("ml_classifier_distribution", {})
+    writer.writerow(["Low Risk Predictions", ml_dist.get("Low Risk", 0)])
+    writer.writerow(["Medium Risk Predictions", ml_dist.get("Medium Risk", 0)])
+    writer.writerow(["High Risk Predictions", ml_dist.get("High Risk", 0)])
+    writer.writerow(["Total Predictions", ml_dist.get("total_predictions", 0)])
     
     return output.getvalue()
 

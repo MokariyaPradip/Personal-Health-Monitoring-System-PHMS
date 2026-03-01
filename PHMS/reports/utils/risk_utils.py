@@ -57,6 +57,14 @@ def classify_metric_risk(metric_name: str, value: float | int | None) -> str:
             return "warning"
         return "critical"
 
+    if metric == "ml_regression_health_score":
+        # ML regression score uses same thresholds as health_score
+        if v >= 80:
+            return "normal"
+        if 60 <= v < 80:
+            return "warning"
+        return "critical"
+
     return "warning"
 
 

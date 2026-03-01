@@ -341,7 +341,23 @@
                     <div class="risk-item">
                         <div class="risk-icon">🤖</div>
                         <div class="risk-text">
-                            <strong>AI Prediction:</strong> {{ ml_label }}
+                            <strong>ML Regression Score:</strong> 
+                            {% if ml_regression_health_score %}
+                                {{ ml_regression_health_score }}/100 ({{ regression_based_label }})
+                            {% else %}
+                                N/A
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="risk-item">
+                        <div class="risk-icon">🧠</div>
+                        <div class="risk-text">
+                            <strong>ML Classifier Prediction:</strong> 
+                            {% if ml_classifier_risk_label %}
+                                {{ ml_classifier_risk_label }}
+                            {% else %}
+                                N/A
+                            {% endif %}
                         </div>
                     </div>
                 </div>

@@ -31,8 +31,9 @@ class HealthData(db.Model):
 
     # 🔽 NEW COLUMNS
     health_score = db.Column(db.Integer)
-    rule_based_risk_label = db.Column(db.String(20))
-    ml_predicted_risk_label = db.Column(db.String(20))
+    # Note: rule_based_risk_label removed (computed on-the-fly from health_score)
+    ml_regression_health_score = db.Column(db.Float)  # Regression-based continuous prediction
+    ml_classifier_risk_label = db.Column(db.String(20))  # Classifier-based categorical prediction
     
     # Relationship to User
     user = db.relationship(

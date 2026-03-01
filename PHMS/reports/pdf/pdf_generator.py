@@ -153,6 +153,19 @@ def generate_report_pdf(report_data: dict) -> bytes:
 
     story.append(Paragraph("Section 5: Alerts Summary", section_style))
     story.append(_styled_table(Table([["Metric", "Value"], *alert_rows], colWidths=[80 * mm, 79 * mm]), colors))
+    story.append(Spacer(1, 12))
+
+    # ML Classifier Distribution
+    ml_dist = report_data.get("ml_classifier_distribution", {})
+    ml_rows = [
+        ["Low Risk Predictions", str(ml_dist.get("Low Risk", 0))],
+        ["Medium Risk Predictions", str(ml_dist.get("Medium Risk", 0))],
+        ["High Risk Predictions", str(ml_dist.get("High Risk", 0))],
+        ["Total Predictions", str(ml_dist.get("total_predictions", 0))],
+    ]
+
+    story.append(Paragraph("Section 6: ML Classifier Risk Distribution", section_style))
+    story.append(_styled_table(Table([["Category", "Count"], *ml_rows], colWidths=[80 * mm, 79 * mm]), colors))
     story.append(Spacer(1, 16))
 
     story.append(

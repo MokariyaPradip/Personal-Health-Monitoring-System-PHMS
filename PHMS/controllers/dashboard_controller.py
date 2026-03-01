@@ -4,6 +4,7 @@ from models.user_model import User
 from models.health_model import HealthData
 from models.medication_model import Medication
 from models.alert_model import Alert
+from utils.health_score import score_to_label
 
 
 @login_required
@@ -14,6 +15,17 @@ def dashboard():
     last_health = HealthData.query.filter_by(
         user_id=user.user_id
     ).order_by(HealthData.recorded_at.desc()).first()
+
+    # Compute risk labels on last_health
+    if last_health:
+        last_health.rule_based_risk_label = (
+            score_to_label(last_health.health_score) if last_health.health_score is not None else None
+        )
+        last_health.regression_based_risk_label = (
+            score_to_label(last_health.ml_regression_health_score)
+            if last_health.ml_regression_health_score is not None
+            else None
+        )
 
     # Get all medications for the user
     all_medications = Medication.query.filter_by(

@@ -251,7 +251,7 @@
 .med-list {
     padding: 1.5rem;
     flex: 1;
-    max-height: 540px;
+    max-height: 715px;
     overflow-y: auto;
 }
 
@@ -322,7 +322,7 @@
 .alerts-list {
     padding: 1.5rem;
     flex: 1;
-    max-height: 540px;
+    max-height: 715px;
     overflow-y: auto;
 }
 

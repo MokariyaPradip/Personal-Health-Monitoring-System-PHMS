@@ -4,7 +4,7 @@ from datetime import datetime
 from config import db, mail
 from models import HealthData, Alert, User
 from utils.health_score import calculate_health_score, score_to_label
-from ml.ml_model import predict_health_risk
+from ml.ml_model import predict_health_assessment
 from flask_mail import Message
 
 
@@ -29,11 +29,14 @@ def _send_health_alert_email(user_email, user_name, health_data):
         return
 
     # Create context object with all health data (without entry_id)
+    regression_based_label = score_to_label(health_data.ml_regression_health_score) if health_data.ml_regression_health_score is not None else None
     context = {
         'user_name': user_name,
         'health_score': health_data.health_score,
-        'rule_based_label': health_data.rule_based_risk_label,
-        'ml_label': health_data.ml_predicted_risk_label,
+        'rule_based_label': score_to_label(health_data.health_score) if health_data.health_score else 'N/A',
+        'ml_regression_health_score': health_data.ml_regression_health_score,
+        'regression_based_label': regression_based_label,
+        'ml_classifier_risk_label': health_data.ml_classifier_risk_label,
         'alert_date': datetime.now().strftime('%B %d, %Y at %I:%M %p'),
         'vital_signs': {
             'blood_pressure': {
@@ -131,6 +134,14 @@ def health_page():
     all_entries = HealthData.query.filter_by(
         user_id=current_user.user_id
     ).order_by(HealthData.recorded_at.desc()).all()
+
+    for entry in all_entries:
+        entry.rule_based_risk_label = score_to_label(entry.health_score) if entry.health_score is not None else None
+        entry.regression_based_risk_label = (
+            score_to_label(entry.ml_regression_health_score)
+            if entry.ml_regression_health_score is not None
+            else None
+        )
     
     # Get last/most recent entry
     last_entry = all_entries[0] if all_entries else None
@@ -212,11 +223,11 @@ def add_health():
         sugar=sugar
     )
 
-    # Convert score → label
+    # Compute rule-based risk label (not stored, just for alert logic)
     rule_based_risk_label = score_to_label(health_score)
 
-    # ML Prediction
-    ml_predicted_risk_label = predict_health_risk(
+    # ML Prediction (service: score + label)
+    ml_assessment = predict_health_assessment(
         bmi=bmi,
         heart_rate=heart_rate,
         temperature=temperature,
@@ -225,8 +236,11 @@ def add_health():
         blood_pressure=blood_pressure,
         sugar=sugar
     )
+    ml_regression_health_score = ml_assessment["ml_regression_health_score"]
+    ml_classifier_risk_label = ml_assessment["ml_classifier_risk_label"]
+    regression_based_risk_label = score_to_label(ml_regression_health_score) if ml_regression_health_score is not None else None
 
-    # Save everything
+    # Save everything (rule_based_risk_label not stored, computed on-the-fly)
     health = HealthData(
         user_id=current_user.user_id,
         heart_rate=heart_rate,
@@ -236,21 +250,30 @@ def add_health():
         blood_pressure=blood_pressure,
         sugar=sugar,
         health_score=health_score,
-        rule_based_risk_label=rule_based_risk_label,
-        ml_predicted_risk_label=ml_predicted_risk_label
+        ml_regression_health_score=ml_regression_health_score,
+        ml_classifier_risk_label=ml_classifier_risk_label
     )
 
     db.session.add(health)
     db.session.flush()  # Needed to get entry_id before commit
 
     # ---- ALERT LOGIC (ALWAYS SAVE ALERT) ----
-    is_high_risk = (rule_based_risk_label == "High Risk" or ml_predicted_risk_label == "High Risk")
-    severity = "High" if is_high_risk else "Medium" if rule_based_risk_label == "Medium Risk" else "Low"
+    is_high_risk = (
+        rule_based_risk_label == "High Risk"
+        or ml_classifier_risk_label == "High Risk"
+        or regression_based_risk_label == "High Risk"
+    )
+    has_medium_risk = (
+        rule_based_risk_label == "Medium Risk"
+        or ml_classifier_risk_label == "Medium Risk"
+        or regression_based_risk_label == "Medium Risk"
+    )
+    severity = "High" if is_high_risk else "Medium" if has_medium_risk else "Low"
     
     # Determine alert title based on risk level
     alert_title = (
         "🔴 High Risk Alert" if is_high_risk
-        else "🟡 Medium Risk Alert" if rule_based_risk_label == "Medium Risk"
+        else "🟡 Medium Risk Alert" if has_medium_risk
         else "🟢 Health Check-in"
     )
     
@@ -258,7 +281,12 @@ def add_health():
         user_id=current_user.user_id,
         health_id=health.entry_id,
         title=alert_title,
-        message=f"Health data recorded (Score: {health_score}, Rule-based: {rule_based_risk_label}, ML: {ml_predicted_risk_label})",
+        message=(
+            f"Health data recorded (Score: {health_score}, "
+            f"Rule-based: {rule_based_risk_label}, "
+            f"ML Regression-derived: {regression_based_risk_label or 'N/A'}, "
+            f"ML Classifier: {ml_classifier_risk_label or 'N/A'})"
+        ),
         category="health",
         severity=severity
     )
@@ -281,7 +309,9 @@ def add_health():
         "message": "Health data added successfully",
         "health_score": health_score,
         "rule_based_risk_label": rule_based_risk_label,
-        "ml_predicted_risk_label": ml_predicted_risk_label,
+        "ml_regression_health_score": ml_regression_health_score,
+        "ml_classifier_risk_label": ml_classifier_risk_label,
+        "ml_model_version": ml_assessment["ml_model_version"],
         "alert_created": True,
         "alert_email_sent": is_high_risk
     })
@@ -305,8 +335,10 @@ def get_health_data():
             "blood_pressure": entry.blood_pressure,
             "sugar": entry.sugar,
             "health_score": entry.health_score,
-            "rule_based_risk_label": entry.rule_based_risk_label,
-            "ml_predicted_risk_label": entry.ml_predicted_risk_label,
+            "rule_based_risk_label": score_to_label(entry.health_score) if entry.health_score else None,
+            "ml_regression_health_score": entry.ml_regression_health_score,
+            "regression_based_risk_label": score_to_label(entry.ml_regression_health_score) if entry.ml_regression_health_score is not None else None,
+            "ml_classifier_risk_label": entry.ml_classifier_risk_label,
             "recorded_at": entry.recorded_at.isoformat()
         }
         for entry in health_entries

@@ -22,9 +22,11 @@
             </div>
             {% if last_health %}
             {% set rb_label = (last_health.rule_based_risk_label or 'N/A') %}
-            {% set ml_label = (last_health.ml_predicted_risk_label or 'N/A') %}
+            {% set classifier_label = (last_health.ml_classifier_risk_label or 'N/A') %}
+            {% set regression_label = (last_health.regression_based_risk_label or 'N/A') %}
             {% set rb_label_display = rb_label.replace('Risk', ' Risk') %}
-            {% set ml_label_display = ml_label.replace('Risk', ' Risk') %}
+            {% set classifier_label_display = classifier_label.replace('Risk', ' Risk') %}
+            {% set regression_label_display = regression_label.replace('Risk', ' Risk') %}
 
             <div class="risk-summary">
                 <div class="score-chip">
@@ -33,8 +35,14 @@
                     <span class="risk-badge {{ rb_label|lower }}">{{ rb_label_display }}</span>
                 </div>
                 <div class="score-chip alt">
-                    <span class="chip-title">ML Predicted</span>
-                    <span class="risk-badge {{ ml_label|lower }}">{{ ml_label_display }}</span>
+                    <span class="chip-title">ML Classified</span>
+                    <span class="chip-score">N/A</span>
+                    <span class="risk-badge {{ classifier_label|lower }}">{{ classifier_label_display }}</span>
+                </div>
+                <div class="score-chip alt">
+                    <span class="chip-title">ML Regression</span>
+                    <span class="chip-score">{{ last_health.ml_regression_health_score|round(1) if last_health.ml_regression_health_score else 'N/A' }}</span>
+                    <span class="risk-badge {{ regression_label|lower }}">{{ regression_label_display }}</span>
                 </div>
             </div>
             <div class="health-stats">
