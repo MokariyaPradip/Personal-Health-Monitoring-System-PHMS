@@ -197,7 +197,7 @@ function escapeHtml(text) {
 // ===== NOTIFICATION COUNT POLLING =====
 let notificationPollingInterval = null;
 
-function startNotificationPolling(intervalMs = 30000) {
+function startNotificationPolling(intervalMs = 120000) {
     // Initial load
     fetchNotificationCount();
     

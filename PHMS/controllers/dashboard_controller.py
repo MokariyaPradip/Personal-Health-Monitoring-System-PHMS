@@ -94,10 +94,30 @@ def dashboard():
         user_id=user.user_id
     ).order_by(Alert.created_at.desc()).limit(5).all()
 
+    # Count unread alerts
+    unread_alerts_count = Alert.query.filter_by(
+        user_id=user.user_id,
+        is_read=False
+    ).count()
+
+    # Count health records this month
+    from datetime import datetime, timedelta
+    today = datetime.now()
+    first_of_month = today.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    health_records_count = HealthData.query.filter_by(
+        user_id=user.user_id
+    ).filter(HealthData.recorded_at >= first_of_month).count()
+
+    # Count active medications
+    active_medications_count = len(active_medications)
+
     return render_template(
         'dashboard.html',
         user=user,
         last_health=last_health,
         medications=medications,
-        alerts=alerts
+        alerts=alerts,
+        health_records_count=health_records_count,
+        active_medications_count=active_medications_count,
+        unread_alerts_count=unread_alerts_count
     )

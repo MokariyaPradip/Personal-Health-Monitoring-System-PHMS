@@ -43,6 +43,7 @@
     justify-content: center;
     background: rgba(255, 255, 255, 0.2);
     border-radius: 50%;
+    -webkit-backdrop-filter: blur(10px);
     backdrop-filter: blur(10px);
 }
 
@@ -56,6 +57,89 @@
     margin: 0;
     font-size: 1rem;
     opacity: 0.95;
+}
+
+.header-meta {
+    margin: 0.4rem 0 0 0;
+    font-size: 0.85rem;
+    opacity: 0.9;
+}
+
+/* Profile Overview */
+.profile-overview-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.profile-overview-card {
+    background: var(--white);
+    border: 1px solid var(--border-light);
+    border-top: 4px solid var(--primary-color);
+    border-radius: 12px;
+    padding: 1rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.07);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    transition: all 0.25s ease;
+}
+
+.profile-overview-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.1);
+}
+
+.profile-overview-card.health {
+    border-top-color: var(--accent-blue);
+}
+
+.profile-overview-card.medication {
+    border-top-color: var(--accent-green);
+}
+
+.profile-overview-card.alerts {
+    border-top-color: #e67e22;
+}
+
+.profile-overview-card.score {
+    border-top-color: var(--secondary-color);
+}
+
+.profile-overview-label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    letter-spacing: 0.6px;
+    font-weight: 700;
+}
+
+.profile-overview-value {
+    font-size: 1.8rem;
+    line-height: 1.1;
+    color: var(--text-dark);
+    font-weight: 800;
+}
+
+.profile-overview-meta {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+}
+
+.completion-meter {
+    width: 100%;
+    height: 8px;
+    border-radius: 999px;
+    background: #e8ecf5;
+    overflow: hidden;
+}
+
+.completion-fill {
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+    transition: width 0.4s ease;
 }
 
 /* Profile Grid */
@@ -174,6 +258,75 @@
     font-size: 0.75rem;
     color: var(--text-muted);
     font-weight: normal;
+}
+
+.bmi-insight-row {
+    margin-top: 1rem;
+    border-top: 1px solid var(--border-light);
+    padding-top: 1rem;
+}
+
+.bmi-pill {
+    display: inline-block;
+    padding: 0.45rem 0.75rem;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    border: 1px solid var(--border-light);
+    color: var(--text-dark);
+    background: var(--bg-light);
+}
+
+.bmi-pill.good {
+    background: #d5f4e6;
+    color: #1e8449;
+    border-color: #a9dfbf;
+}
+
+.bmi-pill.warning {
+    background: #fef5e7;
+    color: #9a6e1e;
+    border-color: #f5cba7;
+}
+
+.bmi-pill.alert {
+    background: #fadbd8;
+    color: #78281f;
+    border-color: #f5b7b1;
+}
+
+/* Insights Section */
+.profile-insights-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.profile-insight-card {
+    background: var(--white);
+    border: 1px solid var(--border-light);
+    border-left: 4px solid var(--primary-color);
+    border-radius: 12px;
+    padding: 1.2rem 1.3rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.07);
+}
+
+.profile-insight-card h3 {
+    margin: 0 0 0.8rem 0;
+    color: var(--text-dark);
+    font-size: 1.1rem;
+}
+
+.profile-insight-card p {
+    margin: 0.55rem 0;
+    color: var(--text-muted);
+    line-height: 1.5;
+    font-size: 0.92rem;
+}
+
+.profile-insight-card strong {
+    color: var(--text-dark);
 }
 
 /* Action Section */
@@ -423,6 +576,14 @@
         grid-template-columns: 1fr;
     }
 
+    .profile-overview-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .profile-insights-grid {
+        grid-template-columns: 1fr;
+    }
+
     .action-section {
         grid-template-columns: 1fr;
     }
@@ -454,6 +615,14 @@
         gap: 1rem;
     }
 
+    .profile-overview-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .profile-overview-value {
+        font-size: 1.55rem;
+    }
+
     .card-header {
         padding: 1.2rem;
     }
@@ -478,127 +647,4 @@
     .modal-content {
         width: 98%;
     }
-}
-
-.update-btn {
-    background: #3498db;
-}
-
-.update-btn:hover {
-    background: #2980b9;
-}
-
-.forgot-btn {
-    background: #f39c12;
-}
-
-.forgot-btn:hover {
-    background: #e67e22;
-}
-
-
-/*logout-row*/
-.logout-row {
-    margin-top: 20px;
-    text-align: center;
-}
-
-.logout-btn {
-    background: #e74c3c;
-    width: 100%;
-}
-
-.logout-btn:hover {
-    background: #c0392b;
-}
-
-/* ===== Modal ===== */
-.modal {
-    display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.5);
-}
-
-.modal-content {
-    background: white;
-    width: 400px;
-    margin: 2% auto;
-    padding: 20px;
-    border-radius: 6px;
-}
-
-/* Modal labels */
-.modal-content label {
-    display: block;
-    font-weight: bold;
-    margin-top: 10px;
-    margin-bottom: 4px;
-    font-size: 14px;
-}
-
-.modal-content input,
-select {
-    width: 90%;
-    padding: 8px;
-    margin: 8px 0;
-}
-
-.modal-content select {
-    width: 95%;
-}
-
-/* ===== Modal Action Row (Same as profile-actions) ===== */
-.modal-actions {
-    display: -webkit-box;
-    /* WebKit support */
-    display: -ms-flexbox;
-    display: flex;
-    -webkit-box-pack: justify;
-    -ms-flex-pack: justify;
-    justify-content: space-between;
-    gap: 15px;
-    margin-top: 20px;
-}
-
-.modal-actions button {
-    -webkit-box-flex: 1;
-    -ms-flex: 1;
-    flex: 1;
-    /* Equal width */
-    padding: 10px;
-    font-size: 14px;
-    border-radius: 4px;
-    cursor: pointer;
-    color: white;
-    transition: 0.3s;
-}
-
-/* Confirm / Reset buttons */
-.modal-actions .update-btn {
-    background: #3498db;
-}
-
-.modal-actions .update-btn:hover {
-    background: #2980b9;
-}
-
-.modal-actions .forgot-btn {
-    background: #f39c12;
-}
-
-.modal-actions .forgot-btn:hover {
-    background: #e67e22;
-}
-
-/* Cancel button */
-.modal-actions .cancel-btn {
-    background: #95a5a6;
-}
-
-.modal-actions .cancel-btn:hover {
-    background: #7f8c8d;
 }

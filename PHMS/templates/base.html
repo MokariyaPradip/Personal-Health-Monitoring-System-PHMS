@@ -182,8 +182,8 @@
 
         // Load notifications on page load and set up polling
         document.addEventListener('DOMContentLoaded', function() {
-            // Start notification polling (every 30 seconds)
-            startNotificationPolling(30000);
+            // Start notification polling (every 2 minutes)
+            startNotificationPolling(120000);
         });
 
         // Close notification dropdown when clicking outside

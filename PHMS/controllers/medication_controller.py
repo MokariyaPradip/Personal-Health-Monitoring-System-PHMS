@@ -3,7 +3,7 @@ from flask_login import login_required, current_user
 from models.medicine_model import Medicine
 from config import db
 from models import Medication, MedicationLog
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from utils.medication_schedule import get_scheduled_time_for_frequency
 import logging
 
@@ -64,13 +64,66 @@ def medication_page():
         else:
             # Default: show only 9
             medicines = Medicine.query.limit(9).all()
+
+    # ===== Medication overview stats =====
+    today = date.today()
+    week_ago = today - timedelta(days=7)
+
+    active_medications_count = sum(1 for med in meds if med.is_active())
+    critical_medications_count = sum(1 for med in meds if med.is_critical)
+    inactive_medications_count = len(meds) - active_medications_count
+    ending_soon_count = sum(
+        1
+        for med in meds
+        if med.is_active() and med.end_date and 0 <= (med.end_date - today).days <= 7
+    )
+
+    # ===== Last 7-day adherence snapshot =====
+    last_7_day_logs = MedicationLog.query.filter(
+        MedicationLog.user_id == current_user.user_id,
+        MedicationLog.log_date >= week_ago
+    ).all()
+
+    taken_count = sum(1 for log in last_7_day_logs if log.status == 'taken')
+    missed_count = sum(1 for log in last_7_day_logs if log.status == 'missed')
+    pending_count = sum(1 for log in last_7_day_logs if log.status == 'pending')
+    skipped_count = sum(1 for log in last_7_day_logs if log.status == 'skipped')
+    total_logs = len(last_7_day_logs)
+    adherence_rate = round((taken_count / total_logs) * 100, 2) if total_logs else 0
+
+    today_pending_count = MedicationLog.query.filter_by(
+        user_id=current_user.user_id,
+        log_date=today,
+        status='pending'
+    ).count()
+
+    medication_overview = {
+        'total': len(meds),
+        'active': active_medications_count,
+        'inactive': inactive_medications_count,
+        'critical': critical_medications_count,
+        'ending_soon': ending_soon_count,
+        'today_pending': today_pending_count
+    }
+
+    adherence_overview = {
+        'rate': adherence_rate,
+        'period': 'Last 7 days',
+        'total': total_logs,
+        'taken': taken_count,
+        'missed': missed_count,
+        'pending': pending_count,
+        'skipped': skipped_count
+    }
     
     return render_template(
         'medication.html',
         meds=meds,
         medicines=medicines,
         search_query=search_query,
-        view_all=view_all
+        view_all=view_all,
+        medication_overview=medication_overview,
+        adherence_overview=adherence_overview
     )
     
 

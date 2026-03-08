@@ -10,8 +10,47 @@
 
 <div class="health-container">
     
-    <!-- ===== ADD HEALTH ENTRY BUTTON ===== -->
-    <button class="btn-add-entry" onclick="openModal()">+ Add Health Entry</button>
+    <!-- ===== PAGE HEADER ===== -->
+    <div class="health-header">
+        <div>
+            <h1>Health Data Management</h1>
+            <p class="header-subtitle">Track and monitor your vital signs and overall wellness</p>
+        </div>
+        <button class="btn-add-entry" onclick="openModal()">+ Add Health Entry</button>
+    </div>
+
+    <!-- ===== QUICK STATS CARDS ===== -->
+    <div class="health-stats-grid">
+        <div class="health-stat-card">
+            <div class="stat-icon">❤️</div>
+            <div class="stat-label">Latest Score</div>
+            <div class="stat-value">{{ last_entry.health_score or '--' }}</div>
+            {% if last_entry %}
+            <div class="stat-trend">{{ last_entry.rule_based_risk_label|replace('Risk', '')|trim }}</div>
+            {% endif %}
+        </div>
+        
+        <div class="health-stat-card">
+            <div class="stat-icon">📊</div>
+            <div class="stat-label">Total Records</div>
+            <div class="stat-value">{{ all_entries|length }}</div>
+            <div class="stat-trend">All time</div>
+        </div>
+        
+        <div class="health-stat-card">
+            <div class="stat-icon">📈</div>
+            <div class="stat-label">Monthly Records</div>
+            <div class="stat-value">{{ monthly_records_count or 0 }}</div>
+            <div class="stat-trend">This month</div>
+        </div>
+        
+        <div class="health-stat-card">
+            <div class="stat-icon">⏰</div>
+            <div class="stat-label">Last Updated</div>
+            <div class="stat-value">{% if last_entry %}{{ last_entry.recorded_at.strftime('%d %b') }}{% else %}--{% endif %}</div>
+            <div class="stat-trend">Recent</div>
+        </div>
+    </div>
 
     <!-- ===== LAST HEALTH RECORD (PROMINENT) ===== -->
     {% if last_entry %}
@@ -20,9 +59,9 @@
         {% set rb_label = (last_entry.rule_based_risk_label or 'N/A') %}
         {% set classifier_label = (last_entry.ml_classifier_risk_label or 'N/A') %}
         {% set regression_label = (last_entry.regression_based_risk_label or 'N/A') %}
-        {% set rb_label_display = rb_label.replace('Risk', ' Risk') %}
-        {% set classifier_label_display = classifier_label.replace('Risk', ' Risk') %}
-        {% set regression_label_display = regression_label.replace('Risk', ' Risk') %}
+        {% set rb_label_display = rb_label.replace('Risk', ' Risk') if rb_label != 'N/A' else 'N/A' %}
+        {% set classifier_label_display = classifier_label.replace('Risk', ' Risk') if classifier_label != 'N/A' else 'N/A' %}
+        {% set regression_label_display = regression_label.replace('Risk', ' Risk') if regression_label != 'N/A' else 'N/A' %}
 
         <div class="risk-summary">
             <div class="score-chip">
@@ -72,7 +111,57 @@
     </div>
     {% else %}
     <div class="no-data-message">
-        <p>No health data recorded yet. Click "Add Health Entry" to start tracking!</p>
+        <p>❌ No health data recorded yet.</p>
+        <p style="margin: 0.5rem 0;">Click <strong>"+ Add Health Entry"</strong> to start tracking your health!</p>
+    </div>
+    {% endif %}
+
+    <!-- ===== HEALTH INSIGHTS SECTION ===== -->
+    {% if last_entry %}
+    <div class="health-insights-section">
+        <h3>💡 Health Insights</h3>
+        <div class="insights-grid">
+            <div class="insight-card">
+                {% if last_entry.rule_based_risk_label == "LowRisk" %}
+                <div class="insight-badge positive">✓ Excellent</div>
+                <div class="insight-title">Health Status</div>
+                <p>Your health metrics are in excellent condition. Keep maintaining your current lifestyle!</p>
+                {% elif last_entry.rule_based_risk_label == "MediumRisk" %}
+                <div class="insight-badge warning">⚠ Monitor</div>
+                <div class="insight-title">Health Status</div>
+                <p>Some metrics need attention. Consider consulting your healthcare provider for personalized advice.</p>
+                {% else %}
+                <div class="insight-badge alert">🔴 Alert</div>
+                <div class="insight-title">Health Status</div>
+                <p>Your health indicators show elevated risk. Please seek medical advice as soon as possible.</p>
+                {% endif %}
+            </div>
+
+            <div class="insight-card">
+                <div class="insight-title">📊 Data Collection</div>
+                <p><strong>Total records:</strong> {{ all_entries|length }}</p>
+                <p><strong>This month:</strong> {{ monthly_records_count or 0 }} entries</p>
+                <p style="margin-top: 0.5rem; color: #7f8c8d; font-size: 0.9rem;">Consistent tracking helps better health insights</p>
+            </div>
+
+            <div class="insight-card">
+                <div class="insight-title">🎯 Activity Trend</div>
+                {% if last_entry.steps and last_entry.steps > 5000 %}
+                <p><strong>Steps:</strong> {{ last_entry.steps }} (Good!)</p>
+                {% elif last_entry.steps %}
+                <p><strong>Steps:</strong> {{ last_entry.steps }} (Try to increase)</p>
+                {% else %}
+                <p><strong>Steps:</strong> Not recorded</p>
+                {% endif %}
+                {% if last_entry.sleep_hours and last_entry.sleep_hours >= 7 %}
+                <p><strong>Sleep:</strong> {{ last_entry.sleep_hours }} hrs (Healthy!)</p>
+                {% elif last_entry.sleep_hours %}
+                <p><strong>Sleep:</strong> {{ last_entry.sleep_hours }} hrs (Needs improvement)</p>
+                {% else %}
+                <p><strong>Sleep:</strong> Not recorded</p>
+                {% endif %}
+            </div>
+        </div>
     </div>
     {% endif %}
 

@@ -19,6 +19,192 @@
     margin: 0 auto;
 }
 
+/* Page Header */
+.medication-page-header {
+    margin-bottom: 1.5rem;
+}
+
+.medication-page-header h1 {
+    margin: 0 0 0.5rem 0;
+    font-size: 2.1rem;
+    font-weight: 700;
+    color: var(--text-dark);
+}
+
+.medication-page-subtitle {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 1rem;
+}
+
+/* Overview Section */
+.medication-overview-section {
+    margin-bottom: 2.2rem;
+}
+
+.overview-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.overview-card {
+    background: var(--white);
+    border: 1px solid var(--border-light);
+    border-radius: 12px;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    border-top: 4px solid var(--accent-blue);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+    transition: all 0.2s ease;
+}
+
+.overview-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+}
+
+.overview-card.active {
+    border-top-color: var(--accent-green);
+}
+
+.overview-card.critical {
+    border-top-color: #e74c3c;
+}
+
+.overview-card.warning {
+    border-top-color: #f39c12;
+}
+
+.overview-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 700;
+}
+
+.overview-value {
+    font-size: 1.8rem;
+    font-weight: 800;
+    color: var(--text-dark);
+    line-height: 1.1;
+}
+
+.overview-meta {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.adherence-insights-grid {
+    display: grid;
+    grid-template-columns: 1.3fr 1fr;
+    gap: 1rem;
+}
+
+.adherence-card,
+.insights-card {
+    background: var(--white);
+    border: 1px solid var(--border-light);
+    border-radius: 12px;
+    padding: 1rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+.adherence-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.8rem;
+}
+
+.adherence-header h3,
+.insights-card h3 {
+    margin: 0;
+    color: var(--text-dark);
+    font-size: 1.1rem;
+}
+
+.period-badge {
+    background: var(--bg-light);
+    color: var(--text-muted);
+    border: 1px solid var(--border-light);
+    border-radius: 14px;
+    padding: 0.2rem 0.6rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.adherence-rate-row {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+    margin-bottom: 0.8rem;
+}
+
+.adherence-rate {
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--primary-color);
+    line-height: 1;
+}
+
+.adherence-helper {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.adherence-meter {
+    width: 100%;
+    height: 10px;
+    background: #e9edf6;
+    border-radius: 999px;
+    overflow: hidden;
+    margin-bottom: 0.9rem;
+}
+
+.adherence-meter-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary-color), var(--accent-green));
+    border-radius: 999px;
+    transition: width 0.4s ease;
+}
+
+.adherence-breakdown {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.45rem;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+.insight-item {
+    background: var(--bg-light);
+    border: 1px solid var(--border-light);
+    border-left: 3px solid var(--primary-color);
+    border-radius: 8px;
+    padding: 0.65rem 0.75rem;
+    margin-bottom: 0.6rem;
+    font-size: 0.9rem;
+    color: var(--text-dark);
+}
+
+.insight-item:last-child {
+    margin-bottom: 0;
+}
+
+.insight-item.warning {
+    border-left-color: #f39c12;
+}
+
+.insight-item.positive {
+    border-left-color: #27ae60;
+}
+
 /* Add Medication Button */
 .btn-add-medication {
     position: fixed;
@@ -853,4 +1039,46 @@
     border-top-color: rgba(0, 0, 0, 0.9);
     z-index: 1000;
     pointer-events: none;
+}
+
+@media (max-width: 1024px) {
+    .adherence-insights-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    .medication-page-header h1 {
+        font-size: 1.7rem;
+    }
+
+    .medication-page-subtitle {
+        font-size: 0.92rem;
+    }
+
+    .overview-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .overview-value {
+        font-size: 1.5rem;
+    }
+}
+
+@media (max-width: 640px) {
+    .medication-page-header h1 {
+        font-size: 1.45rem;
+    }
+
+    .overview-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .adherence-rate {
+        font-size: 1.6rem;
+    }
+
+    .adherence-breakdown {
+        grid-template-columns: 1fr;
+    }
 }

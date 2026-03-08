@@ -13,9 +13,89 @@
     <!-- ===== ADD MEDICATION BUTTON ===== -->
     <button class="btn-add-medication" onclick="openMedicationModal()">+ Add Medication</button>
 
+    <!-- ===== PAGE HEADER ===== -->
+    <div class="medication-page-header">
+        <h1>Medication Management</h1>
+        <p class="medication-page-subtitle">Track prescriptions, monitor adherence, and stay ahead of missed doses.</p>
+    </div>
+
+    <!-- ===== OVERVIEW & INSIGHTS ===== -->
+    <section class="medication-overview-section">
+        <div class="overview-grid">
+            <div class="overview-card">
+                <span class="overview-label">Total Prescriptions</span>
+                <span class="overview-value">{{ medication_overview.total }}</span>
+                <span class="overview-meta">All assigned medications</span>
+            </div>
+            <div class="overview-card active">
+                <span class="overview-label">Active Now</span>
+                <span class="overview-value">{{ medication_overview.active }}</span>
+                <span class="overview-meta">Currently in treatment window</span>
+            </div>
+            <div class="overview-card critical">
+                <span class="overview-label">Critical Medications</span>
+                <span class="overview-value">{{ medication_overview.critical }}</span>
+                <span class="overview-meta">Missed doses trigger urgent alerts</span>
+            </div>
+            <div class="overview-card warning">
+                <span class="overview-label">Ending In 7 Days</span>
+                <span class="overview-value">{{ medication_overview.ending_soon }}</span>
+                <span class="overview-meta">Review renewals soon</span>
+            </div>
+        </div>
+
+        <div class="adherence-insights-grid">
+            <div class="adherence-card">
+                <div class="adherence-header">
+                    <h3>Adherence Snapshot</h3>
+                    <span class="period-badge">{{ adherence_overview.period }}</span>
+                </div>
+                <div class="adherence-rate-row">
+                    <span class="adherence-rate">{{ adherence_overview.rate }}%</span>
+                    <span class="adherence-helper">Taken / Logged Doses</span>
+                </div>
+                <div class="adherence-meter" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ adherence_overview.rate }}">
+                    <div class="adherence-meter-fill" style="width: {{ adherence_overview.rate }}%;"></div>
+                </div>
+                <div class="adherence-breakdown">
+                    <span>Taken: {{ adherence_overview.taken }}</span>
+                    <span>Missed: {{ adherence_overview.missed }}</span>
+                    <span>Pending: {{ adherence_overview.pending }}</span>
+                    <span>Skipped: {{ adherence_overview.skipped }}</span>
+                </div>
+            </div>
+
+            <div class="insights-card">
+                <h3>Actionable Insights</h3>
+                <div class="insight-item">
+                    <strong>Today Pending Doses:</strong> {{ medication_overview.today_pending }}
+                </div>
+                {% if medication_overview.critical > 0 %}
+                <div class="insight-item warning">
+                    <strong>Critical Watch:</strong> You have {{ medication_overview.critical }} critical medication(s). Keep reminders on.
+                </div>
+                {% endif %}
+                {% if adherence_overview.missed > 0 %}
+                <div class="insight-item warning">
+                    <strong>Missed Doses:</strong> {{ adherence_overview.missed }} missed dose(s) in the last 7 days.
+                </div>
+                {% else %}
+                <div class="insight-item positive">
+                    <strong>Great Consistency:</strong> No missed doses recorded in the last 7 days.
+                </div>
+                {% endif %}
+                {% if medication_overview.ending_soon > 0 %}
+                <div class="insight-item warning">
+                    <strong>Refill Reminder:</strong> {{ medication_overview.ending_soon }} medication(s) are ending soon.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </section>
+
     <!-- ===== CURRENT MEDICATIONS ===== -->
     <div class="medications-section">
-        <h2>Current Medications</h2>
+        <h2>Current Medications ({{ medication_overview.total }})</h2>
         {% if meds %}
         <div class="medications-list">
             {% for med in meds %}
@@ -54,7 +134,11 @@
                     </div>
                     <div class="detail-card">
                         <span class="detail-label">Frequency</span>
-                        <span class="detail-value">{{ med.frequency }}</span>
+                        <span class="detail-value">{{ med.frequency }}x / day</span>
+                    </div>
+                    <div class="detail-card">
+                        <span class="detail-label">Duration</span>
+                        <span class="detail-value">{{ ((med.end_date - med.start_date).days + 1) if med.start_date and med.end_date else 'N/A' }} day(s)</span>
                     </div>
                     <div class="detail-card full-width">
                         <span class="detail-label">Remark</span>

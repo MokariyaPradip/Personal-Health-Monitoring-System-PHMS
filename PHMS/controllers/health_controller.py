@@ -129,6 +129,7 @@ def _get_glucose_status(sugar):
 @login_required
 def health_page():
     """Display health data page"""
+    from datetime import datetime, timedelta
     
     # Fetch all health entries for user, ordered by timestamp desc
     all_entries = HealthData.query.filter_by(
@@ -146,7 +147,14 @@ def health_page():
     # Get last/most recent entry
     last_entry = all_entries[0] if all_entries else None
     
-    return render_template('health.html', last_entry=last_entry, all_entries=all_entries)
+    # Count health records this month
+    today = datetime.now()
+    first_of_month = today.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    monthly_records_count = HealthData.query.filter_by(
+        user_id=current_user.user_id
+    ).filter(HealthData.recorded_at >= first_of_month).count()
+    
+    return render_template('health.html', last_entry=last_entry, all_entries=all_entries, monthly_records_count=monthly_records_count)
 
 
 @login_required

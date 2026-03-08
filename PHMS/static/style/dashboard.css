@@ -645,3 +645,247 @@
     border-left: 4px solid #d9534f;
     background-color: #fff9f9;
 }
+
+/* ===== ENHANCED DASHBOARD STYLES ===== */
+
+/* Quick Stats Grid */
+.quick-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.stat-card {
+    background: var(--white);
+    border: 1px solid var(--border-light);
+    border-radius: 12px;
+    padding: 1.5rem;
+    text-align: center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    transform: translateY(-2px);
+}
+
+.stat-card.health-score {
+    border-top: 4px solid var(--accent-blue);
+}
+
+.stat-card.records {
+    border-top: 4px solid var(--accent-green);
+}
+
+.stat-card.medications {
+    border-top: 4px solid var(--accent-orange);
+}
+
+.stat-card.alerts {
+    border-top: 4px solid var(--accent-red);
+}
+
+.stat-card-icon {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+}
+
+.stat-card-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--text-dark);
+    margin: 0.5rem 0;
+}
+
+.stat-card-label {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+.stat-card-trend {
+    font-size: 0.85rem;
+    margin-top: 0.5rem;
+    color: var(--accent-green);
+    font-weight: 600;
+}
+
+.stat-card-trend.negative {
+    color: var(--accent-red);
+}
+
+/* Two Column Grid */
+.two-column-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+/* Recent Activity Items */
+.recent-activity-item {
+    padding: 1rem;
+    border-bottom: 1px solid var(--border-light);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all 0.2s ease;
+}
+
+.recent-activity-item:hover {
+    background: var(--bg-light);
+    padding-left: 1.5rem;
+}
+
+.recent-activity-item:last-child {
+    border-bottom: none;
+}
+
+.activity-info {
+    flex: 1;
+}
+
+.activity-title {
+    font-weight: 600;
+    color: var(--text-dark);
+    margin-bottom: 0.3rem;
+}
+
+.activity-time {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.activity-badge {
+    display: inline-block;
+    padding: 0.4rem 0.8rem;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    background: var(--bg-light);
+    color: var(--text-dark);
+}
+
+/* Health Insights */
+.health-insights {
+    padding: 1.5rem;
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+    border-radius: 8px;
+    border-left: 4px solid var(--primary-color);
+    flex: 1;
+}
+
+.health-insights h4 {
+    margin: 0 0 1rem 0;
+    color: var(--text-dark);
+    font-weight: 600;
+}
+
+.insight-item {
+    padding: 0.8rem;
+    margin-bottom: 0.8rem;
+    background: var(--white);
+    border-radius: 6px;
+    border-left: 3px solid var(--primary-color);
+    font-size: 0.9rem;
+    color: var(--text-dark);
+}
+
+.insight-item:last-child {
+    margin-bottom: 0;
+}
+
+.insight-item.positive {
+    border-left-color: var(--accent-green);
+}
+
+.insight-item.warning {
+    border-left-color: var(--accent-orange);
+}
+
+/* Critical Medication Enhancement */
+.critical-med {
+    background: linear-gradient(135deg, rgba(231, 76, 60, 0.05), rgba(192, 57, 43, 0.05));
+    border-left-color: var(--accent-red) !important;
+}
+
+/* Quick Action Buttons */
+.quick-action-btn {
+    padding: 1rem;
+    text-align: center;
+    color: white;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    display: inline-block;
+}
+
+.quick-action-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+}
+
+.btn-health {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+}
+
+.btn-medication {
+    background: linear-gradient(135deg, #f093fb, #f5576c);
+}
+
+.btn-reports {
+    background: linear-gradient(135deg, #4facfe, #00f2fe);
+}
+
+.btn-notifications {
+    background: linear-gradient(135deg, #fa709a, #fee140);
+}
+
+/* Enhanced Empty State */
+.empty-state.success {
+    background: linear-gradient(135deg, #d5f4e6, #e8f8f5);
+    color: var(--accent-green);
+}
+
+.empty-state.success p {
+    font-weight: 600;
+    color: var(--accent-green);
+}
+
+/* Responsive Enhancements */
+@media (max-width: 1024px) {
+    .two-column-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    .quick-stats-grid {
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .stat-card {
+        padding: 1rem;
+    }
+
+    .stat-card-value {
+        font-size: 1.5rem;
+    }
+
+    .stat-card-label {
+        font-size: 0.8rem;
+    }
+
+    .quick-action-btn {
+        padding: 0.75rem;
+        font-size: 0.9rem;
+    }
+}

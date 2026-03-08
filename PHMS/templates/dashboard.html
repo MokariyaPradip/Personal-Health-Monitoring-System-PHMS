@@ -8,11 +8,46 @@
 
 {% block content %}
 <div class="dashboard-container">
+    <!-- ===== Welcome Header ===== -->
     <div class="welcome-header">
         <h1>Welcome, <span class="username">{{ user.username }}</span></h1>
         <p class="subtitle">Your Health Management Dashboard</p>
     </div>
 
+    <!-- ===== Quick Stats Cards ===== -->
+    <div class="quick-stats-grid">
+        <div class="stat-card health-score">
+            <div class="stat-card-icon">❤️</div>
+            <div class="stat-card-value">{% if last_health %}{{ last_health.health_score or '--' }}{% else %}--{% endif %}</div>
+            <div class="stat-card-label">Health Score</div>
+            {% if last_health %}
+            <div class="stat-card-trend">{{ last_health.rule_based_risk_label|replace('Risk', '')|trim }}</div>
+            {% endif %}
+        </div>
+        
+        <div class="stat-card records">
+            <div class="stat-card-icon">📊</div>
+            <div class="stat-card-value">{% if health_records_count %}{{ health_records_count }}{% else %}0{% endif %}</div>
+            <div class="stat-card-label">Health Records</div>
+            <div class="stat-card-trend">This Month</div>
+        </div>
+        
+        <div class="stat-card medications">
+            <div class="stat-card-icon">💊</div>
+            <div class="stat-card-value">{% if active_medications_count %}{{ active_medications_count }}{% else %}0{% endif %}</div>
+            <div class="stat-card-label">Active Medications</div>
+            <div class="stat-card-trend">Currently Taking</div>
+        </div>
+        
+        <div class="stat-card alerts">
+            <div class="stat-card-icon">🔔</div>
+            <div class="stat-card-value">{% if unread_alerts_count %}{{ unread_alerts_count }}{% else %}0{% endif %}</div>
+            <div class="stat-card-label">Unread Alerts</div>
+            <div class="stat-card-trend">Pending Review</div>
+        </div>
+    </div>
+
+    <!-- ===== Main Content Grid ===== -->
     <div class="dashboard-grid">
         <!-- ===== Latest Health Record ===== -->
         <div class="card health-card">
@@ -24,9 +59,9 @@
             {% set rb_label = (last_health.rule_based_risk_label or 'N/A') %}
             {% set classifier_label = (last_health.ml_classifier_risk_label or 'N/A') %}
             {% set regression_label = (last_health.regression_based_risk_label or 'N/A') %}
-            {% set rb_label_display = rb_label.replace('Risk', ' Risk') %}
-            {% set classifier_label_display = classifier_label.replace('Risk', ' Risk') %}
-            {% set regression_label_display = regression_label.replace('Risk', ' Risk') %}
+            {% set rb_label_display = rb_label.replace('Risk', ' Risk') if rb_label != 'N/A' else rb_label %}
+            {% set classifier_label_display = classifier_label.replace('Risk', ' Risk') if classifier_label != 'N/A' else classifier_label %}
+            {% set regression_label_display = regression_label.replace('Risk', ' Risk') if regression_label != 'N/A' else regression_label %}
 
             <div class="risk-summary">
                 <div class="score-chip">
@@ -79,6 +114,7 @@
             </div>
             <div class="card-footer">
                 <small>📅 {{ last_health.recorded_at.strftime('%d %b %Y, %I:%M %p') }}</small>
+                <a href="/health" class="link" style="float: right;">View History →</a>
             </div>
             {% else %}
             <div class="empty-state">
@@ -88,7 +124,7 @@
             {% endif %}
         </div>
 
-        <!-- ===== Medications ===== -->
+        <!-- ===== Current Medications ===== -->
         <div class="card medication-card">
             <div class="card-header">
                 <h3>Current Medications</h3>
@@ -113,7 +149,6 @@
                         <div><strong>Type:</strong> {{ m.medicine.medicine_type }}</div>
                         <div><strong>Dosage:</strong> {{ m.dosage }}</div>
                         <div><strong>Frequency:</strong> {{ m.frequency }}</div>
-                        
                     </div>
                 </div>
                 {% endfor %}
@@ -124,17 +159,20 @@
                 <a href="/medication" class="link">Add medications →</a>
             </div>
             {% endif %}
+            <div class="card-footer">
+                <a href="/medication" class="link">Manage Medications →</a>
+            </div>
         </div>
 
         <!-- ===== Alerts & Reminders ===== -->
         <div class="card alerts-card">
             <div class="card-header">
-                <h3>Reminders & Alerts</h3>
+                <h3>Recent Alerts & Reminders</h3>
                 <span class="card-icon">🔔</span>
             </div>
             {% if alerts %}
             <div class="alerts-list">
-                {% for alert in alerts %}
+                {% for alert in alerts[:5] %}
                 <div class="alert-item alert-{{ alert.severity|lower }} alert-category-{{ alert.category|lower }} {% if not alert.is_read %}unread{% endif %}">
                     <div class="alert-left">
                         <div class="alert-category-badge">{{ alert.category|upper }}</div>
@@ -142,8 +180,8 @@
                     </div>
                     <div class="alert-content">
                         <div class="alert-title">{{ alert.title or 'Alert' }}</div>
-                        <div class="alert-message">{{ alert.message[:100] }}{% if alert.message|length > 100 %}...{% endif %}</div>
-                        <small class="alert-time">📅 {{ alert.created_at.strftime('%d %b %Y, %I:%M %p') }}</small>
+                        <div class="alert-message">{{ alert.message[:80] }}{% if alert.message|length > 80 %}...{% endif %}</div>
+                        <small class="alert-time">📅 {{ alert.created_at.strftime('%d %b, %I:%M %p') }}</small>
                     </div>
                     {% if not alert.is_read %}
                     <div class="alert-unread-indicator"></div>
@@ -157,6 +195,122 @@
                 <p class="subtitle">You're all set!</p>
             </div>
             {% endif %}
+            <div class="card-footer">
+                <a href="/notifications" class="link">View All Alerts →</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== Recent Activity & Health Insights ===== -->
+    <div class="two-column-grid">
+        <!-- Recent Activity -->
+        <div class="card">
+            <div class="card-header">
+                <h3>Recent Activity</h3>
+                <span class="card-icon">📋</span>
+            </div>
+            {% if last_health or medications %}
+            <div style="flex: 1;">
+                {% if last_health %}
+                <div class="recent-activity-item">
+                    <div class="activity-info">
+                        <div class="activity-title">Health Record Added</div>
+                        <div class="activity-time">{{ last_health.recorded_at.strftime('%d %b %Y, %I:%M %p') }}</div>
+                    </div>
+                    <span class="activity-badge">📊 Health</span>
+                </div>
+                {% endif %}
+                
+                {% if medications %}
+                <div class="recent-activity-item">
+                    <div class="activity-info">
+                        <div class="activity-title">{{ active_medications_count or medications|length }} Active Medications</div>
+                        <div class="activity-time">Currently managed</div>
+                    </div>
+                    <span class="activity-badge">💊 Medication</span>
+                </div>
+                {% endif %}
+                
+                <div class="recent-activity-item">
+                    <div class="activity-info">
+                        <div class="activity-title">Dashboard Synced</div>
+                        <div class="activity-time">Just now</div>
+                    </div>
+                    <span class="activity-badge">✓ Active</span>
+                </div>
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <p>No recent activity</p>
+                <p style="font-size: 0.9rem;">Start by adding health data or medications</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Health Insights -->
+        <div class="card">
+            <div class="card-header">
+                <h3>Health Insights</h3>
+                <span class="card-icon">💡</span>
+            </div>
+            {% if last_health %}
+            <div class="health-insights">
+                {% if last_health.rule_based_risk_label == "LowRisk" %}
+                <div class="insight-item positive">
+                    <strong>✓ Great Health Status</strong><br>Your health metrics are within normal ranges. Keep up the good work!
+                </div>
+                {% elif last_health.rule_based_risk_label == "MediumRisk" %}
+                <div class="insight-item warning">
+                    <strong>⚠ Monitor Your Health</strong><br>Some metrics need attention. Consider consulting your healthcare provider.
+                </div>
+                {% else %}
+                <div class="insight-item warning">
+                    <strong>⚠ Alert</strong><br>Your health indicators show higher risk. Please seek medical advice promptly.
+                </div>
+                {% endif %}
+                
+                <div class="insight-item">
+                    <strong>📈 Health Score</strong><br>Current: {{ last_health.health_score }} | {{ last_health.rule_based_risk_label|replace('Risk', ' Risk')|trim }}
+                </div>
+                
+                {% if medications %}
+                <div class="insight-item positive">
+                    <strong>💊 Medication Tracking</strong><br>{{ active_medications_count or medications|length }} active medications being monitored
+                </div>
+                {% endif %}
+                
+                <div class="insight-item">
+                    <strong>📊 Data Collection</strong><br>{{ health_records_count or '0' }} health records recorded this month
+                </div>
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <p>Add health data to see personalized insights</p>
+                <a href="/health" class="link">Add Health Data →</a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- ===== Quick Actions ===== -->
+    <div class="card">
+        <div class="card-header">
+            <h3>Quick Actions</h3>
+            <span class="card-icon">⚡</span>
+        </div>
+        <div style="padding: 1.5rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem;">
+            <a href="/health" class="quick-action-btn btn-health">
+                📊 Add Health Data
+            </a>
+            <a href="/medication" class="quick-action-btn btn-medication">
+                💊 Manage Medications
+            </a>
+            <a href="/reports" class="quick-action-btn btn-reports">
+                📈 View Reports
+            </a>
+            <a href="/notifications" class="quick-action-btn btn-notifications">
+                🔔 All Notifications
+            </a>
         </div>
     </div>
 </div>

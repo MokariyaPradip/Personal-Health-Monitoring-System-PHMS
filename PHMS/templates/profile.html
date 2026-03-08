@@ -13,11 +13,48 @@
     <!-- ===== PROFILE HEADER ===== -->
     <div class="profile-header">
         <div class="header-content">
-            <div class="avatar">👤</div>
+            <div class="avatar">{{ user.username[0]|upper if user.username else '👤' }}</div>
             <div class="header-info">
                 <h1>{{ user.username }}</h1>
                 <p class="subtitle">{{ user.user_email }}</p>
+                <p class="header-meta">Member since {{ profile_stats.member_since }} • {{ profile_stats.account_age_days }} days</p>
             </div>
+        </div>
+    </div>
+
+    <!-- ===== PROFILE OVERVIEW ===== -->
+    <div class="profile-overview-grid">
+        <div class="profile-overview-card primary">
+            <span class="profile-overview-label">Profile Completion</span>
+            <span class="profile-overview-value">{{ profile_stats.completion }}%</span>
+            <div class="completion-meter">
+                <div class="completion-fill" style="width: {{ profile_stats.completion }}%;"></div>
+            </div>
+            <span class="profile-overview-meta">Complete data improves health recommendations</span>
+        </div>
+
+        <div class="profile-overview-card health">
+            <span class="profile-overview-label">Health Records</span>
+            <span class="profile-overview-value">{{ profile_stats.health_entries }}</span>
+            <span class="profile-overview-meta">Total entries tracked so far</span>
+        </div>
+
+        <div class="profile-overview-card medication">
+            <span class="profile-overview-label">Active Medications</span>
+            <span class="profile-overview-value">{{ profile_stats.active_medications }}</span>
+            <span class="profile-overview-meta">Critical: {{ profile_stats.critical_medications }}</span>
+        </div>
+
+        <div class="profile-overview-card alerts">
+            <span class="profile-overview-label">Unread Alerts</span>
+            <span class="profile-overview-value">{{ profile_stats.unread_alerts }}</span>
+            <span class="profile-overview-meta">Review recent notifications regularly</span>
+        </div>
+
+        <div class="profile-overview-card score">
+            <span class="profile-overview-label">Latest Health Score</span>
+            <span class="profile-overview-value">{{ profile_stats.latest_health_score if profile_stats.latest_health_score is not none else 'N/A' }}</span>
+            <span class="profile-overview-meta">Risk: {{ profile_stats.latest_health_risk or 'N/A' }}</span>
         </div>
     </div>
 
@@ -40,12 +77,16 @@
                     <span class="info-value">{{ user.user_email }}</span>
                 </div>
                 <div class="info-row">
+                    <span class="info-label">Member Since</span>
+                    <span class="info-value">{{ profile_stats.member_since }}</span>
+                </div>
+                <div class="info-row">
                     <span class="info-label">Gender</span>
-                    <span class="info-value">{{ user.gender }}</span>
+                    <span class="info-value">{{ user.gender or 'N/A' }}</span>
                 </div>
                 <div class="info-row">
                     <span class="info-label">Age</span>
-                    <span class="info-value">{{ user.age }} years</span>
+                    <span class="info-value">{{ user.age if user.age is not none else 'N/A' }}{% if user.age is not none %} years{% endif %}</span>
                 </div>
             </div>
         </div>
@@ -60,20 +101,50 @@
                 <div class="metric-grid">
                     <div class="metric-item">
                         <span class="metric-label">Height</span>
-                        <span class="metric-value">{{ user.height }} <span class="unit">cm</span></span>
+                        <span class="metric-value">{{ user.height if user.height is not none else 'N/A' }}{% if user.height is not none %} <span class="unit">cm</span>{% endif %}</span>
                     </div>
                     <div class="metric-item">
                         <span class="metric-label">Weight</span>
-                        <span class="metric-value">{{ user.weight }} <span class="unit">kg</span></span>
+                        <span class="metric-value">{{ user.weight if user.weight is not none else 'N/A' }}{% if user.weight is not none %} <span class="unit">kg</span>{% endif %}</span>
                     </div>
                     <div class="metric-item">
                         <span class="metric-label">BMI</span>
-                        <span class="metric-value">{{ user.bmi }} <span class="unit">kg/m²</span></span>
+                        <span class="metric-value">{{ user.bmi if user.bmi is not none else 'N/A' }}{% if user.bmi is not none %} <span class="unit">kg/m²</span>{% endif %}</span>
                     </div>
+                </div>
+                <div class="bmi-insight-row">
+                    <span class="bmi-pill {{ bmi_insight.tone }}">BMI Status: {{ bmi_insight.label }}</span>
                 </div>
             </div>
         </div>
 
+    </div>
+
+    <!-- ===== PROFILE INSIGHTS ===== -->
+    <div class="profile-insights-grid">
+        <div class="profile-insight-card">
+            <h3>Health Snapshot</h3>
+            <p><strong>Latest score:</strong> {{ profile_stats.latest_health_score if profile_stats.latest_health_score is not none else 'N/A' }}</p>
+            <p><strong>Risk level:</strong> {{ profile_stats.latest_health_risk or 'N/A' }}</p>
+            <p><strong>Tracked records:</strong> {{ profile_stats.health_entries }}</p>
+        </div>
+
+        <div class="profile-insight-card">
+            <h3>Recommendations</h3>
+            {% if profile_stats.unread_alerts > 0 %}
+            <p>Review your {{ profile_stats.unread_alerts }} unread alert(s) to stay ahead of potential issues.</p>
+            {% else %}
+            <p>Great job staying updated. You currently have no unread alerts.</p>
+            {% endif %}
+
+            {% if profile_stats.completion < 85 %}
+            <p>Complete missing profile fields to improve predictions and personalized guidance.</p>
+            {% endif %}
+
+            {% if profile_stats.critical_medications > 0 %}
+            <p>You have {{ profile_stats.critical_medications }} critical medication(s). Keep reminders enabled.</p>
+            {% endif %}
+        </div>
     </div>
 
     <!-- ===== ACTION BUTTONS ===== -->
