@@ -5,6 +5,8 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     
     <link rel="stylesheet" href="{{ url_for('static', filename='style/login.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style/loading-states.css') }}">
+    <script src="{{ url_for('static', filename='js/loading-states.js') }}"></script>
     
     <style>
     </style>
@@ -25,7 +27,7 @@
     <input id="email" type="email" placeholder="Email">
     <input id="password" type="password" placeholder="Password">
 
-    <button onclick="login()">Login</button>
+    <button onclick="login(event)">Login</button>
 
     <!-- Register link -->
     <div class="register-link">
@@ -37,7 +39,17 @@
 </div>
 
 <script>
-function login() {
+function login(event) {
+    const loginBtn = event ? event.target : null;
+    if (loginBtn) {
+        if (window.PHMSLoading) {
+            window.PHMSLoading.setButtonLoading(loginBtn, 'Signing in...');
+        } else {
+            loginBtn.disabled = true;
+            loginBtn.textContent = 'Signing in...';
+        }
+    }
+
     fetch('/login', {
         method: 'POST',
         headers: {
@@ -52,9 +64,31 @@ function login() {
     .then(res => res.json())
     .then(data => {
         if (data.success) {
+            if (window.PHMSLoading) {
+                window.PHMSLoading.showOverlay('Loading dashboard...');
+            }
             window.location = "/dashboard";
         } else {
             alert(data.message);
+            if (loginBtn) {
+                if (window.PHMSLoading) {
+                    window.PHMSLoading.clearButtonLoading(loginBtn);
+                } else {
+                    loginBtn.disabled = false;
+                    loginBtn.textContent = 'Login';
+                }
+            }
+        }
+    })
+    .catch(() => {
+        alert('Login failed. Please try again.');
+        if (loginBtn) {
+            if (window.PHMSLoading) {
+                window.PHMSLoading.clearButtonLoading(loginBtn);
+            } else {
+                loginBtn.disabled = false;
+                loginBtn.textContent = 'Login';
+            }
         }
     });
 }

@@ -1147,7 +1147,54 @@ def manually_check_consecutive_missed():
 
 @login_required
 def mark_medication_taken(log_id):
-    """Mark a medication as taken with timestamp"""
+    """Mark medication log as taken with timestamp validation and grace period enforcement.
+    
+    Updates a medication log status to 'taken' after validating that the scheduled
+    time has arrived and the grace period has not expired. Prevents marking medications
+    before scheduled time or after grace period ends to maintain adherence accuracy.
+    
+    Endpoints:
+        POST /medication-log/<log_id>/taken: Mark medication as taken
+    
+    Parameters:
+        log_id (int): MedicationLog ID to update (from URL path)
+    
+    Validation Rules:
+        1. Log must exist and belong to current user (404 if not found)
+        2. Scheduled time must have arrived (400 if future date/time)
+        3. Grace period must not have expired (400 if past grace period)
+    
+    Grace Period Logic:
+        - Frequency-based grace periods (via MedicationLogManager):
+            * Once daily: 180 minutes (3 hours)
+            * Twice daily: 120 minutes (2 hours)
+            * Thrice+ daily: 60 minutes (1 hour)
+        - Grace period starts at scheduled_time
+        - If current time > (scheduled_time + grace_period), reject as expired
+    
+    Returns:
+        JSON response with update status
+            - 200: Medication marked as taken successfully
+            - 400: Validation error:
+                  * Scheduled time not arrived (includes available_at time)
+                  * Grace period expired (includes grace_period_minutes)
+            - 404: Medication log not found or unauthorized
+            - 500: Database error
+    
+    Side Effects:
+        - Updates log.status = 'taken'
+        - Sets log.taken_at = current UTC timestamp
+        - Commits change to database immediately
+        - Logs operation to application logger
+    
+    Security:
+        - Requires @login_required (authenticated session)
+        - Ownership verified via user_id filter
+        - Prevents backdating or premature medication marking
+    
+    Raises:
+        Exception: Database update failure (rolled back automatically)
+    """
     
     try:
         log = MedicationLog.query.filter_by(
@@ -1325,7 +1372,60 @@ def mark_medication_missed(log_id):
 
 @login_required
 def get_medication_logs():
-    """Get medication logs for the current user"""
+    """Retrieve medication logs for current user with date range and status filtering.
+    
+    API endpoint to fetch medication logs with optional filtering by date range
+    and status. Returns detailed log information including medicine name, dosage,
+    scheduled time, and actual taken time. Useful for building adherence reports
+    and medication history views.
+    
+    Endpoints:
+        GET /medication-logs: Get medication logs with optional filters
+    
+    Query Parameters:
+        days (int, optional): Number of days to look back (default: 7)
+            - Calculates start_date as (today - days)
+            - Example: days=30 retrieves last 30 days of logs
+        
+        status (str, optional): Filter by status (default: None, returns all)
+            - Valid values: 'pending', 'taken', 'missed', 'skipped'
+            - Example: status=missed returns only missed medications
+    
+    Returns:
+        JSON response with logs array
+            - 200: Success with logs data
+                {
+                    'success': True,
+                    'count': <number of logs>,
+                    'logs': [
+                        {
+                            'log_id': int,
+                            'medication_id': int,
+                            'medicine_name': str,
+                            'dosage': str,
+                            'log_date': 'YYYY-MM-DD',
+                            'scheduled_time': 'HH:MM AM/PM',
+                            'status': str,
+                            'taken_at': 'YYYY-MM-DD HH:MM AM/PM' or None
+                        },
+                        ...
+                    ]
+                }
+    
+    Sorting:
+        - Ordered by log_date (descending) then scheduled_time (descending)
+        - Most recent logs appear first
+    
+    Security:
+        - Requires @login_required (authenticated session)
+        - All logs filtered by current_user.user_id
+        - Uses JOIN query to ensure medication ownership
+    
+    Performance:
+        - Efficient JOIN query between MedicationLog and Medication
+        - Date range filtering reduces result set size
+        - Consider adding pagination for large datasets (>100 logs)
+    """
     
     # Get date range from query params
     days = request.args.get('days', 7, type=int)

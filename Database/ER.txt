@@ -1,79 +1,140 @@
 ================================================================================
-									  PHMS Final ER Diagram
+PHMS Final ER Diagram (Model Derived)
+Schema Source: PHMS/models/*.py
+Updated: 2026-03-08
 ================================================================================
 
 OVERVIEW
 --------------------------------------------------------------------------------
-- Text version of the final ERD reflecting the current SQLAlchemy models.
-- Column types follow the model definitions; constraints and cascades noted.
+- This ER document is generated from SQLAlchemy models in `PHMS/models`.
+- Database engine: SQLite (via Flask-SQLAlchemy).
+- Total entities: 7
+- Naming follows model columns exactly.
+
 
 TABLES
 --------------------------------------------------------------------------------
 1) user
-	- PK: user_id (int)
-	- username (varchar 50, not null, indexed)
-	- user_email (varchar 100, not null, unique, indexed)
-	- password (varchar 255, not null)
-	- age (int), gender (varchar 10), height (float), weight (float)
-	- bmi (float, computed before insert/update)
-	- created_at (datetime, default now), updated_at (datetime, default now on update)
-	- Relationships: 1:N health_records, medications, alerts (all cascade on delete)
+  - PK: user_id (INTEGER)
+  - username (VARCHAR(50), NOT NULL, indexed)
+  - user_email (VARCHAR(100), NOT NULL, UNIQUE, indexed)
+  - password (VARCHAR(255), NOT NULL)
+  - age (INTEGER), gender (VARCHAR(10)), height (FLOAT), weight (FLOAT)
+  - bmi (FLOAT)
+  - created_at (DATETIME, NOT NULL, default utcnow)
+  - updated_at (DATETIME, NOT NULL, default utcnow, on update utcnow)
+  - Relationships:
+    * 1:N health_data (cascade delete-orphan)
+    * 1:N medication (cascade delete-orphan)
+    * 1:N alert (cascade delete-orphan)
+    * 1:N medication_log (via backref, direct FK exists)
 
 2) health_data
-	- PK: entry_id (int)
-	- FK: user_id -> user.user_id (ondelete CASCADE, indexed)
-	- heart_rate (int), temperature (float), steps (int), sleep_hours (float)
-	- blood_pressure (float), sugar (float)
-	- recorded_at (datetime, default now)
-	- health_score (int), rule_based_risk_label (varchar 20), ml_predicted_risk_label (varchar 20)
-	- Relationship: belongs to user; referenced by alerts
+  - PK: entry_id (INTEGER)
+  - FK: user_id -> user.user_id (ON DELETE CASCADE, indexed, NOT NULL)
+  - heart_rate (INTEGER), temperature (FLOAT), steps (INTEGER)
+  - sleep_hours (FLOAT), blood_pressure (FLOAT), sugar (FLOAT)
+  - recorded_at (DATETIME, NOT NULL, default utcnow)
+  - health_score (INTEGER)
+  - ml_regression_health_score (FLOAT)
+  - ml_classifier_risk_label (VARCHAR(20))
+  - Relationships:
+    * N:1 user
+    * 1:N alert (optional link through alert.health_id)
 
 3) medicine
-	- PK: medicine_id (int)
-	- medicine_name (varchar 100, not null, unique, indexed)
-	- medicine_type (varchar 50), purpose (varchar 200), remark (varchar 200)
-	- Relationship: 1:N medications (delete restricted via FK)
+  - PK: medicine_id (INTEGER)
+  - medicine_name (VARCHAR(100), NOT NULL, UNIQUE, indexed)
+  - medicine_type (VARCHAR(50))
+  - purpose (VARCHAR(200))
+  - remark (VARCHAR(200))
+  - Relationships:
+    * 1:N medication (cascade delete-orphan from ORM perspective)
 
 4) medication
-	- PK: medication_id (int)
-	- FK: user_id -> user.user_id (ondelete CASCADE, indexed)
-	- FK: medicine_id -> medicine.medicine_id (ondelete RESTRICT, indexed)
-	- dosage (varchar 50), frequency (int), start_date (date), end_date (date)
-	- Constraint: Unique (user_id, medicine_id) as uq_user_medicine
-	- Relationships: belongs to user and medicine; 1:N medication_logs (cascade); 1:N alerts (no cascade)
+  - PK: medication_id (INTEGER)
+  - FK: user_id -> user.user_id (ON DELETE CASCADE, indexed, NOT NULL)
+  - FK: medicine_id -> medicine.medicine_id (ON DELETE RESTRICT, indexed, NOT NULL)
+  - dosage (VARCHAR(50))
+  - frequency (INTEGER)
+  - start_date (DATE)
+  - end_date (DATE)
+  - is_critical (BOOLEAN, NOT NULL, default False)
+  - Relationships:
+    * N:1 user
+    * N:1 medicine
+    * 1:N medication_log (cascade delete-orphan)
 
 5) medication_log
-	- PK: log_id (int)
-	- FK: medication_id -> medication.medication_id (ondelete CASCADE, indexed)
-	- taken_at (datetime, default now), status (varchar 20)
-	- Relationship: belongs to medication; referenced by alerts
+  - PK: log_id (INTEGER)
+  - FK: user_id -> user.user_id (ON DELETE CASCADE, indexed, NULLABLE)
+  - FK: medication_id -> medication.medication_id (ON DELETE CASCADE, indexed, NOT NULL)
+  - log_date (DATE, default today)
+  - status (ENUM: pending|taken|missed|skipped, default pending)
+  - scheduled_time (TIME, NOT NULL)
+  - taken_at (DATETIME, NULLABLE)
+  - created_at (DATETIME, default utcnow)
+  - Relationships:
+    * N:1 user (optional)
+    * N:1 medication
+    * 1:N alert (optional link through alert.medication_log_id)
 
 6) alert
-	- PK: alert_id (int)
-	- FK: user_id -> user.user_id (ondelete CASCADE, indexed)
-	- FK: health_id -> health_data.entry_id (nullable)
-	- FK: medication_id -> medication.medication_id (nullable)
-	- FK: medication_log_id -> medication_log.log_id (nullable)
-	- message (varchar 255, not null), created_at (datetime, default now)
-	- severity (varchar 20), is_read (boolean, default false)
-	- Relationships: belongs to user; optional links to health_data, medication, medication_log
+  - PK: alert_id (INTEGER)
+  - FK: user_id -> user.user_id (ON DELETE CASCADE, indexed, NOT NULL)
+  - FK: health_id -> health_data.entry_id (NULLABLE)
+  - FK: medication_log_id -> medication_log.log_id (NULLABLE)
+  - title (VARCHAR(150))
+  - message (TEXT)
+  - category (VARCHAR(30))
+  - created_at (DATETIME, NOT NULL, default utcnow)
+  - severity (VARCHAR(20))
+  - is_read (BOOLEAN, default False)
+  - Relationships:
+    * N:1 user
+    * optional N:1 health_data
+    * optional N:1 medication_log
+
+7) password_reset_otp
+  - PK: otp_id (INTEGER)
+  - user_email (VARCHAR(100), NOT NULL, indexed)
+  - otp_code (VARCHAR(6), NOT NULL)
+  - attempts (INTEGER, default 0)
+  - created_at (DATETIME, NOT NULL, default utcnow)
+  - expires_at (DATETIME, NOT NULL)
+  - is_verified (BOOLEAN, default False)
+  - IMPORTANT:
+    * No foreign key to user table in model.
+    * Link is application-level by matching user_email.
+
 
 RELATIONSHIP SUMMARY
 --------------------------------------------------------------------------------
 - user 1 -> many health_data (cascade on delete)
 - user 1 -> many medication (cascade on delete)
-- user 1 -> many alert (cascade on delete)
 - medicine 1 -> many medication (delete restricted by FK)
+- user 1 -> many medication_log (direct FK, nullable)
 - medication 1 -> many medication_log (cascade on delete)
-- health_data 1 -> many alert (optional link)
-- medication 1 -> many alert (optional link; FK default restrict)
-- medication_log 1 -> many alert (optional link)
+- user 1 -> many alert (cascade on delete)
+- health_data 1 -> many alert (optional reference)
+- medication_log 1 -> many alert (optional reference)
+- password_reset_otp has no FK; linked by user_email in application logic
+
 
 ASCII SNAPSHOT
 --------------------------------------------------------------------------------
 user --< health_data
-user --< medication --< medication_log
-medicine >-- medication
+user --< medication >-- medicine
+user --< medication_log >-- medication
 user --< alert >-- health_data
-alert >-- medication
 alert >-- medication_log
+password_reset_otp -(logical via user_email)-> user
+
+
+NOTES
+--------------------------------------------------------------------------------
+- Field names above intentionally match model names exactly (for migration safety).
+- `medication.frequency` is INTEGER in current model.
+- `health_data` keeps single `blood_pressure` field (FLOAT).
+- `alert` has `medication_log_id` and no `medication_id` FK column.
+- `password_reset_otp` uses `user_email` and not `user_id`.

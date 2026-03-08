@@ -12,7 +12,37 @@ logger = logging.getLogger(__name__)
 
 @login_required
 def medication_page():
-    """Display medication page with optional search functionality"""
+    """Display medication management page with search and view-all functionality.
+    
+    Renders the medication page showing user's current medications and available
+    medicines from the master database. Supports search filtering by medicine name
+    and pagination with optional view-all mode.
+    
+    Endpoints:
+        GET /medication: Display medication management page
+    
+    Query Parameters:
+        query (str, optional): Search term to filter medicines by name (case-insensitive)
+        view_all (str, optional): Flag to display all medicines instead of default 9
+    
+    Display Logic:
+        - Always shows ALL user's current medications (filtered by user_id)
+        - If search query provided: Shows matching medicines (unlimited)
+        - If view_all flag set: Shows all medicines in database
+        - Default (no query, no flag): Shows first 9 medicines only
+    
+    Returns:
+        Rendered medication.html template with:
+            - meds: List[Medication] - User's current medications
+            - medicines: List[Medicine] - Available medicines from master database
+            - search_query: str - Current search term (or None)
+            - view_all: str - View-all flag status (or None)
+    
+    Security:
+        - Requires @login_required (authenticated session)
+        - Medications filtered by current_user.user_id
+        - Uses parameterized queries (SQLAlchemy ORM) to prevent SQL injection
+    """
 
     meds = Medication.query.filter_by(user_id=current_user.user_id).all()
     
@@ -46,7 +76,59 @@ def medication_page():
 
 @login_required
 def add_medication():
-    """Add new medication and create logs if start date is today"""
+    """Add new medication to user's regimen and auto-create today's logs if applicable.
+    
+    Creates a new Medication record with validation for dates, frequency, and dosage.
+    If start_date is today, automatically generates MedicationLog entries for all
+    scheduled times that haven't passed yet (e.g., if it's 10 AM and medication is
+    3x daily at 9 AM, 2 PM, 9 PM, only 2 PM and 9 PM logs are created).
+    
+    Endpoints:
+        POST /medication/add: Create new medication schedule
+    
+    Request Body (JSON):
+        medicine_name (str): Medicine name (must exist in Medicine table)
+        dosage (str): Dosage instruction (e.g., "10mg", "2 tablets")
+        frequency (int): Daily frequency (1=once, 2=twice, 3=thrice, 4=four times, 6=six times)
+        start_date (str): ISO format date (YYYY-MM-DD), cannot be in past
+        end_date (str): ISO format date (YYYY-MM-DD), must be >= start_date
+        is_critical (bool, optional): Critical medication flag (default: False)
+    
+    Validation Rules:
+        - All fields required except is_critical
+        - Frequency must be valid integer (1, 2, 3, 4, or 6)
+        - start_date cannot be in the past
+        - end_date must be >= start_date
+        - Medicine must exist in Medicine table (case-insensitive search)
+    
+    Grace Period Logic for Same-Day Logs:
+        - Uses get_scheduled_time_for_frequency() to determine time slots
+        - Only creates logs for future scheduled times (filters by current time)
+        - Sets status='pending' for all new logs
+        - Logs are created with grace period consideration (defined per frequency)
+    
+    Returns:
+        JSON response with creation status
+            - 200: Medication added successfully
+                  (includes logs_created count if start_date is today)
+            - 400: Validation error (missing fields, invalid frequency, date validation)
+            - 404: Medicine not found in master database
+            - 500: Database error
+    
+    Side Effects:
+        - Creates Medication record in database
+        - If start_date == today: Creates MedicationLog records for future doses
+        - Logs creation details to application logger
+        - Flushes session before log creation to obtain medication_id
+    
+    Security:
+        - Requires @login_required (authenticated session)
+        - Associates medication with current_user.user_id
+        - Validates medicine exists before creating medication
+    
+    Raises:
+        Exception: Database commit failure or log creation error (rolled back)
+    """
     data = request.get_json(silent=True) or {}
     
     # Validation
@@ -182,7 +264,42 @@ def add_medication():
 
 @login_required
 def delete_medication(id):
-    """Delete medication with ownership verification"""
+    """Delete medication with ownership verification and cascading log cleanup.
+    
+    Removes a medication from the user's regimen. Includes critical security check
+    to ensure users can only delete their own medications. Associated MedicationLog
+    entries are automatically deleted via SQLAlchemy cascade rules.
+    
+    Endpoints:
+        DELETE /medication/<id>: Delete medication by ID
+    
+    Parameters:
+        id (int): Medication ID to delete (from URL path)
+    
+    Validation:
+        - Medication must exist (404 if not found)
+        - Medication must belong to current_user (403 if unauthorized)
+    
+    Returns:
+        JSON response with deletion status
+            - 200: Medication deleted successfully
+            - 403: Unauthorized (attempting to delete another user's medication)
+            - 404: Medication not found
+            - 500: Database error during deletion
+    
+    Side Effects:
+        - Deletes Medication record from database
+        - Cascades deletion to associated MedicationLog entries
+        - Transaction is rolled back on error
+    
+    Security:
+        - Requires @login_required (authenticated session)
+        - CRITICAL ownership verification prevents unauthorized deletion
+        - Uses parameterized query (SQLAlchemy ORM) to prevent injection
+    
+    Raises:
+        Exception: Database deletion failure (rolled back automatically)
+    """
     try:
         medication = Medication.query.get(id)
         
@@ -204,6 +321,46 @@ def delete_medication(id):
 # to add data in medicine table
 @login_required
 def add_medicine_master():
+    """Add new medicine to the master Medicine database with duplicate checking.
+    
+    Administrative function to populate the Medicine master table with new medicines.
+    Includes case-insensitive duplicate detection to prevent redundant entries.
+    Intended for admin use or initial database seeding.
+    
+    Endpoints:
+        POST /medicine/add-master: Add medicine to master database
+    
+    Request Body (JSON):
+        medicine_name (str, required): Name of the medicine
+        medicine_type (str, optional): Type/category (e.g., "Tablet", "Syrup", "Injection")
+        purpose (str, required): Medical purpose or condition treated
+        remark (str, optional): Additional notes or warnings
+    
+    Validation Rules:
+        - medicine_name is required and stripped of whitespace
+        - purpose is required and stripped of whitespace
+        - medicine_type and remark are optional
+        - Duplicate check is case-insensitive (uses ILIKE)
+    
+    Returns:
+        JSON response with creation status
+            - 200: Medicine added successfully
+            - 400: Missing required fields (medicine_name or purpose)
+            - 409: Medicine already exists (case-insensitive match)
+    
+    Side Effects:
+        - Creates Medicine record in master database
+        - Strips whitespace from all string fields
+        - Database commit is immediate
+    
+    Security:
+        - Requires @login_required (authenticated session)
+        - Should ideally include admin role check (commented in code)
+    
+    Note:
+        This function is intended for administrative purposes. Consider adding
+        role-based access control (admin check) before production deployment.
+    """
     data = request.get_json(silent=True) or {}
     medicine_name = data.get('medicine_name')
     medicine_type = data.get('medicine_type')

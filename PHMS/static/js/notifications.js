@@ -142,7 +142,7 @@ function filterByCategory(category) {
     }
 }
 
-function markMedicationTaken(logId) {
+function markMedicationTaken(logId, sourceButton) {
     // Get the log card to access scheduled time and grace period info
     const logCard = document.querySelector(`.medication-log-card.pending[data-log-id="${logId}"]`);
     if (!logCard) {
@@ -164,7 +164,7 @@ function markMedicationTaken(logId) {
         }
         return;
     }
-    fetch(`/medication-log/${logId}/taken`, {
+    const request = () => fetch(`/medication-log/${logId}/taken`, {
         method: 'PUT',
         headers: {
             'X-CSRFToken': window.getCsrfToken(),
@@ -180,14 +180,19 @@ function markMedicationTaken(logId) {
             } else {
                 showToast(data.message || 'Failed to update medication', 'error');
             }
-        })
-        .catch(err => {
+        });
+
+    const requestPromise = sourceButton && window.PHMSLoading
+        ? window.PHMSLoading.withLoading({ button: sourceButton, buttonText: 'Updating...' }, request)
+        : request();
+
+    requestPromise.catch(err => {
             console.error('Error marking medication as taken:', err);
             showToast('Failed to update medication', 'error');
         });
 }
 
-function markMedicationMissed(logId) {
+function markMedicationMissed(logId, sourceButton) {
     // Get the log card to access scheduled time and grace period info
     const logCard = document.querySelector(`.medication-log-card.pending[data-log-id="${logId}"]`);
     if (!logCard) {
@@ -210,7 +215,7 @@ function markMedicationMissed(logId) {
         return;
     }
     
-    fetch(`/medication-log/${logId}/missed`, {
+    const request = () => fetch(`/medication-log/${logId}/missed`, {
         method: 'PUT',
         headers: {
             'X-CSRFToken': window.getCsrfToken(),
@@ -226,8 +231,13 @@ function markMedicationMissed(logId) {
             } else {
                 showToast(data.message || 'Failed to update medication', 'error');
             }
-        })
-        .catch(err => {
+        });
+
+    const requestPromise = sourceButton && window.PHMSLoading
+        ? window.PHMSLoading.withLoading({ button: sourceButton, buttonText: 'Updating...' }, request)
+        : request();
+
+    requestPromise.catch(err => {
             console.error('Error marking medication as missed:', err);
             showToast('Failed to update medication', 'error');
         });
@@ -236,11 +246,11 @@ function markMedicationMissed(logId) {
 // ===== NOTIFICATIONS PAGE SPECIFIC FUNCTIONS =====
 // These functions use the shared markAsRead() from notifications-common.js
 
-function markAsReadOnPage(alertId) {
+function markAsReadOnPage(alertId, sourceButton) {
     // Use shared markAsRead function with callback to update badges
     markAsRead(alertId, function () {
         updateBadgeCounts();
-    });
+    }, sourceButton);
 }
 
 
@@ -314,7 +324,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Mark all as read button
     const markAllBtn = document.getElementById('mark-all-btn');
     if (markAllBtn) {
-        markAllBtn.addEventListener('click', markAllAsRead);
+        markAllBtn.addEventListener('click', function () {
+            markAllAsRead(null, markAllBtn);
+        });
     }
 
     // Category tabs
@@ -332,7 +344,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (card) {
                 const alertId = card.getAttribute('data-alert-id');
                 if (alertId) {
-                    markAsReadOnPage(alertId);
+                    markAsReadOnPage(alertId, e.target);
                 }
             }
         }
@@ -343,7 +355,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.target.classList.contains('btn-log-action') && e.target.classList.contains('taken')) {
             const logId = e.target.getAttribute('data-log-id');
             if (logId) {
-                markMedicationTaken(parseInt(logId));
+                markMedicationTaken(parseInt(logId, 10), e.target);
             }
         }
     });
@@ -353,7 +365,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.target.classList.contains('btn-log-action') && e.target.classList.contains('missed')) {
             const logId = e.target.getAttribute('data-log-id');
             if (logId) {
-                markMedicationMissed(parseInt(logId));
+                markMedicationMissed(parseInt(logId, 10), e.target);
             }
         }
     });

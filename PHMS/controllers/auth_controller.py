@@ -122,7 +122,41 @@ def _send_registration_success_email(email, username):
 
 
 def register():
-    """Handle user registration with input validation"""
+    """Handle user registration with comprehensive input validation and email notifications.
+    
+    Processes POST requests to create new user accounts with validated credentials.
+    Performs duplicate email checks, password strength validation, and sends
+    welcome email upon successful registration.
+    
+    Endpoints:
+        GET /register: Display registration form
+        POST /register: Create new user account
+    
+    Request Body (JSON):
+        username (str): User's display name (2-50 characters)
+        email (str): Valid email address (case-insensitive, unique)
+        password (str): Password (minimum 8 characters)
+        age (int, optional): User's age
+        gender (str, optional): User's gender
+        height (float, optional): Height in cm
+        weight (float, optional): Weight in kg
+    
+    Returns:
+        GET: Rendered registration.html template
+        POST: JSON response with success status and message
+            - 200: Registration successful
+            - 400: Validation error (missing fields, invalid format, weak password)
+            - 409: Email already registered
+            - 500: Database error
+    
+    Side Effects:
+        - Creates new User record in database
+        - Sends registration success email via _send_registration_success_email()
+        - Hashes password using werkzeug.security.generate_password_hash()
+    
+    Raises:
+        Exception: Database commit failure (rolled back automatically)
+    """
     if request.method == 'POST':
         data = _get_json()
 
@@ -197,7 +231,34 @@ def register():
 
 
 def login():
-    """Handle user login"""
+    """Authenticate user credentials and establish login session.
+    
+    Validates email and password, creates Flask-Login session on success.
+    Implements case-insensitive email matching and secure password verification.
+    
+    Endpoints:
+        GET /login: Display login form
+        POST /login: Authenticate user credentials
+    
+    Request Body (JSON):
+        email (str): User's email address (normalized to lowercase)
+        password (str): User's plaintext password
+    
+    Returns:
+        GET: Rendered login.html template
+        POST: JSON response with authentication result
+            - 200: Login successful with redirect to /dashboard
+            - 400: Missing email or password
+            - 401: Invalid credentials (email not found or password mismatch)
+    
+    Side Effects:
+        - Calls login_user() on successful authentication
+        - Creates session cookie for authenticated user
+    
+    Security:
+        - Passwords are checked using werkzeug.security.check_password_hash()
+        - Generic error message for invalid credentials (prevents email enumeration)
+    """
     if request.method == 'POST':
         data = _get_json()
         email = _normalize_email(data.get('email'))
@@ -223,14 +284,60 @@ def login():
 
 
 def logout():
-    """Handle user logout with CSRF protection"""
+    """Terminate user session and redirect to login page.
+    
+    Calls Flask-Login's logout_user() to clear session and cookies.
+    Requires @login_required decorator (applied at blueprint registration).
+    
+    Endpoints:
+        POST /logout: Logout current user
+    
+    Returns:
+        Redirect to /login page
+    
+    Side Effects:
+        - Clears Flask-Login session
+        - Invalidates session cookie
+    
+    Security:
+        - Protected by CSRF token validation
+        - Requires authenticated user
+    """
     logout_user()
     from flask import redirect
     return redirect('/login')
 
 
 def forgot_password():
-    """Handle forgot password - send OTP"""
+    """Initiate password reset by generating and emailing OTP to user.
+    
+    Creates a one-time password (OTP) for verified email addresses and sends
+    it via email. Implements email enumeration protection by returning generic
+    success message regardless of email existence.
+    
+    Endpoints:
+        GET /forgot-password: Display forgot password form
+        POST /forgot-password: Generate and send OTP
+    
+    Request Body (JSON or Form):
+        email (str): User's registered email address (normalized)
+    
+    Returns:
+        GET: Rendered forgot_password.html template
+        POST: JSON response with status
+            - 200: OTP sent (or generic success message)
+            - 400: Missing email field
+    
+    Side Effects:
+        - Creates PasswordResetOTP record in database
+        - Sends OTP email via _send_otp_email()
+        - OTP expires after configured timeout (default: 10 minutes)
+    
+    Security:
+        - Generic response prevents email enumeration attacks
+        - OTP is single-use and time-limited
+        - Email is normalized to lowercase for case-insensitive matching
+    """
     if request.method == 'GET':
         return render_template('forgot_password.html')
 
@@ -267,7 +374,59 @@ def forgot_password():
 
 
 def reset_password():
-    """Reset password - single page with email, OTP, and new password"""
+    """Multi-step password reset flow with OTP verification.
+    
+    Implements a three-step password reset process:
+    1. Email submission → OTP generation and email delivery
+    2. OTP verification → Confirmation and session marking
+    3. Password reset → Validation and database update
+    
+    Each step returns a JSON response indicating next action for frontend.
+    Enforces security validations: OTP expiry, password strength, no password reuse.
+    
+    Endpoints:
+        GET /reset-password: Display reset password form
+        POST /reset-password: Handle multi-step reset flow
+    
+    Request Body (JSON or Form):
+        Step 1 (email only):
+            email (str): User's email address
+        
+        Step 2 (email + OTP):
+            email (str): User's email address
+            otp (str): 6-digit OTP code
+        
+        Step 3 (email + OTP + passwords):
+            email (str): User's email address
+            otp (str): 6-digit OTP code (must be verified in step 2)
+            password (str): New password (minimum 8 characters)
+            confirm_password (str): Password confirmation (must match)
+    
+    Returns:
+        GET: Rendered reset_password.html template
+        POST: JSON response with step indicator and status
+            - 200 (step=otp_sent): OTP sent to email
+            - 200 (step=otp_verified): OTP verified, proceed to password entry
+            - 200 (step=reset_complete): Password reset successful
+            - 400: Validation error (missing fields, expired OTP, password mismatch,
+                   weak password, OTP not verified, password reuse)
+            - 500: Database error
+    
+    Side Effects:
+        Step 1: Creates PasswordResetOTP record, sends OTP email
+        Step 2: Marks OTP as verified (is_verified=True)
+        Step 3: Updates user password hash, deletes OTP record,
+                sends success/failure email notifications
+    
+    Security:
+        - OTP must be verified before password reset
+        - Prevents password reuse (checks hash match with current)
+        - Generic email enumeration protection in step 1
+        - Sends failure notification emails for security awareness
+    
+    Raises:
+        Exception: Database transaction failure (rolled back with failure email)
+    """
     if request.method == 'GET':
         return render_template('reset_password.html')
 
@@ -420,7 +579,36 @@ def reset_password():
 
 @login_required
 def change_password():
-    """Change password for logged-in user"""
+    """Update password for authenticated users with current password verification.
+    
+    Allows logged-in users to change their password after verifying their current
+    credentials. Enforces password strength requirements and prevents password reuse.
+    
+    Endpoints:
+        POST /change-password: Update password for current user
+    
+    Request Body (JSON):
+        current_password (str): User's existing password for verification
+        new_password (str): New password (minimum 8 characters)
+        confirm_password (str): New password confirmation (must match)
+    
+    Returns:
+        JSON response with success status
+            - 200: Password updated successfully
+            - 400: Validation error (missing fields, password mismatch,
+                   incorrect current password, weak password, password reuse)
+    
+    Side Effects:
+        - Updates current_user.password with new hashed password
+        - Commits change to database immediately
+    
+    Security:
+        - Requires @login_required (authenticated session)
+        - Verifies current password before allowing change
+        - Enforces minimum 8-character password length
+        - Prevents reusing the same password
+        - Passwords are hashed using werkzeug.security.generate_password_hash()
+    """
     data = _get_json()
     current_password = data.get('current_password')
     new_password = data.get('new_password')

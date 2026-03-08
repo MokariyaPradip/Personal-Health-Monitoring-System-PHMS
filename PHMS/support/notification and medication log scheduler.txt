@@ -1,166 +1,543 @@
-Triggered by: Scheduler (every minute)
-├─ schedule_notifications()
-│  ├─ Finds pending logs where scheduled_time is near (±1 min)
-│  └─ For each log near scheduled time:
-│     └─ send_medication_notification(log_id)
-│        ├─ Gets medication & medicine details
-│        ├─ Checks: if medication.is_critical ✅ [NEW]
-│        ├─ IF CRITICAL:
-│        │  ├─ severity = 'critical' ✅ [UPDATED from 'high']
-│        │  ├─ title = '🚨 CRITICAL - {medicine_name}'
-│        │  └─ send_critical_medication_reminder_email() ✅ [NEW]
-│        │
-│        ├─ IF NOT CRITICAL:
-│        │  ├─ severity = 'high'
-│        │  ├─ title = '💊 {medicine_name}'
-│        │  └─ No email sent
-│        │
-│        └─ Creates Alert entry:
-│           ├─ category = 'medication'
-│           ├─ medication_log_id = log.log_id
-│           ├─ is_read = False
-│           └─ Saved to database
+================================================================================
+         PHMS - Medication Scheduler & Notification System
+                  Complete Workflow Documentation
+                       Updated: March 2026
+================================================================================
+
+OVERVIEW
+================================================================================
+The PHMS medication system uses APScheduler to automate medication tracking
+with the following components:
+
+1. Daily Log Creation (00:00 UTC)
+2. Medication Reminders (Every 1 minute - 15 min advance)
+3. Grace Period Management (Every 1 minute - 30 min grace)
+4. Consecutive Missed Detection (23:59 UTC - 3+ missed days)
+
+Scheduler File: scheduler_config.py
+Controller File: controllers/medication_log_controller.py
+Models: Medication, MedicationLog, Alert, Medicine, User
 
 
-Function: send_critical_medication_reminder_email()
-├─ Triggered at scheduled reminder time (proactive)
-├─ When: if medication.is_critical = True
-├─ Email Content:
-│  ├─ Subject: 🚨 CRITICAL MEDICATION REMINDER - {medicine_name}
-│  ├─ Body:
-│  │  ├─ Medicine name, dosage, type, purpose
-│  │  ├─ Scheduled date & time
-│  │  ├─ Urgent action message
-│  │  └─ Links to dashboard, medication page, help
-│  └─ Priority: HIGH (1)
-└─ Purpose: Proactive reminder before dose time
+SCHEDULER INITIALIZATION
+================================================================================
+
+File: scheduler_config.py
+Class: SchedulerSetup
+
+Initialization in app.py:
+--------------------------
+from scheduler_config import SchedulerSetup
+from apscheduler.schedulers.background import BackgroundScheduler
+
+scheduler = BackgroundScheduler()
+SchedulerSetup.init_scheduler(app)
+SchedulerSetup.init_medication_logs()  # First-time setup
+scheduler.start()
+
+Jobs Registered:
+--------------------------
+Job 1: create_daily_logs() → Daily at 00:00 UTC
+Job 2: check_medication_reminders() → Every 60 seconds
+Job 3: check_grace_period() → Every 60 seconds  
+Job 4: check_consecutive_missed() → Daily at 23:59 UTC
 
 
-Tab 1: "💊 Medication Reminders" (Alerts)
+JOB 1: DAILY MEDICATION LOG CREATION (00:00 UTC)
+================================================================================
 
-Displays alerts from Alert table where:
-├─ category = 'medication'
-├─ user_id = current_user.user_id
-├─ Ordered by created_at DESC
-│
+Trigger: CronTrigger (hour=0, minute=0, timezone='UTC')
+Function: SchedulerSetup.create_daily_logs()
+
+Workflow:
+---------
+1. Query all active medications:
+   - medication.end_date IS NULL OR >= TODAY
+   
+2. For each active medication:
+   ├─ Get frequency: get_medication_times(medication.frequency)
+   │  └─ Returns list of times: ['08:00', '20:00'] for Twice
+   │
+   ├─ For each scheduled time:
+   │  ├─ Check if log exists for (medication_id, log_date, scheduled_time)
+   │  └─ If NOT exists, create MedicationLog:
+   │     ├─ medication_id = medication.id
+   │     ├─ scheduled_time = datetime.combine(today, time)
+   │     ├─ log_date = today
+   │     ├─ status = 'pending'
+   │     └─ actual_time = NULL
+   │
+   └─ Commit to database
+
+3. Log result: "Created X medication logs for date Y"
+
+Frequency Mapping (utils/medication_schedule.py):
+--------------------------------------------------
+get_medication_times(frequency) → List[str]
+
+'Once a day' → ['08:00:00']
+'Twice a day' → ['08:00:00', '20:00:00']
+'Thrice a day' → ['08:00:00', '14:00:00', '20:00:00']
+'Four times a day' → ['08:00:00', '12:00:00', '16:00:00', '20:00:00']
+[Custom] → Parse from frequency string
+
+Purpose:
+--------
+Automatically creates pending medication logs every midnight so users
+have a pre-populated tracking list for the day.
+
+
+JOB 2: MEDICATION REMINDERS (Every 60 seconds)
+================================================================================
+
+Trigger: IntervalTrigger (seconds=60)
+Function: SchedulerSetup.check_medication_reminders()
+
+Workflow:
+---------
+1. Calculate reminder window:
+   - now = datetime.utcnow()
+   - reminder_time = now + timedelta(minutes=15)
+   - tolerance = timedelta(minutes=1)
+   
+2. Query pending logs:
+   SELECT * FROM medication_log ml
+   JOIN medication m ON ml.medication_id = m.id
+   WHERE ml.status = 'pending'
+   AND ml.scheduled_time BETWEEN (reminder_time - 1 min) AND (reminder_time + 1 min)
+
+3. For each upcoming log:
+   ├─ Get medication details:
+   │  ├─ Medication (dosage, frequency, is_critical)
+   │  └─ Medicine (name, category)
+   │
+   ├─ Check if alert already exists:
+   │  └─ Skip if Alert with (user_id, category='medication', log_date=today, medicine_name in message)
+   │
+   ├─ Create Alert:
+   │  ├─ user_id = medication.user_id
+   │  ├─ title = Set based on is_critical:
+   │  │  ├─ IF is_critical: '🚨 CRITICAL - {medicine_name}'
+   │  │  └─ ELSE: '💊 {medicine_name}'
+   │  ├─ message = "Time to take your medication: {medicine_name} ({dosage}). Scheduled at {time}."
+   │  ├─ category = 'medication'
+   │  ├─ severity = 'critical' if is_critical else 'warning'
+   │  ├─ is_read = False
+   │  └─ created_at = now
+   │
+   └─ Send Email if is_critical:
+      └─ send_critical_medication_reminder_email(user, medication, log)
+         ├─ Template: templates/email-templates/critical_medication_reminder_email.html
+         ├─ Subject: '🚨 CRITICAL MEDICATION REMINDER - {medicine_name}'
+         ├─ Content:
+         │  ├─ Medicine name, category, dosage
+         │  ├─ Scheduled date and time
+         │  ├─ "This is a critical medication - do not miss this dose"
+         │  └─ Links: Dashboard, Medication Page, Help
+         └─ Priority: HIGH
+
+4. Commit all alerts to database
+
+Purpose:
+--------
+Sends advance reminders 15 minutes before scheduled dose time.
+Critical medications trigger both alert and email notification.
+
+
+JOB 3: GRACE PERIOD MANAGEMENT (Every 60 seconds)
+================================================================================
+
+Trigger: IntervalTrigger (seconds=60)
+Function: SchedulerSetup.check_grace_period()
+
+Workflow:
+---------
+1. Calculate grace period cutoff:
+   - now = datetime.utcnow()
+   - grace_period = timedelta(minutes=30)
+   - cutoff_time = now - grace_period
+
+2. Query overdue pending logs:
+   SELECT * FROM medication_log ml
+   JOIN medication m ON ml.medication_id = m.id
+   WHERE ml.status = 'pending'
+   AND ml.scheduled_time < (now - 30 minutes)
+
+3. For each overdue log:
+   ├─ Update status:
+   │  ├─ status = 'missed'
+   │  └─ actual_time = NULL (was not taken)
+   │
+   ├─ Check if is_critical:
+   │  └─ IF medication.is_critical = True:
+   │     └─ Send Email:
+   │        └─ send_critical_medication_missed_email(user, medication, log)
+   │           ├─ Template: templates/email-templates/critical_medication_missed_email.html
+   │           ├─ Subject: '🚨 CRITICAL - Medication Missed: {medicine_name}'
+   │           ├─ Content:
+   │           │  ├─ "This requires immediate attention"
+   │           │  ├─ Full medication details
+   │           │  ├─ Missed date and time
+   │           │  ├─ "Contact your healthcare provider if needed"
+   │           │  └─ Links: Dashboard, Medication Page, Help
+   │           └─ Priority: CRITICAL
+   │
+   └─ Commit update
+
+4. Log result: "Marked X medication logs as missed"
+
+Purpose:
+--------
+Automatically marks doses as missed if not taken within 30 minutes of
+scheduled time. Sends critical alerts for important medications.
+
+
+JOB 4: CONSECUTIVE MISSED DETECTION (23:59 UTC)
+================================================================================
+
+Trigger: CronTrigger (hour=23, minute=59, timezone='UTC')
+Function: SchedulerSetup.check_consecutive_missed()
+
+Workflow:
+---------
+1. Get all active medications:
+   - medication.end_date IS NULL OR >= TODAY
+
+2. For each medication:
+   ├─ Query last 3 days of logs:
+   │  SELECT * FROM medication_log
+   │  WHERE medication_id = med.id
+   │  AND log_date >= (today - 2 days)
+   │  ORDER BY log_date DESC, scheduled_time DESC
+   │
+   ├─ Count consecutive missed days:
+   │  ├─ Group logs by log_date
+   │  ├─ For each day, check if ALL logs are 'missed'
+   │  └─ Count consecutive days with all missed doses
+   │
+   ├─ IF consecutive_missed >= 3:
+   │  ├─ Check if alert already sent for this period:
+   │  │  └─ Query Alert where category='medication' and message contains 'consecutive'
+   │  │
+   │  ├─ Create High-Priority Alert:
+   │  │  ├─ user_id = medication.user_id
+   │  │  ├─ title = '⚠️ CONSECUTIVE MISSED DOSES - {medicine_name}'
+   │  │  ├─ message = "You have missed {count} consecutive days of {medicine_name}. This may affect your treatment. Please resume taking your medication or consult your doctor."
+   │  │  ├─ category = 'medication'
+   │  │  ├─ severity = 'critical'
+   │  │  ├─ is_read = False
+   │  │  └─ created_at = now
+   │  │
+   │  └─ Send Email:
+   │     └─ send_consecutive_missed_alert_email(user, medication, consecutive_count)
+   │        ├─ Template: templates/email-templates/consecutive_missed_alert_email.html
+   │        ├─ Subject: '⚠️ PHMS Alert - Consecutive Missed Doses ({count} days)'
+   │        ├─ Content:
+   │        │  ├─ Medication details
+   │        │  ├─ Number of consecutive missed days
+   │        │  ├─ Health impact warning
+   │        │  ├─ "Please resume medication or contact healthcare provider"
+   │        │  └─ Links: Medication Log, Dashboard, Profile
+   │        └─ Priority: CRITICAL
+   │
+   └─ Commit alert
+
+3. Log result: "Sent X consecutive missed alerts"
+
+Purpose:
+--------
+Detects patterns of non-adherence (3+ consecutive missed days) and sends
+critical warnings to users, helping improve medication compliance.
+
+
+USER INTERFACE - NOTIFICATIONS PAGE
+================================================================================
+
+Route: /notifications
+Template: templates/notifications.html
+Controller: controllers/notifications_controller.py
+
+Tab Structure:
+--------------
+1. 💊 Medication Reminders (Alerts)
+2. 📋 Medication Log (Status Tracking)
+3. 💉 Health Alerts (High-risk health readings)
+
+
+TAB 1: 💊 MEDICATION REMINDERS (ALERTS)
+========================================
+
+Query:
+------
+SELECT * FROM alert
+WHERE user_id = current_user.id
+AND category = 'medication'
+ORDER BY created_at DESC
+
+Display:
+--------
 For each alert:
-├─ Title: 💊 {medicine_name} or 🚨 CRITICAL - {medicine_name}
+├─ Title: "🚨 CRITICAL - Aspirin" or "💊 Vitamin D"
+├─ Message: "Time to take your medication: Aspirin (500mg). Scheduled at 08:00 AM."
 ├─ Severity Badge:
-│  ├─ CRITICAL (red) - if severity='critical'
-│  └─ HIGH (yellow) - if severity='high'
-├─ Message: "Time to take your medication..."
+│  ├─ CRITICAL (red background) if severity='critical'
+│  ├─ WARNING (yellow background) if severity='warning'
+│  └─ INFO (blue background) if severity='info'
 ├─ Timestamp: "Feb 15, 2026 09:00 AM"
-├─ Mark as Read button
-└─ Unread count badge
+├─ Status: UNREAD (bold) or READ (grayed out)
+└─ Action: [Mark as Read] button
 
-Tab 2: "📋 Medication Log" (Status Tracking)
-Displays MedicationLog entries from medication_log table where:
-├─ user_id = current_user.user_id
-├─ log_date >= (today - 7 days)
-├─ Ordered by log_date DESC, scheduled_time DESC
-│
-Separated into 3 sections:
-│
-1. ⏳ PENDING
-│  ├─Shows: medicine name, dosage, scheduled date & time
-│  ├─Actions: [✅ Mark as Taken] [❌ Mark as Missed]
-│  └─Badge: PENDING (yellow)
-│
-2. ✅ TAKEN
-│  ├─Shows: medicine name, dosage, taken at timestamp
-│  ├─No actions available
-│  └─Badge: TAKEN (green)
-│
-3. ❌ MISSED
-│  ├─Shows: medicine name, dosage, scheduled date & time
-│  ├─No actions available
-│  └─Badge: MISSED (red)
+Actions:
+--------
+Mark as Read:
+├─ Route: POST /notifications/{alert_id}/read
+├─ Handler: mark_notification_read(alert_id)
+│  ├─ Validates: alert belongs to current_user
+│  ├─ Updates: is_read = True
+│  ├─ Commits: db.session.commit()
+│  └─ Response: Redirect to /notifications
+└─ UI Update: Alert becomes grayed out
 
-USER ACTIONS - MARK AS TAKEN ✅
-User clicks "✅ Taken" on pending medication
-├─ Call: PUT /medication-log/{log_id}/taken
-├─ Handler: mark_medication_taken(log_id)
-│  ├─ Validates: log exists for current_user
-│  ├─ Updates:
-│  │  ├─ status = 'taken'
-│  │  ├─ taken_at = datetime.utcnow()
-│  │  └─ db.session.commit()
-│  ├─ Error Handling: ✅ [ADDED]
-│  │  ├─ 404 if log not found
-│  │  ├─ 500 if database error
-│  │  └─ Rollback on exception
-│  └─ Response: {success: true, message: "Medication marked as taken"}
-│
-├─ Template: Reload page to refresh UI
-└─ Result: Medication moves to "✅ TAKEN" section
+Unread Count Badge:
+├─ Query: COUNT(*) WHERE user_id=current AND is_read=False AND category='medication'
+└─ Display: Red badge in navigation bar
 
 
-USER ACTIONS - MARK AS TAKEN ✅
-User clicks "❌ Missed" on pending medication
-├─ Call: PUT /medication-log/{log_id}/missed
-├─ Handler: mark_medication_missed(log_id)
-│  ├─ Validates: log exists for current_user
-│  ├─ Updates: status = 'missed'
-│  ├─ Check: if medication.is_critical ✅ [ADDED]
-│  │  └─ Call: send_critical_medication_missed_email()
-│  │     ├─ Email Subject: 🚨 CRITICAL - Medication Missed: {medicine}
-│  │     ├─ Email Body:
-│  │     │  ├─ Full medication details
-│  │     │  ├─ "This requires immediate attention"
-│  │     │  └─ Action links
-│  │     └─ Priority: CRITICAL (1)
-│  │
-│  ├─ Commit changes
-│  ├─ Error Handling: ✅ [ADDED]
-│  │  ├─ 404 if log not found
-│  │  ├─ 500 if database error
-│  │  └─ Rollback on exception
-│  └─ Response: {success: true, message: "Medication marked as missed"}
-│
-├─ Template: Reload page to refresh UI
-└─ Result: Medication moves to "❌ MISSED" section
+TAB 2: 📋 MEDICATION LOG (STATUS TRACKING)
+===========================================
 
-CRITICAL MEDICATION MISSED EMAIL ✅
-Function: send_critical_medication_missed_email()
-├─ Triggered when: User marks critical medication as missed
-├─ Different from: send_critical_medication_reminder_email() [proactive]
-├─ Email Content:
-│  ├─ Subject: 🚨 CRITICAL - Medication Missed: {medicine_name}
-│  ├─ Body:
-│  │  ├─ "This requires immediate attention"
-│  │  ├─ Full medication details
-│  │  ├─ "Contact your healthcare provider"
-│  │  └─ Links to dashboard, help
-│  └─ Priority: CRITICAL (1)
-└─ Purpose: Reactive alert after dose missed
+Query:
+------
+SELECT ml.*, m.dosage, med.name, med.category
+FROM medication_log ml
+JOIN medication m ON ml.medication_id = m.id
+JOIN medicine med ON m.medicine_id = med.id
+WHERE m.user_id = current_user.id
+AND ml.log_date >= (TODAY - 7 days)
+ORDER BY ml.log_date DESC, ml.scheduled_time DESC
 
-ALERT MODEL RELATIONSHIPS ✅
-Alert table fields:
-├─ alert_id (PK)
-├─ user_id (FK) → User
-├─ medication_log_id (FK) → MedicationLog ✅ [KEY]
-├─ title (string)
-├─ message (text)
-├─ category = 'medication' (for reminders)
-├─ severity = 'high' or 'critical'
-├─ is_read (boolean)
-├─ created_at (timestamp)
-│
-Query for alerts:
-└─ get_notifications() → Fetches where is_read=False
+Display Sections:
+-----------------
+1. ⏳ PENDING (status = 'pending')
+   ├─ Medicine: Aspirin (500mg)
+   ├─ Scheduled: Feb 15, 2026 - 08:00 AM
+   ├─ Badge: PENDING (yellow background)
+   └─ Actions:
+      ├─ [✅ Mark as Taken] button
+      └─ [❌ Mark as Missed] button
 
-MEDICATION LOG MODEL ✅
-MedicationLog table fields:
-├─ log_id (PK)
-├─ user_id (FK) → User
-├─ medication_id (FK) → Medication
-├─ log_date (date)
-├─ scheduled_time (time) ← Set by get_intake_times()
-├─ status: ENUM('pending', 'taken', 'missed')
-├─ taken_at (datetime, nullable)
-├─ created_at (timestamp)
-│
+2. ✅ TAKEN (status = 'taken')
+   ├─ Medicine: Vitamin D (1000 IU)
+   ├─ Scheduled: Feb 14, 2026 - 08:00 AM
+   ├─ Taken At: Feb 14, 2026 - 08:15 AM
+   ├─ Badge: TAKEN (green background)
+   └─ Actions: None (read-only)
+
+3. ❌ MISSED (status = 'missed')
+   ├─ Medicine: Paracetamol (250mg)
+   ├─ Scheduled: Feb 13, 2026 - 08:00 AM
+   ├─ Badge: MISSED (red background)
+   └─ Actions: None (read-only)
+
+4. ⏭️ SKIPPED (status = 'skipped')
+   ├─ Medicine: Ibuprofen (400mg)
+   ├─ Scheduled: Feb 13, 2026 - 20:00 PM
+   ├─ Badge: SKIPPED (gray background)
+   └─ Actions: None (read-only)
+
+
+USER ACTIONS - MARK AS TAKEN
+=============================
+
+Trigger: User clicks [✅ Mark as Taken] button
+
+Route: PUT /medication-log/{log_id}/taken
+Handler: mark_medication_taken(log_id)
+
+Workflow:
+---------
+1. Validate:
+   ├─ Fetch log: MedicationLog.query.get_or_404(log_id)
+   ├─ Check ownership: medication.user_id == current_user.id
+   └─ If not owned: Abort 403 Forbidden
+
+2. Update Log:
+   ├─ status = 'taken'
+   ├─ actual_time = datetime.utcnow()
+   └─ db.session.commit()
+
+3. Response:
+   ├─ Flash message: "Medication marked as taken successfully!"
+   └─ Redirect: /notifications (Tab 2)
+
+4. UI Update:
+   ├─ Log moves from PENDING to TAKEN section
+   └─ Action buttons removed
+
+
+USER ACTIONS - MARK AS MISSED
+==============================
+
+Trigger: User clicks [❌ Mark as Missed] button
+
+Route: PUT /medication-log/{log_id}/missed
+Handler: mark_medication_missed(log_id)
+
+Workflow:
+---------
+1. Validate:
+   ├─ Fetch log: MedicationLog.query.get_or_404(log_id)
+   ├─ Check ownership: medication.user_id == current_user.id
+   └─ If not owned: Abort 403 Forbidden
+
+2. Update Log:
+   ├─ status = 'missed'
+   ├─ actual_time = NULL (not taken)
+   └─ db.session.commit()
+
+3. Check Critical Status:
+   ├─ IF medication.is_critical = True:
+   │  └─ Send Email:
+   │     └─ send_critical_medication_missed_email()
+   │        ├─ Subject: '🚨 CRITICAL - Medication Missed: {medicine}'
+   │        ├─ Content: Medication details + "Requires immediate attention"
+   │        └─ Recipient: current_user.email
+   └─ ELSE: No email sent
+
+4. Response:
+   ├─ Flash message: "Medication marked as missed."
+   └─ Redirect: /notifications (Tab 2)
+
+5. UI Update:
+   ├─ Log moves from PENDING to MISSED section
+   └─ Action buttons removed
+
+
+SKIPPED STATUS (MANUAL)
+========================
+
+Trigger: User manually skips dose (rare use case)
+
+Route: PUT /medication-log/{log_id}/skipped
+Handler: mark_medication_skipped(log_id)
+
+Workflow:
+---------
+1. Validate ownership (same as above)
+2. Update: status = 'skipped', actual_time = NULL
+3. Commit
+4. Response: Redirect to /notifications
+
+Use Case:
+---------
+User intentionally skips dose (e.g., doctor advised, side effects).
+Does NOT trigger missed medication alerts or emails.
+
+
+EMAIL TEMPLATES
+================================================================================
+
+Location: templates/email-templates/
+
+1. critical_medication_reminder_email.html
+   - Sent: 15 minutes before scheduled dose
+   - When: medication.is_critical = True
+   - Subject: '🚨 CRITICAL MEDICATION REMINDER - {medicine}'
+
+2. critical_medication_missed_email.html
+   - Sent: When critical dose marked as missed (30 min grace expired)
+   - When: medication.is_critical = True
+   - Subject: '🚨 CRITICAL - Medication Missed: {medicine}'
+
+3. consecutive_missed_alert_email.html
+   - Sent: Daily at 23:59 if 3+ consecutive missed days detected
+   - When: Any medication with 3+ day pattern
+   - Subject: '⚠️ PHMS Alert - Consecutive Missed Doses ({count} days)'
+
+All emails include:
+- User's name (personalization)
+- Full medication details (name, dosage, category)
+- Scheduled vs actual times
+- Action links (Dashboard, Medication Page, Help)
+- Footer with contact info and privacy policy
+
+
+DATABASE MODELS
+================================================================================
+
+MedicationLog Model (models/medication_log_model.py):
+------------------------------------------------------
+Columns:
+- id (INTEGER, PK, Auto-increment)
+- medication_id (INTEGER, FK → medication.id, NOT NULL)
+- scheduled_time (DATETIME, NOT NULL) [When dose is scheduled]
+- log_date (DATE, NOT NULL) [Date of scheduled dose]
+- actual_time (DATETIME, Nullable) [When dose was actually taken]
+- status (VARCHAR(20), DEFAULT 'pending') [pending/taken/missed/skipped]
+
+Indexes:
+- idx_medication_log ON medication_id
+- idx_log_date ON log_date
+- idx_scheduled_time ON scheduled_time
+- idx_status ON status
+
 Relationships:
-├─ user → User.medication_logs
-├─ medication → Medication.logs
-└─ alerts → Alert.medication_log (one-to-many)
+- medication → Many-to-One (Medication)
+
+Cascades:
+- ON DELETE CASCADE (if medication deleted, logs deleted)
+
+
+Alert Model (models/alert_model.py):
+-------------------------------------
+Columns:
+- id (INTEGER, PK, Auto-increment)
+- user_id (INTEGER, FK → user.id, NOT NULL)
+- title (VARCHAR(100), Nullable)
+- message (TEXT, NOT NULL)
+- category (VARCHAR(20), Nullable) [health/medication]
+- severity (VARCHAR(20), Nullable) [info/warning/critical]
+- is_read (BOOLEAN, DEFAULT False)
+- created_at (DATETIME, DEFAULT CURRENT_TIMESTAMP)
+
+Indexes:
+- idx_user_alert ON user_id
+- idx_is_read ON is_read
+- idx_category ON category
+- idx_created_at ON created_at
+
+Relationships:
+- user → Many-to-One (User)
+
+Cascades:
+- ON DELETE CASCADE (if user deleted, alerts deleted)
+
+
+TROUBLESHOOTING
+================================================================================
+
+Issue: Scheduler not running
+Solution:
+- Check console for "Scheduler initialized successfully"
+- Verify APScheduler installed: pip show APScheduler
+- Use start.py instead of app.py directly
+
+Issue: Reminders not sending
+Solution:
+- Check scheduler job: scheduler.get_jobs()
+- Verify logs exist: SELECT * FROM medication_log WHERE status='pending'
+- Check email configuration in config.py
+
+Issue: Grace period not working
+Solution:
+- Verify scheduled_time is in the past (>30 minutes)
+- Check scheduler running: scheduler.running
+- Review console logs for errors
+
+Issue: Consecutive missed not detecting
+Solution:
+- Ensure logs exist for last 3 days
+- Verify job runs at 23:59: scheduler.print_jobs()
+- Check query filters (must be ALL missed per day)
+
+================================================================================

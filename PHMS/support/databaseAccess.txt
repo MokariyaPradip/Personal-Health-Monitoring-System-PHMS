@@ -1,61 +1,142 @@
 ================================================================================
-					Database Access & Quick Checks (SQLite)
+PHMS Database Access and Quick Checks (SQLite)
+Schema Source: PHMS/models/*.py
+Updated: 2026-03-08
 ================================================================================
 
-PREREQS
+PREREQUISITES
 --------------------------------------------------------------------------------
-- SQLite CLI installed: sqlite3 --version
-- DB file path: C:\Users\Admin\Desktop\Sem-06\2_SDP\project\PHMS\instance\phms.db
+- SQLite CLI installed: `sqlite3 --version`
+- Database file:
+  `C:\Users\Admin\Desktop\Sem-06\2_SDP\project\PHMS\instance\phms.db`
 
-OPEN DB
+
+OPEN DATABASE
 --------------------------------------------------------------------------------
 cd C:\Users\Admin\Desktop\Sem-06\2_SDP\project\PHMS\instance
 sqlite3 phms.db
 
-BASIC INSPECTION
+
+BASIC SHELL SETTINGS
 --------------------------------------------------------------------------------
--- List tables
+.mode column
+.headers on
+
+
+LIST TABLES
+--------------------------------------------------------------------------------
 .tables
 
--- View schema (table-by-table)
+
+VIEW SCHEMA (MODEL-ACCURATE TABLES)
+--------------------------------------------------------------------------------
 .schema user
 .schema health_data
 .schema medicine
 .schema medication
 .schema medication_log
 .schema alert
+.schema password_reset_otp
 
--- Peek counts
-SELECT 'user' table, COUNT(*) FROM user;
-SELECT 'health_data' table, COUNT(*) FROM health_data;
-SELECT 'medicine' table, COUNT(*) FROM medicine;
-SELECT 'medication' table, COUNT(*) FROM medication;
-SELECT 'medication_log' table, COUNT(*) FROM medication_log;
-SELECT 'alert' table, COUNT(*) FROM alert;
 
--- Sample rows
+QUICK COUNTS
+--------------------------------------------------------------------------------
+SELECT 'user' AS table_name, COUNT(*) AS count FROM user
+UNION ALL
+SELECT 'health_data', COUNT(*) FROM health_data
+UNION ALL
+SELECT 'medicine', COUNT(*) FROM medicine
+UNION ALL
+SELECT 'medication', COUNT(*) FROM medication
+UNION ALL
+SELECT 'medication_log', COUNT(*) FROM medication_log
+UNION ALL
+SELECT 'alert', COUNT(*) FROM alert
+UNION ALL
+SELECT 'password_reset_otp', COUNT(*) FROM password_reset_otp;
+
+
+SAMPLE ROWS
+--------------------------------------------------------------------------------
 SELECT * FROM user LIMIT 5;
 SELECT * FROM health_data ORDER BY recorded_at DESC LIMIT 5;
+SELECT * FROM medication ORDER BY medication_id DESC LIMIT 5;
+SELECT * FROM medication_log ORDER BY log_id DESC LIMIT 5;
 SELECT * FROM alert ORDER BY created_at DESC LIMIT 5;
+SELECT * FROM password_reset_otp ORDER BY created_at DESC LIMIT 5;
 
-INDEX & CONSTRAINT CHECKS (spot-verify)
+
+JOIN CHECKS (COMMON)
 --------------------------------------------------------------------------------
--- Unique email
+-- User + latest health entries
+SELECT u.user_id, u.username, h.entry_id, h.recorded_at, h.health_score
+FROM user u
+LEFT JOIN health_data h ON h.user_id = u.user_id
+ORDER BY h.recorded_at DESC
+LIMIT 20;
+
+-- User medications with medicine names
+SELECT m.medication_id, m.user_id, med.medicine_name, m.dosage, m.frequency, m.is_critical
+FROM medication m
+JOIN medicine med ON med.medicine_id = m.medicine_id
+ORDER BY m.medication_id DESC
+LIMIT 20;
+
+-- Medication logs with medicine names
+SELECT ml.log_id, ml.user_id, med.medicine_name, ml.log_date, ml.scheduled_time, ml.status, ml.taken_at
+FROM medication_log ml
+JOIN medication m ON m.medication_id = ml.medication_id
+JOIN medicine med ON med.medicine_id = m.medicine_id
+ORDER BY ml.log_date DESC, ml.scheduled_time DESC
+LIMIT 30;
+
+-- Alerts with optional source links
+SELECT a.alert_id, a.user_id, a.health_id, a.medication_log_id, a.category, a.severity, a.is_read, a.created_at
+FROM alert a
+ORDER BY a.created_at DESC
+LIMIT 30;
+
+
+INDEX AND CONSTRAINT CHECKS
+--------------------------------------------------------------------------------
 PRAGMA index_list('user');
-
--- Medication uniqueness (user_id, medicine_id)
+PRAGMA index_list('health_data');
+PRAGMA index_list('medicine');
 PRAGMA index_list('medication');
-PRAGMA foreign_key_list('medication');
+PRAGMA index_list('medication_log');
+PRAGMA index_list('alert');
+PRAGMA index_list('password_reset_otp');
 
-FOREIGN KEYS & CASCADE
+
+FOREIGN KEY CHECKS
 --------------------------------------------------------------------------------
--- Ensure FKs are enforced (should be 1)
-PRAGMA foreign_keys;
--- If 0, enable in session: PRAGMA foreign_keys = ON;
+PRAGMA foreign_keys;                 -- should return 1
+PRAGMA foreign_key_list('health_data');
+PRAGMA foreign_key_list('medication');
+PRAGMA foreign_key_list('medication_log');
+PRAGMA foreign_key_list('alert');
+PRAGMA foreign_key_list('password_reset_otp');
+
+-- NOTE:
+-- password_reset_otp has NO foreign key in current model.
+-- It links to user by user_email in application logic.
+
+
+OPTIONAL MAINTENANCE
+--------------------------------------------------------------------------------
+-- Backup first (from cmd, not sqlite shell):
+-- copy phms.db phms_backup.db
+
+PRAGMA integrity_check;
+VACUUM;
+
 
 EXIT
 --------------------------------------------------------------------------------
 .exit
 .quit
 
-TIP: For ad-hoc data cleanup, always backup phms.db first.
+
+TIP
+--------------------------------------------------------------------------------
+Always back up `phms.db` before manual update/delete statements.

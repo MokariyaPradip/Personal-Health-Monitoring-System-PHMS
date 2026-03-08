@@ -1,48 +1,393 @@
-PROCESSING FLOW
-===============
+================================================================================
+                   PHMS - Machine Learning Architecture
+                         Dual Prediction System v6
+                          Updated: March 2026
+================================================================================
 
-1. DATA INPUT PHASE (Health Controller)
-   User submits health data via Flask form
-   Input: heart_rate, temperature, steps, sleep_hours, blood_pressure, sugar, BMI (from user profile)
+OVERVIEW
+================================================================================
+PHMS implements a comprehensive health prediction system with THREE parallel 
+assessment paths to provide robust, explainable health risk evaluation:
 
-2. DUAL RISK ASSESSMENT PHASE (Parallel Processing)
+1. Rule-Based Scoring (Explainable, Deterministic)
+2. ML Regression Model (Continuous Health Score Prediction)
+3. ML Classification Model (Categorical Risk Label Prediction)
+
+This hybrid approach combines domain knowledge, regression analysis, and 
+classification models for clinical decision support.
+
+
+PROCESSING FLOW (Health Data Entry)
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 1. DATA INPUT PHASE (Health Controller - health_controller.py)         │
+└─────────────────────────────────────────────────────────────────────────┘
+   User submits health data via Flask form at /health/add endpoint
    
-   a) RULE-BASED PATH (calculate_health_score)
-      - Input: BMI, HR, Temp, Steps, Sleep, BP, Sugar
-      - Feature-specific penalty thresholds:
-        * BMI: 18.5-24.9 (healthy range)
-        * Heart Rate: 60-100 bpm
-        * Blood Pressure: 90-120 mmHg
-        * Sugar: < 100 mg/dL
-        * Sleep: ≥ 7 hours
-        * Steps: ≥ 7000 steps
-        * Temperature: ≤ 37.8°C
-      - Output: Health Score (0-100)
-      - Conversion: score_to_label() → Healthy / Moderate / HighRisk
-      
-   b) ML PREDICTION PATH (ml_model.py)
-      - Loads: phms_model_v2.pkl (DecisionTree) + label_encoder_v2.pkl
-      - Input order: [BMI, BP, Sugar, HR, Sleep, Steps, Temp]
-      - Processing: model.predict() → inverse_transform()
-      - Output: ML Risk Label (Healthy / Moderate / HighRisk)
-
-3. DATA STORAGE PHASE (HealthData Model)
-   Save to health_data table:
-   - Input metrics: HR, Temp, Steps, Sleep, BP, Sugar
-   - Computed: health_score, rule_based_risk_label, ml_predicted_risk_label
-   - Timestamp: recorded_at (UTC)
-   - Foreign key: user_id
-
-4. PRESENTATION PHASE (Dashboard/Reports)
-   Display both predictions for clinical decision support
-   - Rule-based assessment for explainability
-   - ML prediction for pattern recognition
+   Input Parameters:
+   - heart_rate (bpm)
+   - temperature (°C)
+   - steps (daily count)
+   - sleep_hours (hours)
+   - blood_pressure_systolic (mmHg)
+   - blood_pressure_diastolic (mmHg)
+   - sugar_level (mg/dL)
+   - BMI (calculated from user profile: weight / height²)
+   
+   Validation: Flask-WTF form validation for ranges and data types
 
 
-TRAINING PIPELINE (One-time)
-============================
-health_data.csv (historical training data)
-        ↓
-train_model_v2.py (DecisionTree classifier with tuning)
-        ↓
-phms_model_v2.pkl + label_encoder_v2.pkl (artifacts)
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 2. TRIPLE ASSESSMENT PHASE (Parallel Processing)                       │
+└─────────────────────────────────────────────────────────────────────────┘
+
+   ┌────────────────────────────────────────────────────────────────┐
+   │ PATH A: RULE-BASED SCORING (utils/health_score.py)            │
+   └────────────────────────────────────────────────────────────────┘
+   Function: calculate_health_score()
+   
+   Threshold-Based Penalty System:
+   ┌──────────────────┬───────────────────┬──────────────────────┐
+   │ Parameter        │ Healthy Range     │ Penalty Structure    │
+   ├──────────────────┼───────────────────┼──────────────────────┤
+   │ BMI              │ 18.5 - 24.9       │ Overweight: -5       │
+   │                  │                   │ Obese: -15, -25      │
+   │                  │                   │ Underweight: -10     │
+   ├──────────────────┼───────────────────┼──────────────────────┤
+   │ Heart Rate       │ 60 - 100 bpm      │ Outside: -10 to -20  │
+   ├──────────────────┼───────────────────┼──────────────────────┤
+   │ Blood Pressure   │ 90-120 / 60-80    │ Elevated: -20, -30   │
+   │ (Systolic/Dias.) │                   │ Critical: -40        │
+   ├──────────────────┼───────────────────┼──────────────────────┤
+   │ Sugar Level      │ < 100 mg/dL       │ Prediabetes: -15     │
+   │                  │                   │ Diabetes: -25        │
+   ├──────────────────┼───────────────────┼──────────────────────┤
+   │ Sleep Hours      │ ≥ 7 hours         │ < 7: -15             │
+   │                  │                   │ < 5: -25             │
+   ├──────────────────┼───────────────────┼──────────────────────┤
+   │ Steps            │ ≥ 7000 steps      │ < 7000: -10          │
+   │                  │                   │ < 3000: -15          │
+   ├──────────────────┼───────────────────┼──────────────────────┤
+   │ Temperature      │ ≤ 37.8°C          │ Fever: -10 to -15    │
+   └──────────────────┴───────────────────┴──────────────────────┘
+   
+   Computation:
+   - Start: 100 points (perfect health)
+   - Apply: Deduct penalties for out-of-range values
+   - Result: health_score (0-100)
+   
+   Output: Stored in health_data.health_score column
+
+
+   ┌────────────────────────────────────────────────────────────────┐
+   │ PATH B: ML REGRESSION MODEL (ml/ml_model.py)                   │
+   └────────────────────────────────────────────────────────────────┘
+   Model: ElasticNet Regression v4
+   File: ml/trained_models/phms_regression_v6.pkl
+   
+   Purpose: Predict continuous health score (0-100) using ML
+   
+   Feature Engineering:
+   - Input Order: [BMI, BP_Systolic, BP_Diastolic, Sugar, Heart_Rate, 
+                   Sleep_Hours, Steps, Temperature]
+   - Preprocessing: StandardScaler normalization (fitted during training)
+   
+   Model Details:
+   - Algorithm: ElasticNet (L1 + L2 regularization)
+   - Alpha: 0.01 (regularization strength)
+   - Training: 25,884 records (4 combined datasets)
+   - Performance: R² = 0.89, MAE = 4.32
+   
+   Prediction Flow:
+   1. Load model: phms_regression_v6.pkl
+   2. Prepare features: [bmi, bp_sys, bp_dia, sugar, hr, sleep, steps, temp]
+   3. Scale features: StandardScaler transform
+   4. Predict: model.predict(scaled_features)
+   5. Post-process: Clip to range [0, 100]
+   
+   Output: Stored in health_data.ml_regression_health_score column
+
+
+   ┌────────────────────────────────────────────────────────────────┐
+   │ PATH C: ML CLASSIFICATION MODEL (ml/ml_model.py)               │
+   └────────────────────────────────────────────────────────────────┘
+   Model: RandomForest Classifier v6
+   File: ml/trained_models/phms_classifier_v6.pkl
+   Encoder: ml/trained_models/label_encoder_v6.pkl
+   
+   Purpose: Classify health risk into discrete categories
+   
+   Feature Engineering:
+   - Input Order: [BMI, BP_Systolic, BP_Diastolic, Sugar, Heart_Rate, 
+                   Sleep_Hours, Steps, Temperature]
+   - Same preprocessing as regression model
+   
+   Model Details:
+   - Algorithm: RandomForest (ensemble of 100 decision trees)
+   - Training: 25,884 records (4 combined datasets)
+   - Performance: Accuracy = 96.8%, F1-Score = 0.967
+   - Class Distribution:
+     * Low Risk (Healthy): 40%
+     * Medium Risk (Moderate): 35%
+     * High Risk: 20%
+     * Critical Risk: 5%
+   
+   Feature Importance (Top 5):
+   ┌──────────────────────┬────────────────┐
+   │ Feature              │ Importance %   │
+   ├──────────────────────┼────────────────┤
+   │ Sugar Level          │ 26.3%          │
+   │ BMI                  │ 21.7%          │
+   │ Blood Pressure (Sys.)│ 18.5%          │
+   │ Heart Rate           │ 13.8%          │
+   │ Sleep Hours          │ 9.2%           │
+   └──────────────────────┴────────────────┘
+   
+   Prediction Flow:
+   1. Load model: phms_classifier_v6.pkl
+   2. Load encoder: label_encoder_v6.pkl
+   3. Prepare features: [bmi, bp_sys, bp_dia, sugar, hr, sleep, steps, temp]
+   4. Scale features: StandardScaler transform
+   5. Predict: model.predict(scaled_features)
+   6. Decode: label_encoder.inverse_transform(prediction)
+   7. Map to standard labels: Low/Medium/High/Critical → Healthy/Moderate/HighRisk
+   
+   Risk Categories:
+   - Healthy (Low): All vitals in healthy range
+   - Moderate (Medium): 1-2 risk factors present
+   - HighRisk (High/Critical): 3+ risk factors or critical condition
+   
+   Output: Stored in health_data.ml_classifier_risk_label column
+
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 3. DATA STORAGE PHASE (HealthData Model - models/health_model.py)      │
+└─────────────────────────────────────────────────────────────────────────┘
+   Save to health_data table with ALL assessment results:
+   
+   ┌──────────────────────────────┬─────────────────────────────────────┐
+   │ Column                       │ Source                              │
+   ├──────────────────────────────┼─────────────────────────────────────┤
+   │ user_id                      │ Flask-Login current_user            │
+   │ heart_rate                   │ Form input                          │
+   │ temperature                  │ Form input                          │
+   │ steps                        │ Form input                          │
+   │ sleep_hours                  │ Form input                          │
+   │ blood_pressure_systolic      │ Form input                          │
+   │ blood_pressure_diastolic     │ Form input                          │
+   │ sugar_level                  │ Form input                          │
+   │ bmi                          │ User profile (weight/height²)       │
+   │ health_score                 │ PATH A: Rule-based scoring          │
+   │ ml_regression_health_score   │ PATH B: ML Regression v4            │
+   │ ml_classifier_risk_label     │ PATH C: ML Classifier v6            │
+   │ recorded_at                  │ datetime.utcnow()                   │
+   └──────────────────────────────┴─────────────────────────────────────┘
+   
+   Note: "rule_based_risk_label" column removed (deprecated in v6)
+
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 4. ALERT GENERATION PHASE (Health Controller)                          │
+└─────────────────────────────────────────────────────────────────────────┘
+   Trigger Condition: ml_classifier_risk_label ∈ ['HighRisk', 'Critical']
+   
+   Actions:
+   1. Create Alert record:
+      - title: "High Risk Health Alert"
+      - message: Detailed risk description with vitals
+      - category: "health"
+      - severity: Based on risk level
+      - is_read: False
+   
+   2. Send Email Notification:
+      - Template: templates/email-templates/health_alert_email.html
+      - Subject: "⚠️ PHMS Health Alert - Immediate Attention Required"
+      - Content: Risk level, vital signs, recommended actions
+      - Recipient: user.email
+
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 5. PRESENTATION PHASE (Dashboard & Reports)                             │
+└─────────────────────────────────────────────────────────────────────────┘
+   Display Options:
+   
+   Dashboard View (dashboard.html):
+   - Latest health_score (rule-based)
+   - Latest ml_regression_health_score
+   - Latest ml_classifier_risk_label
+   - Trend charts (health score over time)
+   - Risk distribution pie chart
+   
+   Health History (health.html):
+   - Tabular view with all 3 scores per record
+   - Filtering by date range
+   - Color-coded risk labels
+   
+   Reports Module (reports/):
+   - Weekly, Monthly, Yearly summaries
+   - Statistical analysis (mean, std, min, max)
+   - Risk category distribution
+   - Export formats: HTML, JSON, CSV, PDF
+
+
+TRAINING PIPELINE (Model Development)
+================================================================================
+
+┌────────────────────────────────────────────────────────────────────────┐
+│ CLASSIFIER TRAINING (v6 - Current)                                    │
+└────────────────────────────────────────────────────────────────────────┘
+
+Step 1: Data Collection
+   Source Files:
+   - datasets/health_data.csv (2,999 records)
+   - datasets/health_data_885.csv (885 records)
+   - datasets/health_data_10000.csv (10,000 records)
+   - datasets/health_data_12000_fuzzy.csv (12,000 records)
+   Total: 25,884 records
+
+Step 2: Data Preprocessing (train_model_v6.py)
+   - Combine all datasets
+   - Remove duplicates
+   - Handle missing values (imputation)
+   - Feature selection: [BMI, BP_Sys, BP_Dia, Sugar, HR, Sleep, Steps, Temp]
+   - Target: risk_label (Healthy/Moderate/HighRisk)
+   - Label Encoding: LabelEncoder fit on risk_label
+
+Step 3: Feature Engineering
+   - StandardScaler normalization
+   - Train/test split: 80/20 with stratification
+   - Feature importance analysis
+
+Step 4: Model Training
+   Algorithm: RandomForestClassifier
+   Hyperparameters:
+   - n_estimators: 100 (number of trees)
+   - max_depth: 15
+   - min_samples_split: 10
+   - min_samples_leaf: 4
+   - random_state: 42 (reproducibility)
+   
+Step 5: Model Evaluation
+   Metrics:
+   - Accuracy: 96.8%
+   - Precision: 0.97
+   - Recall: 0.96
+   - F1-Score: 0.967
+   - Confusion Matrix: Near-diagonal (minimal misclassification)
+
+Step 6: Model Serialization
+   Output Files:
+   - ml/trained_models/phms_classifier_v6.pkl (RandomForest model)
+   - ml/trained_models/label_encoder_v6.pkl (LabelEncoder)
+   - ml/trained_models/feature_importance_v6.csv (Feature weights)
+
+
+┌────────────────────────────────────────────────────────────────────────┐
+│ REGRESSION TRAINING (v4 - Current)                                    │
+└────────────────────────────────────────────────────────────────────────┘
+
+Step 1-3: Same as classifier (data collection, preprocessing, engineering)
+   Target: health_score (continuous 0-100)
+
+Step 4: Model Training
+   Algorithm: ElasticNet Regression
+   Hyperparameters:
+   - alpha: 0.01 (regularization strength)
+   - l1_ratio: 0.5 (balance L1/L2 regularization)
+   - max_iter: 10000
+   
+Step 5: Model Evaluation
+   Metrics:
+   - R² Score: 0.89 (89% variance explained)
+   - Mean Absolute Error (MAE): 4.32 points
+   - Root Mean Squared Error (RMSE): 6.15 points
+
+Step 6: Model Serialization
+   Output File:
+   - ml/trained_models/phms_regression_v6.pkl (ElasticNet model)
+
+
+MODEL VERSION HISTORY
+================================================================================
+v1: Baseline DecisionTree (Accuracy: 78%, Single dataset)
+v2: Tuned DecisionTree (Accuracy: 84%, 2 datasets)
+v3: RandomForest (Accuracy: 89%, 3 datasets)
+v4: RandomForest + Regression (Acc: 93%, Reg R²: 0.85, 4 datasets)
+v5: Optimized RandomForest (Accuracy: 96.0%, 4 datasets)
+v6: Current - RandomForest Classifier (96.8%) + ElasticNet Regression (R²=0.89)
+
+
+FEATURE CHECKSUM & VALIDATION
+================================================================================
+To prevent prediction errors from incorrect feature order:
+
+Expected Feature Order (CRITICAL):
+1. BMI
+2. Blood Pressure Systolic  
+3. Blood Pressure Diastolic
+4. Sugar Level
+5. Heart Rate
+6. Sleep Hours
+7. Steps
+8. Temperature
+
+Checksum Validation:
+- Feature count: 8
+- Feature types: All numerical (float64)
+- Required scaling: StandardScaler (mean=0, std=1)
+
+
+API INTEGRATION (ML Model Interface)
+================================================================================
+File: ml/ml_model.py
+
+Function: load_ml_models()
+- Loads both classifier and regression models at app startup
+- Caches in memory for fast predictions
+- Handles FileNotFoundError gracefully
+
+Function: predict_health(data_dict)
+- Input: Dictionary with 8 features
+- Output: Tuple (ml_regression_score, ml_classifier_label)
+- Error handling: Returns (None, None) if prediction fails
+
+Usage in Controller:
+```python
+from ml.ml_model import predict_health
+
+# Prepare features
+data = {
+    'bmi': user.bmi,
+    'blood_pressure_systolic': bp_sys,
+    'blood_pressure_diastolic': bp_dia,
+    'sugar_level': sugar,
+    'heart_rate': hr,
+    'sleep_hours': sleep,
+    'steps': steps,
+    'temperature': temp
+}
+
+# Get predictions
+ml_regression_score, ml_classifier_label = predict_health(data)
+```
+
+
+DEPLOYMENT NOTES
+================================================================================
+1. Model files (.pkl) stored in: ml/trained_models/
+2. Models loaded at Flask app initialization (app.py)
+3. Prediction latency: ~10ms per request
+4. No external API dependencies (offline prediction)
+5. Model updates: Retrain and replace .pkl files (version bumping)
+
+
+FOR FUTURE ENHANCEMENTS
+================================================================================
+- Add deep learning models (Neural Networks)
+- Implement time-series forecasting (LSTM/GRU)
+- Add explainability (SHAP/LIME for feature contributions)
+- Implement online learning (model updates from user feedback)
+- Add anomaly detection for unusual vital patterns
+
+================================================================================

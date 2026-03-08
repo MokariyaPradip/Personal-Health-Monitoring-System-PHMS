@@ -348,6 +348,55 @@ def get_health_data():
 
 @login_required
 def delete_health(entry_id):
+    """Delete a health data entry for the current user.
+    
+    Removes a specific health record from the database after verifying
+    ownership by the authenticated user.
+    
+    Args:
+        entry_id (int): Unique identifier of the health data entry to delete
+    
+    Returns:
+        JSON response:
+            - On success (200): {'success': True, 'message': 'Health entry deleted successfully'}
+            - On not found (404): {'success': False, 'message': 'Health entry not found'}
+    
+    Security:
+        - Requires authentication (@login_required)
+        - Verifies entry belongs to current_user before deletion
+        - Cannot delete other users' health records
+    
+    Database Operations:
+        - Queries HealthData by entry_id and user_id
+        - Performs cascading delete (removes related Alert records via FK)
+        - Commits transaction immediately
+    
+    Example Request:
+        DELETE /delete_health/123
+        Headers: Cookie: session=...
+    
+    Example Response (Success):
+        {
+            "success": true,
+            "message": "Health entry deleted successfully"
+        }
+    
+    Example Response (Not Found):
+        {
+            "success": false,
+            "message": "Health entry not found"
+        }
+    
+    Frontend Integration:
+        - Called when user clicks delete button on health records table
+        - UI should refresh health data list after successful deletion
+        - Show error toast if entry not found (possible race condition)
+    
+    Note:
+        - Associated Alert records are automatically deleted (CASCADE)
+        - Operation cannot be undone
+        - Returns 404 if entry doesn't exist or belongs to another user
+    """
     entry = HealthData.query.filter_by(
         entry_id=entry_id,
         user_id=current_user.user_id

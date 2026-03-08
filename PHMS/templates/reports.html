@@ -18,7 +18,7 @@
 {% set user = report_data.user if report_data else {} %}
 
 <div class="report-card">
-	<form method="GET" action="/reports/custom" class="report-form">
+	<form method="GET" action="/reports/custom" class="report-form" data-loading-form data-loading-message="Generating report..." data-loading-button-text="Generating...">
 		<div class="report-form-row report-form-dates">
 			<div class="field-item">
 				<label for="start_date">Start Date</label>
@@ -52,14 +52,14 @@
 		</div>
 
 		<div class="report-form-row">
-			<button class="report-btn" type="submit">Generate Custom</button>
+			<button class="report-btn" type="submit" data-loading-text="Generating...">Generate Custom</button>
 		</div>
 
 		<div class="report-form-row report-form-periods">
 			<label>Or View Predefined Reports</label>
-			<a class="report-link-btn" href="/reports/weekly?feature={{ meta.feature_filter if meta.feature_filter else 'all' }}">Weekly</a>
-			<a class="report-link-btn" href="/reports/monthly?feature={{ meta.feature_filter if meta.feature_filter else 'all' }}">Monthly</a>
-			<a class="report-link-btn" href="/reports/yearly?feature={{ meta.feature_filter if meta.feature_filter else 'all' }}">Yearly</a>
+			<a class="report-link-btn" data-loading-link data-loading-message="Loading weekly report..." href="/reports/weekly?feature={{ meta.feature_filter if meta.feature_filter else 'all' }}">Weekly</a>
+			<a class="report-link-btn" data-loading-link data-loading-message="Loading monthly report..." href="/reports/monthly?feature={{ meta.feature_filter if meta.feature_filter else 'all' }}">Monthly</a>
+			<a class="report-link-btn" data-loading-link data-loading-message="Loading yearly report..." href="/reports/yearly?feature={{ meta.feature_filter if meta.feature_filter else 'all' }}">Yearly</a>
 		</div>
 	</form>
 </div>
@@ -86,9 +86,9 @@
 		</div>
 	</div>
 	<div class="report-actions">
-		<a class="report-btn" href="{{ request.path }}?{% if request.query_string %}{{ request.query_string.decode() }}&{% endif %}format=json">Download JSON</a>
-		<a class="report-btn" href="{{ request.path }}?{% if request.query_string %}{{ request.query_string.decode() }}&{% endif %}format=csv">Download CSV</a>
-		<a class="report-btn" href="/reports/{{ meta.report_type }}/pdf?feature={{ meta.feature_filter }}{% if meta.report_type == 'custom' %}&start_date={{ meta.start_date }}&end_date={{ meta.end_date }}{% endif %}">Download PDF</a>
+		<a class="report-btn" data-loading-link data-loading-message="Preparing JSON report..." href="{{ request.path }}?{% if request.query_string %}{{ request.query_string.decode() }}&{% endif %}format=json">Download JSON</a>
+		<a class="report-btn" data-loading-link data-loading-message="Preparing CSV report..." href="{{ request.path }}?{% if request.query_string %}{{ request.query_string.decode() }}&{% endif %}format=csv">Download CSV</a>
+		<a class="report-btn" data-loading-link data-loading-message="Preparing PDF report..." href="/reports/{{ meta.report_type }}/pdf?feature={{ meta.feature_filter }}{% if meta.report_type == 'custom' %}&start_date={{ meta.start_date }}&end_date={{ meta.end_date }}{% endif %}">Download PDF</a>
 		<button class="report-btn" onclick="window.print()">Print Report</button>
 	</div>
 </div>

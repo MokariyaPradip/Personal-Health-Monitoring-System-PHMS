@@ -1,103 +1,143 @@
 ================================================================================
                      PHMS - Project Structure Overview
+                           (Updated: March 2026)
 ================================================================================
 
 PHMS/
 │
-├── app.py                          # Main Flask application entry point
-├── config.py                       # App factory, database & security configuration
-├── models.py                       # Model imports from models/ folder
-├── routes.py                       # Route declarations (minimal logic)
-├── requirements.txt                # Project dependencies
-├── SECURITY_ENHANCEMENTS.md        # Security features documentation
+├── app.py                          # Main Flask application entry point with scheduler
+├── config.py                       # App factory, database, security, email configuration
+├── models.py                       # Model aggregator (imports from models/)
+├── routes.py                       # Route registration (all endpoints)
+├── scheduler_config.py             # APScheduler setup for medication automation
+├── start.py                        # Automated setup and launch script
+├── requirements.txt                # Python dependencies
 │
-├── ml/                             # Machine learning module
-│   ├── ml_model.py                 # Prediction interface
-│   ├── README.md                   # ML module documentation
-│   ├── trained_models/             # Current model artifacts (.pkl files)
-│   │   ├── phms_model_v5.pkl       # RandomForest v5 model (CURRENT - 96% accuracy)
-│   │   ├── label_encoder_v5.pkl    # Label encoder for v5 model
-│   │   ├── phms_model_v4.pkl       # RandomForest v4 model (91% accuracy)
-│   │   ├── label_encoder_v4.pkl    # Label encoder for v4 model
-│   │   ├── phms_model_v3.pkl       # DecisionTree v3 model
-│   │   ├── label_encoder_v3.pkl    # Label encoder for v3 model
-│   │   └── legacy/                 # Legacy model versions (v1, v0)
+├── ml/                             # Machine Learning Module (Dual Prediction System)
+│   ├── ml_model.py                 # Prediction interface (regression + classifier)
+│   ├── README.md                   # ML architecture documentation
+│   ├── trained_models/             # Model artifacts (.pkl files)
+│   │   ├── phms_regression_v6.pkl  # RandomForest Regressor v6 (CURRENT)
+│   │   ├── phms_classifier_v6.pkl  # RandomForest Classifier v6 (CURRENT - 96.8%)
+│   │   ├── label_encoder_v6.pkl    # Label encoder for v6 classifier
+│   │   ├── feature_importance_v6.csv # Feature weights analysis
+│   │   └── [legacy models v1-v5]   # Previous model versions
 │   └── training_scripts/           # Model training scripts
-│       ├── train_model_v1.py       # V1 training script
-│       ├── train_model_v2.py       # V2 training script
-│       ├── train_model_v3.py       # V3 DecisionTree on combined datasets
-│       ├── train_model_v4.py       # V4 RandomForest on 2 datasets
-│       └── train_model_v5.py       # V5 RandomForest on ALL 4 datasets (CURRENT)
+│       ├── train_model_v6.py       # V6 classifier (4 datasets, 96.8% accuracy)
+│       ├── regression_train_model_v*.py # Regression models (v1-v4)
+│       ├── [v1-v5 scripts]         # Legacy training scripts
+│       └── rebuild_health_score_from_label.py # Data preprocessing
 │
-├── datasets/                       # Training CSV datasets
+├── datasets/                       # Training CSV datasets (25,884 total records)
 │   ├── health_data.csv             # 2,999 records
 │   ├── health_data_885.csv         # 885 records
 │   ├── health_data_10000.csv       # 10,000 records
-│   └── health_data_12000_fuzzy.csv # 12,000 records (fuzzy data)
+│   └── health_data_12000_fuzzy.csv # 12,000 records (synthetic fuzzy data)
 │
-├── controllers/                    # Business logic layer
-│   ├── __init__.py
-│   ├── auth_controller.py          # Register, Login, Logout, Forgot Password
-│   ├── dashboard_controller.py     # Dashboard page logic
-│   ├── profile_controller.py       # Profile view & update logic
-│   ├── health_controller.py        # Health data management & alerts
-│   ├── medication_controller.py    # Medication CRUD operations
-│   └── reports_controller.py       # Reports page logic
+├── controllers/                    # Business Logic Layer (MVC Pattern)
+│   ├── __init__.py                 # Controller exports
+│   ├── auth_controller.py          # Register, Login, Logout, OTP-based Password Reset
+│   ├── dashboard_controller.py     # Dashboard analytics and metrics
+│   ├── profile_controller.py       # User profile view & update (BMI calculation)
+│   ├── health_controller.py        # Health data CRUD, ML prediction, email alerts
+│   ├── medication_controller.py    # Medication CRUD, medicine master management
+│   ├── medication_log_controller.py # Medication tracking, scheduler integration
+│   ├── notifications_controller.py # Alert management (health + medication)
+│   └── reports_controller.py       # Health reports redirect (uses reports blueprint)
 │
-├── models/                         # Database models
-│   ├── __init__.py                 # Exports all models
-│   ├── user_model.py               # User class (authentication & profile)
-│   ├── health_model.py             # HealthData class (vital signs tracking)
-│   ├── medicine_model.py           # Medicine class (medicine master data)
-│   ├── medication_model.py         # Medication class (user medications)
-│   ├── medication_log_model.py     # MedicationLog class (medication history)
-│   └── alert_model.py              # Alert class (health alerts)
+├── models/                         # Database Models (SQLAlchemy ORM)
+│   ├── __init__.py                 # Model exports
+│   ├── user_model.py               # User (auth, profile, BMI calculation)
+│   ├── health_model.py             # HealthData (vitals, ML scores, timestamps)
+│   ├── medicine_model.py           # Medicine (master catalog)
+│   ├── medication_model.py         # Medication (user prescriptions, is_critical flag)
+│   ├── medication_log_model.py     # MedicationLog (daily tracking, status)
+│   ├── alert_model.py              # Alert (health + medication notifications)
+│   └── otp_model.py                # PasswordResetOTP (time-limited codes)
 │
-├── templates/                      # HTML templates
-│   ├── base.html                   # Base template (navigation, layout, CSRF token)
+├── reports/                        # Health Reports Module (Blueprint)
+│   ├── __init__.py                 # Blueprint registration
+│   ├── routes/                     # Report HTTP endpoints
+│   │   ├── __init__.py
+│   │   └── report_routes.py        # Weekly, monthly, yearly, custom, PDF routes
+│   ├── services/                   # Report business logic
+│   │   ├── __init__.py
+│   │   └── report_service.py       # Data aggregation, statistics, trends
+│   ├── utils/                      # Report utilities
+│   │   ├── __init__.py
+│   │   └── risk_utils.py           # Risk classification, percentage calculations
+│   └── pdf/                        # PDF generation
+│       ├── __init__.py
+│       └── pdf_generator.py        # ReportLab-based PDF creation
+│
+├── templates/                      # Jinja2 HTML Templates
+│   ├── base.html                   # Base layout (nav, CSRF, footer)
 │   ├── login.html                  # Login page
 │   ├── register.html               # Registration page
-│   ├── forgot_password.html        # Password reset request page
-│   ├── reset_password.html         # Token-based password reset page
-│   ├── reset_password_email.html   # Email template for password reset
-│   ├── dashboard.html              # Dashboard page
-│   ├── profile.html                # User profile page
-│   ├── health.html                 # Health data entry page
-│   ├── medication.html             # Medication management page
-│   └── reports.html                # Reports & analytics page
+│   ├── forgot_password.html        # OTP request page
+│   ├── reset_password.html         # Password reset with OTP verification
+│   ├── dashboard.html              # Main dashboard (analytics, charts)
+│   ├── profile.html                # User profile management
+│   ├── health.html                 # Health data entry and history
+│   ├── medication.html             # Medication management
+│   ├── notifications.html          # Alerts + medication logs (2 tabs)
+│   ├── reports.html                # Health reports (multiple formats)
+│   └── email-templates/            # Email notification templates
+│       ├── otp_email.html          # OTP verification email
+│       ├── registration_success_email.html
+│       ├── password_reset_success_email.html
+│       ├── password_reset_failure_email.html
+│       ├── health_alert_email.html # High-risk health alert
+│       ├── critical_medication_reminder_email.html
+│       ├── critical_medication_missed_email.html
+│       └── consecutive_missed_alert_email.html
 │
-├── static/                         # Static files
+├── static/                         # Static Assets
+│   ├── js/                         # JavaScript files
 │   └── style/                      # CSS stylesheets
-│       ├── base.css                # Base styles (layout, navigation)
+│       ├── base.css                # Base styles (navigation, layout)
 │       ├── login.css               # Login page styles
 │       ├── register.css            # Registration page styles
-│       ├── profile.css             # Profile page layout
-│       ├── dashboard.css           # Dashboard page styles
+│       ├── profile.css             # Profile page styles
+│       ├── dashboard.css           # Dashboard styles (charts, cards)
 │       ├── health.css              # Health tracking page styles
 │       └── medication.css          # Medication page styles
 │
-├── migrations/                     # Alembic migrations for database schema
-│   ├── alembic.ini
-│   ├── env.py
-│   ├── README
-│   ├── script.py.mako
-│   └── versions/                   # Migration history
+├── migrations/                     # Alembic Database Migrations
+│   ├── alembic.ini                 # Alembic configuration
+│   ├── env.py                      # Migration environment
+│   ├── README                      # Migration instructions
+│   ├── script.py.mako              # Migration template
+│   └── versions/                   # Migration history (15+ migrations)
+│       ├── 383b97d8277f_add_passwordresetotp_model.py
 │       ├── 393e4c73d73e_change_blood_pressure_from_string_to_.py
+│       ├── 4af451598bbe_drop_medication_id_collumn_in_alert.py
 │       ├── 510931190d74_change_frequency_of_medication_to_.py
+│       ├── 52c26be4e468_add_ml_predicted_health_score_to_health_.py
+│       ├── 66433565aa81_remove_unique_constraint_from_.py
+│       ├── 7cbf1d5f606b_add_title_category_to_alert_and_updates_.py
+│       ├── 8ef2f2b4fa1d_added_is_critical_to_medication_model.py
 │       ├── 9de5942fba0d_add_bmi_to_user.py
+│       ├── d7e8f9a0b1c2_remove_rule_based_risk_label_from_health_data.py
+│       ├── e4e5f6a7b8c9_rename_ml_columns_to_distinguish_regression_vs_classifier.py
 │       └── f496b9e8af03_add_health_score_and_risk_columns_to_.py
 │
-├── utils/                          # Utility helpers
-│   └── health_score.py             # Health score computation
+├── utils/                          # Utility Functions
+│   ├── health_score.py             # Rule-based health scoring algorithm
+│   └── medication_schedule.py      # Medication frequency scheduling
 │
-├── instance/                       # Instance folder (auto-generated)
-│   └── *.db                        # SQLite database (if used)
+├── instance/                       # Instance-specific Data (auto-generated)
+│   └── phms.db                     # SQLite database file
 │
-├── __pycache__/                    # Python cache (auto-generated)
+├── __pycache__/                    # Python bytecode cache (auto-generated)
 │
-├── support/                        # Support & documentation
-│   ├── structure.txt               # Project structure documentation
-│   ├── databaseAccess.txt          # Database access information
+└── support/                        # Documentation & Support Files
+    ├── structure.txt               # This file - project structure
+    ├── instructions.txt            # Setup and run instructions
+    ├── databaseAccess.txt          # Database access commands
+    ├── ER.txt                      # Entity-Relationship diagram
+    ├── ML_Architecture.txt         # ML pipeline documentation
+    └── notification and medication log scheduler.txt # Scheduler documentation
 │   ├── ER.txt                      # Entity relationship documentation
 │   ├── instructions.txt            # Setup & development instructions
 │   └── ML_Architecture.txt         # ML architecture overview

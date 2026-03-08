@@ -5,6 +5,29 @@ from io import BytesIO
 
 
 def _safe_float(value, default=0.0):
+    """Safely convert value to float with fallback default.
+    
+    Args:
+        value: Value to convert (any type)
+        default (float, optional): Fallback value for conversion failures (default: 0.0)
+    
+    Returns:
+        float: Converted float value, or default if conversion fails
+    
+    Example:
+        >>> _safe_float("3.14")
+        3.14
+        >>> _safe_float(None, 0.0)
+        0.0
+        >>> _safe_float("invalid", 10.0)
+        10.0
+        >>> _safe_float(42)
+        42.0
+    
+    Note:
+        - Handles None, invalid strings, and non-numeric types gracefully
+        - Used extensively in PDF generation to avoid ValueError exceptions
+    """
     try:
         return float(value)
     except (TypeError, ValueError):
@@ -12,6 +35,67 @@ def _safe_float(value, default=0.0):
 
 
 def generate_report_pdf(report_data: dict) -> bytes:
+    """Generate professionally formatted PDF health report from report data.
+    
+    Primary PDF generation function that creates a multi-section medical report
+    with styled tables, color-coded metrics, and visual KPI cards using ReportLab.
+    
+    Args:
+        report_data (dict): Complete report dictionary from build_report_for_range():
+            - meta: Report metadata (dates, type, generation time, record count)
+            - user: Patient profile (username, age, gender, height, weight, BMI)
+            - summary_statistics: Metric averages/min/max
+            - trend_analysis: Current vs previous period comparison
+            - risk_indicators: Risk classification for each metric
+            - medication_adherence: Adherence percentage and dose counts
+            - alert_summary: Total and critical alert counts
+            - ml_classifier_distribution: ML prediction distribution
+            - chronic_condition_summary: Diabetes/hypertension flags
+    
+    Returns:
+        bytes: Complete PDF document as byte string ready for download
+    
+    Raises:
+        RuntimeError: If reportlab package not installed
+    
+    PDF Structure:
+        1. Header: PHMS branding, user info, date range, generation timestamp
+        2. Patient Profile: Age, gender, height, weight, BMI with color-coded status
+        3. Visual Snapshot: 4 KPI cards (adherence, alerts, health score, records)
+        4. Risk Mix: Color-coded risk distribution summary
+        5. Section 1: Summary Statistics table (avg/min/max for all metrics)
+        6. Section 2: Trend Comparison table (current vs previous with % change)
+        7. Section 3: Risk Indicators table (average and risk level)
+        8. Section 4: Medication Adherence table (scheduled, taken, %)
+        9. Section 5: Alerts Summary table (total and critical counts)
+        10. Section 6: ML Classifier Distribution (Low/Medium/High risk counts)
+        11. Footer: UTC generation timestamp
+    
+    Design Features:
+        - A4 page size with 18mm margins
+        - Professional color scheme (blues, grays)
+        - Color-coded risk indicators (green/yellow/red)
+        - Styled headers and section separators
+        - Grid tables with alternating row colors
+        - BMI status badges (Underweight/Normal/Overweight/Obese)
+        - KPI status badges (Excellent/Good/Monitor/Low)
+    
+    Example:
+        >>> from reports.services.report_service import build_report_for_range
+        >>> report_data = build_report_for_range(user_id=1, ...)
+        >>> pdf_bytes = generate_report_pdf(report_data)
+        >>> with open('health_report.pdf', 'wb') as f:
+        ...     f.write(pdf_bytes)
+        >>> len(pdf_bytes)
+        85643  # PDF file size in bytes
+    
+    Note:
+        - Requires reportlab package: pip install reportlab
+        - Uses ReportLab's Platypus for document assembly
+        - All colors use hex codes for consistency
+        - Generated at UTC timestamp in footer
+        - Handles missing data gracefully with "N/A" or default values
+    """
     try:
         from reportlab.lib import colors
         from reportlab.lib.pagesizes import A4
@@ -187,6 +271,52 @@ def generate_report_pdf(report_data: dict) -> bytes:
 
 
 def _patient_profile_section(user, colors_module, mm, Table):
+    """Create patient profile table with color-coded BMI status.
+    
+    Generates a 3-row, 4-column table displaying patient demographics and BMI
+    with visual color coding based on WHO BMI categories.
+    
+    Args:
+        user (dict): User data:
+            - age (int | None): Patient age in years
+            - gender (str | None): Gender (capitalized in output)
+            - height (float | None): Height in cm
+            - weight (float | None): Weight in kg
+            - bmi (float | None): Body Mass Index
+        colors_module: ReportLab colors module (colors)
+        mm: ReportLab millimeter unit
+        Table: ReportLab Table class
+    
+    Returns:
+        Table: Styled ReportLab Table with patient profile data
+    
+    BMI Color Coding:
+        - < 18.5 (Underweight): Red background (#FEE2E2), dark red text
+        - 18.5-24.9 (Normal): Green background (#DCFCE7), dark green text
+        - 25-29.9 (Overweight): Yellow background (#FFF4D8), dark yellow text
+        - >= 30 (Obese): Red background (#FEE2E2), dark red text
+        - None: White background, gray text
+    
+    Layout:
+        Row 1: [Age | value | Gender | value]
+        Row 2: [Height | value | Weight | value]
+        Row 3: [BMI | value (status) | Status | Active]
+    
+    Example:
+        >>> user_data = {
+        ...     'age': 35, 'gender': 'male',
+        ...     'height': 175, 'weight': 70, 'bmi': 22.9
+        ... }
+        >>> table = _patient_profile_section(user_data, colors, mm, Table)
+        >>> # BMI cell shows "22.9 (Normal)" with green background
+    
+    Note:
+        - Uses gray background for label columns
+        - Bold font for labels, regular for values
+        - BMI value includes category name in parentheses
+        - Missing values displayed as "N/A"
+        - Grid borders with light gray color (#CBD5E1)
+    """
     from reportlab.platypus import TableStyle
 
     age = user.get("age") if user.get("age") else "N/A"
@@ -259,6 +389,63 @@ def _patient_profile_section(user, colors_module, mm, Table):
 
 
 def _kpi_snapshot_table(report_data, colors_module, Paragraph, ParagraphStyle, styles, mm, Table):
+    """Create visual KPI dashboard with 4 color-coded metric cards.
+    
+    Generates a single-row table containing 4 styled cards displaying key performance
+    indicators with dynamic color coding based on thresholds.
+    
+    Args:
+        report_data (dict): Full report data dictionary
+        colors_module: ReportLab colors module
+        Paragraph: ReportLab Paragraph class
+        ParagraphStyle: ReportLab ParagraphStyle class
+        styles: ReportLab style sheet
+        mm: ReportLab millimeter unit
+        Table: ReportLab Table class
+    
+    Returns:
+        Table: Styled wrapper table containing 4 KPI cards
+    
+    KPI Cards (left to right):
+        1. Medication Adherence %:
+           - Excellent (>= 85%): Green
+           - Needs Attention (65-84%): Yellow
+           - Low (< 65%): Red
+        
+        2. Critical Alerts:
+           - Stable (0): Green
+           - Monitor (1-2): Yellow
+           - High (>= 3): Red
+        
+        3. Average Health Score:
+           - Good (>= 82): Green
+           - Moderate (60-81): Yellow
+           - Risky (< 60): Red
+           - No Data: Yellow
+        
+        4. Records Count:
+           - Available (> 0): Blue
+           - No Data (0): Yellow
+    
+    Card Structure (each):
+        - Label: Small gray text at top
+        - Value: Large bold number in center
+        - Badge: Status text with colored background at bottom
+    
+    Example:
+        >>> kpi_table = _kpi_snapshot_table(report_data, ...)
+        >>> # Card 1: "92.5%" with green "Excellent" badge
+        >>> # Card 2: "0" with green "Stable" badge
+        >>> # Card 3: "85.2" with green "Good" badge
+        >>> # Card 4: "50" with blue "Available" badge
+    
+    Note:
+        - All 4 cards have equal width (39mm each)
+        - Cards styled with light blue background (#F8FAFF)
+        - Light blue borders (#D7E0EE)
+        - Values rounded to 2 decimals for percentages
+        - Handles None/missing values gracefully
+    """
     from reportlab.platypus import TableStyle
 
     summary = report_data.get("summary_statistics", {})
@@ -374,6 +561,41 @@ def _kpi_snapshot_table(report_data, colors_module, Paragraph, ParagraphStyle, s
 
 
 def _risk_mix_table(report_data, colors_module, mm, Table):
+    """Create risk distribution summary table with color-coded cells.
+    
+    Generates a compact 2-row table showing count of metrics in each risk category
+    (normal/warning/critical) with visual color coding.
+    
+    Args:
+        report_data (dict): Full report data dictionary with risk_indicators
+        colors_module: ReportLab colors module
+        mm: ReportLab millimeter unit
+        Table: ReportLab Table class
+    
+    Returns:
+        Table: Styled 2x4 table showing risk distribution
+    
+    Table Structure:
+        Row 1 (Header): [Risk Mix | Normal | Warning | Critical]
+        Row 2 (Counts): [Metrics Count | n | w | c]
+    
+    Color Coding:
+        - Normal column: Green background (#DCFCE7), dark green text
+        - Warning column: Yellow background (#FFF4D8), dark yellow text
+        - Critical column: Red background (#FEE2E2), dark red text
+        - Header row: Light blue background (#EEF2FF), dark blue text
+    
+    Example:
+        >>> risk_table = _risk_mix_table(report_data, colors, mm, Table)
+        >>> # Output: Risk Mix | Normal: 5 | Warning: 2 | Critical: 1
+    
+    Note:
+        - Counts extracted from risk_indicators section of report_data
+        - Only counts metrics with recognized status values
+        - Cell alignment: CENTER for all cells
+        - Grid borders with light gray color
+        - Font size: 8.8pt
+    """
     from reportlab.platypus import TableStyle
 
     risk_data = report_data.get("risk_indicators", {})
@@ -416,6 +638,44 @@ def _risk_mix_table(report_data, colors_module, mm, Table):
 
 
 def _styled_table(table, colors_module):
+    """Apply consistent professional styling to data tables.
+    
+    Adds uniform visual styling to ReportLab tables for consistent appearance
+    across all report sections.
+    
+    Args:
+        table (Table): ReportLab Table instance to style
+        colors_module: ReportLab colors module
+    
+    Returns:
+        Table: Same table instance with styling applied (modifies in-place)
+    
+    Applied Styles:
+        - Header row (row 0):
+            * Light blue background (#DBEAFE)
+            * Dark blue text (#1E3A8A)
+            * Bold font
+        - Data rows (row 1+):
+            * Alternating white and light gray backgrounds (#F8FAFC)
+            * Regular Helvetica font
+        - Grid:
+            * Light gray borders (#CBD5E1), 0.35pt thickness
+        - Padding: 5pt top and bottom
+        - Alignment: LEFT horizontal, MIDDLE vertical
+        - Font size: 9pt throughout
+    
+    Example:
+        >>> data = [['Metric', 'Value'], ['heart_rate', '72'], ['sugar', '110']]
+        >>> table = Table(data, colWidths=[50*mm, 50*mm])
+        >>> styled = _styled_table(table, colors)
+        >>> # Table now has blue header and zebra-striped rows
+    
+    Note:
+        - Modifies table in-place but also returns it for chaining
+        - Used for all summary statistics and data tables in PDF
+        - Header row must be row 0 (first row)
+        - Does NOT apply special column formatting (use specialized functions for that)
+    """
     from reportlab.platypus import TableStyle
 
     table.setStyle(

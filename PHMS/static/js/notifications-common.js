@@ -57,8 +57,8 @@ function updateNotificationBadge(count) {
 }
 
 // ===== MARK AS READ =====
-function markAsRead(alertId, callback) {
-    fetch(`/notifications/${alertId}/read`, {
+function markAsRead(alertId, callback, sourceButton) {
+    const request = () => fetch(`/notifications/${alertId}/read`, {
         method: 'PUT',
         headers: {
             'X-CSRFToken': window.getCsrfToken(),
@@ -91,15 +91,20 @@ function markAsRead(alertId, callback) {
                 callback(data);
             }
         }
-    })
-    .catch(err => {
+    });
+
+    const requestPromise = sourceButton && window.PHMSLoading
+        ? window.PHMSLoading.withLoading({ button: sourceButton, buttonText: 'Marking...' }, request)
+        : request();
+
+    requestPromise.catch(err => {
         console.error('Error marking notification as read:', err);
         showToast('Failed to mark notification as read', 'error');
     });
 }
 
 // ===== MARK ALL AS READ =====
-function markAllAsRead(callback) {
+function markAllAsRead(callback, sourceButton) {
     // Check if we're on the notifications page or in the dropdown
     const isNotificationsPage = document.getElementById('all-container') !== null;
     
@@ -108,7 +113,7 @@ function markAllAsRead(callback) {
         return;
     }
 
-    fetch('/notifications/mark-all-read', {
+    const request = () => fetch('/notifications/mark-all-read', {
         method: 'PUT',
         headers: {
             'X-CSRFToken': window.getCsrfToken(),
@@ -145,8 +150,13 @@ function markAllAsRead(callback) {
         } else {
             showToast(data.message || 'Failed to mark notifications as read', 'error');
         }
-    })
-    .catch(err => {
+    });
+
+    const requestPromise = sourceButton && window.PHMSLoading
+        ? window.PHMSLoading.withLoading({ button: sourceButton, buttonText: 'Marking...' }, request)
+        : request();
+
+    requestPromise.catch(err => {
         console.error('Error marking all as read:', err);
         showToast('Failed to mark all notifications as read', 'error');
     });

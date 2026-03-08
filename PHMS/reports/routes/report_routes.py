@@ -15,6 +15,22 @@ reports_bp = Blueprint("reports", __name__, url_prefix="/reports")
 
 
 def _parse_date(value: str | None) -> date | None:
+    """Parse ISO date string (YYYY-MM-DD) to date object.
+    
+    Args:
+        value (str | None): Date string in ISO format or None
+    
+    Returns:
+        date | None: Parsed date object, or None if value is None or invalid format
+    
+    Example:
+        >>> _parse_date('2026-03-08')
+        date(2026, 3, 8)
+        >>> _parse_date('invalid')
+        None
+        >>> _parse_date(None)
+        None
+    """
     if not value:
         return None
     try:
@@ -24,6 +40,31 @@ def _parse_date(value: str | None) -> date | None:
 
 
 def _resolve_period(report_type: str) -> ReportDateRange:
+    """Resolve predefined report type to date range.
+    
+    Converts report type string to ReportDateRange with appropriate start and end dates
+    relative to today.
+    
+    Args:
+        report_type (str): Report period identifier
+            - 'weekly': Last 7 days (today - 6 days to today)
+            - 'monthly': Last 30 days (today - 29 days to today)
+            - 'yearly': Last 365 days (today - 364 days to today)
+    
+    Returns:
+        ReportDateRange: Date range object with start_date and end_date
+    
+    Raises:
+        ValueError: If report_type is not supported
+    
+    Example:
+        >>> # On 2026-03-08
+        >>> dr = _resolve_period('weekly')
+        >>> dr.start_date
+        date(2026, 3, 2)  # 7 days ago
+        >>> dr.end_date
+        date(2026, 3, 8)  # today
+    """
     today = date.today()
     if report_type == "weekly":
         return ReportDateRange(start_date=today - timedelta(days=6), end_date=today)
@@ -35,6 +76,24 @@ def _resolve_period(report_type: str) -> ReportDateRange:
 
 
 def _wants_json() -> bool:
+    """Determine if client wants JSON response based on request parameters.
+    
+    Checks multiple indicators to determine JSON preference:
+    1. Query parameter format=json
+    2. URL path ending with /json
+    3. Accept header preferring application/json over text/html
+    
+    Returns:
+        bool: True if JSON response preferred, False otherwise
+    
+    Example:
+        >>> # Request: /reports/weekly?format=json
+        >>> _wants_json()
+        True
+        >>> # Request: /reports/weekly with Accept: application/json
+        >>> _wants_json()
+        True
+    """
     requested = (request.args.get("format") or "").lower()
     if requested == "json":
         return True
@@ -45,11 +104,47 @@ def _wants_json() -> bool:
 
 
 def _wants_csv() -> bool:
+    """Check if client requested CSV export format.
+    
+    Returns:
+        bool: True if format=csv query parameter present, False otherwise
+    
+    Example:
+        >>> # Request: /reports/monthly?format=csv
+        >>> _wants_csv()
+        True
+    """
     requested = (request.args.get("format") or "").lower()
     return requested == "csv"
 
 
 def _generate_csv(report_data: dict) -> str:
+    """Generate CSV export from report data dictionary.
+    
+    Converts comprehensive report data into CSV format with sections for metadata,
+    summary statistics, trends, risk indicators, medication adherence, alerts,
+    and ML predictions.
+    
+    Args:
+        report_data (dict): Complete report data from build_report_for_range()
+    
+    Returns:
+        str: CSV formatted string with all report sections
+    
+    CSV Structure:
+        - Header section (user, report type, date range, generation time)
+        - Summary Statistics (metric, avg, min, max)
+        - Trend Comparison (metric, current avg, previous avg, % change)
+        - Risk Indicators (metric, avg, risk level)
+        - Medication Adherence (scheduled, taken, percentage)
+        - Alert Summary (total, critical)
+        - ML Classifier Distribution (Low/Medium/High risk counts)
+    
+    Example:
+        >>> csv_data = _generate_csv(report_data)
+        >>> print(csv_data[:50])
+        'PHMS Health Report\nUser,john_doe\nReport Type,Weekly'
+    """
     output = StringIO()
     writer = csv.writer(output)
     
@@ -126,6 +221,30 @@ def _generate_csv(report_data: dict) -> str:
 
 
 def _build_response(report_data: dict):
+    """Build appropriate HTTP response based on client's requested format.
+    
+    Routes to CSV, JSON, or HTML response based on request headers and query params.
+    
+    Args:
+        report_data (dict): Complete report data dictionary
+    
+    Returns:
+        Response: Flask response object
+            - CSV download (text/csv) if format=csv
+            - JSON (application/json) if format=json or Accept header
+            - HTML page (text/html) otherwise (default)
+    
+    Example:
+        >>> # CSV request
+        >>> response = _build_response(report_data)
+        >>> response.mimetype
+        'text/csv'
+        
+        >>> # JSON request
+        >>> response = _build_response(report_data)
+        >>> response.mimetype
+        'application/json'
+    """
     if _wants_csv():
         csv_data = _generate_csv(report_data)
         meta = report_data.get("meta", {})
@@ -143,6 +262,30 @@ def _build_response(report_data: dict):
 @reports_bp.route("", methods=["GET"])
 @login_required
 def reports_home():
+    """Display default monthly health report.
+    
+    Landing page for reports section, shows last 30 days of health data by default.
+    Supports feature filtering via query parameter.
+    
+    Endpoints:
+        GET /reports: Display monthly report (default)
+    
+    Query Parameters:
+        feature (str, optional): Filter metrics by category (default: 'all')
+            - 'all': All metrics
+            - 'vital': Heart rate, BP, sugar, temperature, health scores
+            - 'activity': Steps, sleep, heart rate, health scores
+            - 'medication': Sugar, BP, health scores
+            - 'chronic': Sugar, BP, heart rate, health scores
+        format (str, optional): Response format ('json', 'csv', or omit for HTML)
+    
+    Returns:
+        Response: HTML page, JSON, or CSV based on format parameter
+    
+    Security:
+        - Requires @login_required
+        - Data scoped to current_user.user_id
+    """
     feature_filter = request.args.get("feature", "all").lower()
     report_data = build_report_for_range(
         user_id=current_user.user_id,
@@ -156,6 +299,22 @@ def reports_home():
 @reports_bp.route("/weekly", methods=["GET"])
 @login_required
 def weekly_report():
+    """Generate health report for the last 7 days.
+    
+    Endpoints:
+        GET /reports/weekly: Weekly health summary
+    
+    Query Parameters:
+        feature (str, optional): Metric filter category (default: 'all')
+        format (str, optional): Response format ('json', 'csv', or HTML)
+    
+    Returns:
+        Response: Weekly report in requested format (HTML/JSON/CSV)
+    
+    Security:
+        - Requires @login_required
+        - Data filtered by current_user.user_id
+    """
     feature_filter = request.args.get("feature", "all").lower()
     report_data = build_report_for_range(
         user_id=current_user.user_id,
@@ -169,6 +328,22 @@ def weekly_report():
 @reports_bp.route("/monthly", methods=["GET"])
 @login_required
 def monthly_report():
+    """Generate health report for the last 30 days.
+    
+    Endpoints:
+        GET /reports/monthly: Monthly health summary
+    
+    Query Parameters:
+        feature (str, optional): Metric filter category (default: 'all')
+        format (str, optional): Response format ('json', 'csv', or HTML)
+    
+    Returns:
+        Response: Monthly report in requested format (HTML/JSON/CSV)
+    
+    Security:
+        - Requires @login_required
+        - Data filtered by current_user.user_id
+    """
     feature_filter = request.args.get("feature", "all").lower()
     report_data = build_report_for_range(
         user_id=current_user.user_id,
@@ -182,6 +357,22 @@ def monthly_report():
 @reports_bp.route("/yearly", methods=["GET"])
 @login_required
 def yearly_report():
+    """Generate health report for the last 365 days.
+    
+    Endpoints:
+        GET /reports/yearly: Yearly health summary
+    
+    Query Parameters:
+        feature (str, optional): Metric filter category (default: 'all')
+        format (str, optional): Response format ('json', 'csv', or HTML)
+    
+    Returns:
+        Response: Yearly report in requested format (HTML/JSON/CSV)
+    
+    Security:
+        - Requires @login_required
+        - Data filtered by current_user.user_id
+    """
     feature_filter = request.args.get("feature", "all").lower()
     report_data = build_report_for_range(
         user_id=current_user.user_id,
@@ -195,6 +386,31 @@ def yearly_report():
 @reports_bp.route("/custom", methods=["GET"])
 @login_required
 def custom_report():
+    """Generate health report for custom date range.
+    
+    Allows users to specify arbitrary start and end dates for flexible reporting.
+    
+    Endpoints:
+        GET /reports/custom: Custom date range report
+    
+    Query Parameters:
+        start_date (str, required): Start date in YYYY-MM-DD format
+        end_date (str, required): End date in YYYY-MM-DD format
+        feature (str, optional): Metric filter category (default: 'all')
+        format (str, optional): Response format ('json', 'csv', or HTML)
+    
+    Returns:
+        Response: Custom report in requested format (HTML/JSON/CSV)
+        400: If start_date or end_date missing or invalid
+        400: If start_date > end_date
+    
+    Example:
+        GET /reports/custom?start_date=2026-01-01&end_date=2026-01-31&feature=vital&format=json
+    
+    Security:
+        - Requires @login_required
+        - Data filtered by current_user.user_id
+    """
     start_date = _parse_date(request.args.get("start_date"))
     end_date = _parse_date(request.args.get("end_date"))
     feature_filter = request.args.get("feature", "all").lower()
@@ -216,6 +432,50 @@ def custom_report():
 @reports_bp.route("/<string:report_type>/pdf", methods=["GET"])
 @login_required
 def report_pdf(report_type: str):
+    """Generate downloadable PDF version of health report.
+    
+    Creates professionally formatted PDF report using ReportLab library with
+    visual design, tables, and color-coded risk indicators.
+    
+    Endpoints:
+        GET /reports/<report_type>/pdf: Download PDF report
+    
+    Path Parameters:
+        report_type (str): Report period type
+            - 'weekly', 'monthly', 'yearly': Predefined periods
+            - 'custom': Requires start_date and end_date query params
+    
+    Query Parameters:
+        feature (str, optional): Metric filter category (default: 'all')
+        start_date (str, required for custom): Start date YYYY-MM-DD
+        end_date (str, required for custom): End date YYYY-MM-DD
+    
+    Returns:
+        Response: PDF file download (application/pdf)
+        400: If report_type is invalid or custom dates missing/invalid
+        500: If PDF generation fails (e.g., ReportLab not installed)
+    
+    PDF Contents:
+        - Patient profile with BMI and demographics
+        - KPI snapshot cards (adherence, alerts, health score)
+        - Risk mix summary
+        - Detailed statistics tables
+        - Trend analysis
+        - Medication adherence
+        - ML predictions distribution
+    
+    Example:
+        GET /reports/monthly/pdf
+        GET /reports/custom/pdf?start_date=2026-01-01&end_date=2026-01-31
+    
+    Security:
+        - Requires @login_required
+        - Data filtered by current_user.user_id
+    
+    Note:
+        - Requires reportlab library (raises 500 error with instructions if missing)
+        - PDF filename includes report type and date range
+    """
     feature_filter = request.args.get("feature", "all").lower()
 
     if report_type in {"weekly", "monthly", "yearly"}:

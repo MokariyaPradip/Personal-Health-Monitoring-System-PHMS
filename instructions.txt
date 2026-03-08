@@ -1,29 +1,106 @@
 ================================================================================
                     PHMS - Personal Health Management System
-                          Setup & Run Instructions
+                     Setup & Run Instructions (v2.0)
+                           Updated: March 2026
 ================================================================================
 
 PRE-REQUISITES
 ================================================================================
 1. Python Version
-   - Ensure Python 3.8 or above is installed
-   - Check: python --version
+   - Python 3.8 or above required
+   - Check version: python --version
 
 2. Package Manager
-   - pip (comes with Python)
-   - Check: pip --version
+   - pip (included with Python)
+   - Verify: pip --version
 
 3. Database
-   - MySQL Server must be running
-   - Database credentials configured in config.py
+   - SQLite (built-in with Python - no separate installation needed)
+   - Database file created automatically at: PHMS/instance/phms.db
 
 
-SETUP INSTRUCTIONS
+🔒 SECURITY CONFIGURATION (CRITICAL FOR PRODUCTION)
 ================================================================================
 
-Step 1: Navigate to Project Directory
+Development Setup (Local Testing):
 --------
-cd .\PHMS
+No special security configuration needed for local development.
+Default settings include:
+  - Debug mode enabled (auto-reload on code changes)
+  - Dev-safe secrets (clearly marked as development-only)
+  - HTTP allowed (no HTTPS required)
+  - Rate limiting enabled (5/minute login, 5/hour registration)
+
+Production Deployment (CRITICAL):
+--------
+Before deploying to production, you MUST configure security settings:
+
+1. Create .env file from template
+   cp .env.example .env
+   cp .env.production.example .env  (for production)
+
+2. Generate strong secrets (CRITICAL)
+   python -c "import secrets; print(secrets.token_urlsafe(32))"
+   - Generate 2 values: SECRET_KEY and SECURITY_PASSWORD_SALT
+   - Update both values in .env
+   - DO NOT use default "dev-*" values in production
+
+3. Set environment to production
+   FLASK_ENV=production
+   FLASK_DEBUG=0
+
+4. Configure HTTPS/TLS
+   FORCE_HTTPS=1  (requires SSL certificate on server)
+   SESSION_COOKIE_SECURE=1
+
+5. Configure email (SMTP)
+   MAIL_SERVER, MAIL_PORT, MAIL_USERNAME, MAIL_PASSWORD
+   (Use app-specific password for Gmail)
+
+6. Review full security guide
+   Read: PHMS/SECURITY.md (comprehensive security documentation)
+
+Security Features Implemented:
+  ✓ Rate limiting (5 login attempts/min, 3 password resets/hour)
+  ✓ CSRF protection (Flask-WTF with 1-hour token validity)
+  ✓ Secure cookies (HttpOnly, SameSite, Secure flags in production)
+  ✓ Password hashing (Werkzeug security)
+  ✓ HTTPS enforcement (HTTP → HTTPS redirect in production)
+  ✓ HSTS headers (1-year browser HTTPS enforcement)
+  ✓ Security headers (CSP, X-Frame-Options, X-XSS-Protection)
+  ✓ OTP-based password reset (6-digit code, 10-minute expiry)
+
+For detailed security configuration, see: PHMS/SECURITY.md
+
+
+AUTOMATED SETUP (RECOMMENDED - ONE COMMAND)
+================================================================================
+For quick setup with automatic initialization:
+
+cd PHMS
+python -m venv venv
+.\venv\Scripts\Activate.ps1    # Windows PowerShell
+pip install -r requirements.txt
+python start.py                 # ⭐ Automated setup and launch
+
+What start.py does automatically:
+✓ Initializes SQLite database (PHMS/instance/phms.db)
+✓ Applies all database migrations (Alembic)
+✓ Creates initial medication logs for existing users
+✓ Starts APScheduler for automated tasks (4 background jobs)
+✓ Launches Flask development server on http://127.0.0.1:5000
+
+The application will be ready at: http://127.0.0.1:5000
+
+SECURITY NOTE: For production, configure PHMS/SECURITY.md settings before running start.py
+
+
+MANUAL SETUP (STEP-BY-STEP)
+================================================================================
+
+Step 1: Navigate to PHMS Directory
+--------
+cd PHMS
 
 Step 2: Create Virtual Environment
 --------
@@ -43,38 +120,81 @@ Linux/Mac:
 Step 4: Install Dependencies
 --------
 pip install --upgrade pip
-
 pip install -r requirements.txt
 
-Step 5: Configure Database Connection
---------
-- Open config.py
-- Update MySQL connection details:
-  * host
-  * user
-  * password
-  * database name
-
-Step 6: Initialize Database
---------
-- Ensure MySQL is running
-- Database tables will auto-create on first run
-
-Step 7: Run the Application
---------
-python app.py
-
-Step 8: Access the Application
---------
-- Open web browser
-- Go to: http://127.0.0.1:5000
-- Login page will appear
-
-Default route: http://127.0.0.1:5000/login
-
-
-PROJECT STRUCTURE
-================================================================================
+Required packages include:
+- Flask 2.3.3 (web framework)
+- Flask-SQLAlchemy (ORM)
+- Flask-Login (authentication)
+- Flask-Mail (email notifications)
+- Flask-Migrate (database migrations)
+- APScheduler (background scheduler)
+- scikit-learn (ML models)
+- pandas, numpy (data processing)
+- ReportLab (PDF generation)
+roject Root/
+├── instructions.txt            # This file - setup guide
+├── Database/                   # ER diagrams and database documentation
+│
+└── PHMS/                       # Main application directory ⭐ START HERE
+    ├── app.py                  # Flask app entry point
+    ├── start.py                # ⭐ AUTOMATED SETUP & LAUNCH SCRIPT
+    ├── config.py               # App factory, database, security config
+    ├── routes.py               # Route registration
+    ├── scheduler_config.py     # APScheduler setup (4 automated jobs)
+    ├── models.py               # Model aggregator
+    ├── requirements.txt        # Python dependencies
+    │
+    ├── controllers/            # Business Logic Layer (MVC Pattern)
+    │   ├── auth_controller.py  # Register, Login, Logout, OTP Password Reset
+    │   ├── dashboard_controller.py      # Dashboard analytics
+    │   ├── profile_controller.py        # User profile management
+    │   ├── health_controller.py         # Health data + ML prediction
+    │   ├── medication_controller.py     # Medication CRUD operations
+    │   ├── medication_log_controller.py # Medication tracking
+    │   ├── notifications_controller.py  # Alert management
+    │   └── reports_controller.py        # Reports redirect
+    │
+    ├── models/                 # SQLAlchemy ORM Models (7 tables)
+    │   ├── user_model.py       # User authentication & profile
+    │   ├── health_model.py     # Health records (vitals + ML scores)
+    │   ├── medication_model.py # User prescriptions
+    │   ├── medication_log_model.py # Daily medication tracking
+    │   ├── medicine_model.py   # Medicine master catalog
+    │   ├── alert_model.py      # Notifications (health + medication)
+    │   └── otp_model.py        # Password reset OTP codes
+    │
+    ├── reports/                # Health Reports Module (Blueprint)
+    │   ├── routes/             # Report endpoints (weekly, monthly, PDF)
+    │   ├── services/           # Report business logic
+    │   ├── utils/              # Risk classification utilities
+    │   └── pdf/                # PDF generation (ReportLab)
+    │
+    ├── ml/                     # Machine Learning (Dual Prediction)
+    │   ├── ml_model.py         # Prediction interface
+    │   ├── trained_models/     # Model files (.pkl)
+    │   │   ├── phms_classifier_v6.pkl  # RandomForest (96.8% acc)
+    │   │   ├── phms_regression_v6.pkl  # ElasticNet (R²=0.89)
+    │   │   └── label_encoder_v6.pkl    # Label encoder
+    │   └── training_scripts/   # Model training (v1-v6)
+    │
+    ├── utils/                  # Utility Functions
+    │   ├── health_score.py     # Rule-based health scoring
+    │   └── medication_schedule.py # Frequency scheduling
+    │
+    ├── migrations/             # Alembic database migrations (15+ files)
+    ├── templates/              # Jinja2 HTML (13 pages + 8 email templates)
+    ├── static/                 # CSS stylesheets (base + per-page)
+    ├── datasets/               # Training data (25,884 records, 4 CSVs)
+    ├── instance/               # SQLite database (auto-generated)
+    │   └── phms.db             # Database file
+    └── support/                # Documentation files
+        ├── structure.txt       # Detailed project structure
+        ├── instructions.txt    # Comprehensive setup guide
+        ├── databaseAccess.txt  # Database access methods
+        ├── ER.txt              # Entity-Relationship diagram
+        ├── ML_Architecture.txt # ML pipeline documentation
+        └── notification and medication log scheduler.txt========================
 PHMS/
 ├── app.py                      # Entry point
 ├── config.py                   # App factory, extensions
@@ -83,32 +203,237 @@ PHMS/
 ├── requirements.txt
 │
 ├── controllers/                # Business logic (MVC pattern)
-│   ├── auth_controller.py      # Login, register, password reset
-│   ├── dashboard_controller.py # Main dashboard
-│   ├── health_controller.py    # Health data CRUD + ML
-│   ├── medication_controller.py# Medication management
-│   ├── profile_controller.py   # User profile updates
-│   └── reports_controller.py   # Analytics/reports
-│
-├── models/                     # Database models
-│   ├── user_model.py           # User + BMI calculation
-│   ├── health_model.py         # Health metrics
-│   ├── medication_model.py     # Prescriptions
-│   ├── medication_log_model.py # Dose tracking
-│   ├── medicine_model.py       # Medicine catalog
-│   └── alert_model.py          # Notifications
-│
-├── ml/                         # Machine learning
-│   ├── ml_model.py             # Prediction interface
-│   ├── trained_models/         # Model artifacts (.pkl)
-│   └── training_scripts/       # Model training (v3-v5)
-│
-├── utils/
-│   └── health_score.py         # Rule-based scoring algorithm
-│
-├── migrations/                 # Alembic migrations
-├── templates/                  # Jinja2 HTML (11 pages)
-├── static/style/               # CSS per page
+AUTOMATED SCHEDULER JOBS (via start.py)
+================================================================================
+When you run start.py, APScheduler automatically starts 4 background jobs:
+
+Job 1: Daily Medication Log Creation (00:00 UTC)
+- Creates pending medication logs for all active prescriptions
+- Runs every midnight automatically
+
+Job 2: Medication Reminders (Every 60 seconds)
+- Checks for upcoming doses (15-minute advance warning)
+- Sends email alerts for critical medications
+- Creates notification alerts
+
+Job 3: Grace Period Management (Every 60 seconds)
+- Marks pending logs as 'missed' after 30-minute grace period
+- Sends email alerts for missed critical medications
+
+Job 4: Consecutive Missed Detection (23:59 UTC)
+- Detects 3+ consecutive missed days
+- Sends critical warning emails to users
+- Runs daily at 11:59 PM
+
+To manually control scheduler:
+    from scheduler_config import SchedulerSetup
+    SchedulerSetup.init_scheduler(app)
+    SchedulerSetup.init_medication_logs()
+
+
+FLASK CL (COMPREHENSIVE)
+================================================================================
+Authentication & Security:
+✓ User Registration with email validation
+✓ Login with session management (Flask-Login)
+✓ OTP-based Password Reset (6-digit code, 10-minute expiry)
+✓ CSRF Protection on all forms
+✓ Secure headers (CSP, HSTS, X-Frame-Options)
+✓ Password hashing (Werkzeug Security)
+
+Health Management:
+✓ Health Data Entry (9 vital signs: HR, BP, Sugar, Temp, Steps, Sleep, BMI)
+✓ Triple Assessment System:
+  - Rule-based health score (0-100, penalty-based)
+  - ML regression health score (ElasticNet v4, R²=0.89)
+  Use start.py for proper scheduler initialization (recommended)
+- Never commit venv/, instance/, __pycache__/ to version control
+- Debug mode enabled by default (disable for production)
+- SQLite database stored in PHMS/instance/phms.db
+- All routes require authentication (Flask-Login session-based)
+- CSRF tokens required for all POST requests
+- Email configuration optional (app works without it)
+
+
+EMAIL CONFIGURATION (OPTIONAL)
+================================================================================
+To enable email notifications, edit PHMS/config.py:
+
+MAIL_SERVER = 'smtp.gmail.com'
+MAIL_PORT = 587
+MAIL_USERNAME = 'your-email@gmail.com'
+MAIL_PASSWORD = 'your-app-password'  # Use Gmail App Password
+MAIL_USE_TLS = True
+MAIL_DEFAULT_SENDER = 'your-email@gmail.com'
+
+Gmail setup:
+1. Enable 2FA in Google Account settings
+2. Generate App Password: https://myaccount.google.com/apppasswords
+3. Use App Password (not your regular password) in MAIL_PASSWORD
+
+
+DATABASE SCHEMA
+================================================================================
+SQLite database with 7 tables:
+1. user                 - User accounts (username, email, password, bmi)
+2. health_data          - Health records (vitals + 3 health scores)
+3. medication           - User prescriptions (frequency, dosage, is_critical)
+4. medication_log       - Daily tracking (status, scheduled_time, actual_time)
+5. medicine             - Master catalog (name, category, stock)
+6. alert                - Notifications (title, message, category, severity)
+7. password_reset_otp   - Time-limited OTP codes (expires in 10 minutes)
+
+Relationships:
+- User → HealthData (1:N, cascade delete)
+- User → Medication (1:N, cascade delete)
+- User → Alert (1:N, cascade delete)
+- User → PasswordResetOTP (1:N, cascade delete)
+- Medication → MedicationLog (1:N, cascade delete)
+- Medicine → Medication (1:N, restrict delete)
+
+
+FOR DEVELOPMENT
+================================================================================
+- Flask auto-reloads on file changes (debug mode)
+- Debug mode shows detailed error traces in browser
+- Database migrations: flask db migrate -m "description"
+- Console logging: Check terminal for scheduler and error logs
+- Browser DevTools (F12): Inspect network requests and console
+- Database viewer: Use DB Browser for SQLite to inspect phms.db
+- Test scheduler jobs: Check console for "Scheduler initialized successfully"
+
+
+QUICK START SUMMARY
+================================================================================
+Fastest way to get started:
+
+1. cd PHMS
+2. python -m venv venv
+3. .\venv\Scripts\Activate.ps1
+4. pip install -r requirements.txt
+5. python start.py                  # ⭐ Automated setup!
+6. Open browser: http://127.0.0.1:5000
+
+For detailed documentation, see:
+- PHMS/support/instructions.txt     (Comprehensive setup guide)
+- PHMS/support/structure.txt        (Detailed project structure)
+- PHMS/support/ML_Architecture.txt  (Machine learning pipeline)
+- PHMS/support/databaseAccess.txt   (Database queries and access)
+- PHMS/support/ER.txt               (Database schema and relationships)
+
+For more information, refer to support documentation in PHMS/support/)
+✓ Status tracking (pending/taken/missed/skipped)
+
+Notifications & Alerts:
+✓ Health Alerts (high-risk health readings)
+✓ Medication Reminders (upcoming doses)
+✓ Missed Dose Alerts (with critical email notifications)
+✓ Consecutive Missed Warnings (3+ days)
+✓ Email notifications for critical events
+✓ Alert categorization (health/medication)
+✓ Severity levels (info/warning/critical)
+
+Reports & Analytics:
+✓ Interactive Dashboard (charts, metrics, trends)
+✓ Weekly, Monthly, Yearly health reports
+✓ Custom date range reports
+✓ Multiple export formats (HTML/JSON/CSV/PDF)
+✓ Risk distribution analysis
+✓ Health trend visualization
+✓ PDF generation with ReportLab
+
+Automation:
+✓ APScheduler integration (4 background jobs)
+✓ Automated medication log creation
+✓ Scheduled notifications and reminders
+✓ Automated grace period management
+✓ Email notification system (Flask-Mail)
+TROUBLESHOOTING
+================================================================================
+
+Issue 1: "No module named 'models'"
+Solution:
+- Ensure you're in PHMS directory: cd PHMS
+- Activate venv: .\venv\Scripts\Activate.ps1
+- Verify __init__.py exists in models/ and controllers/
+
+Issue 2: Database not found / Table doesn't exist
+Solution:
+- Run migrations: flask db upgrade
+- Or use start.py for automated setup
+- Check instance/phms.db file exists
+
+Issue 3: Scheduler not running
+Solution:
+- Use start.py instead of app.py directly
+- Check console for "Scheduler initialized" message
+- Verify APScheduler installed: pip show APScheduler
+
+Issue 4: Email notifications not sending
+Solution:
+- Configure MAIL_* settings in config.py
+- Use Gmail App Password (not account password)
+- Check firewall/antivirus blocking SMTP port 587
+- Test with: from flask_mail import Message
+
+Issue 5: ModuleNotFoundError
+Solution:
+- Activate venv: .\venv\Scripts\Activate.ps1
+- Reinstall dependencies: pip install -r requirements.txt
+- Check Python version: python --version (3.8+ required)
+
+Issue 6: Port 5000 already in use
+Solution:
+- Change port in app.py: app.run(port=5001)
+- Or kill process: netstat -ano | findstr :5000
+
+Issue 7: ML prediction fails
+Solution:
+- Verify ml/trained_models/ contains:
+  * phms_classifier_v6.pkl
+  * phms_regression_v6.pkl
+  * label_encoder_v6.pkl
+- Check console for ML loading errors
+
+Issue 8: Permission denied on venv activation (PowerShell)
+Solution:
+- Run PowerShell as Administrator
+- Or use Command Prompt instead: venv\Scripts\activate
+
+Issue 9: "CRITICAL SECURITY ERROR: Production Secret Key Not Configured"
+Solution:
+- Generate SECRET_KEY: python -c "import secrets; print(secrets.token_urlsafe(32))"
+- Generate SECURITY_PASSWORD_SALT: python -c "import secrets; print(secrets.token_urlsafe(32))"
+- Add both to .env file in project root
+- Only occurs when FLASK_ENV=production
+- See PHMS/SECURITY.md for detailed instructions
+
+Issue 10: Rate limiting blocking legitimate requests
+Solution:
+- Increase limits in .env: RATELIMIT_AUTH_ATTEMPTS=10 per minute
+- Switch from memory to redis for distributed rate limiting
+- Use whitelist IP addresses if behind proxy
+- See PHMS/SECURITY.md for rate limit configuration
+
+Issue 11: "Secure cookies enforced" error in development
+Solution:
+- Set SESSION_COOKIE_SECURE=0 in .env (development only)
+- Or enable HTTPS and set SESSION_COOKIE_SECURE=1
+- Only enforced in production (FLASK_ENV=production)
+
+Issue 12: CSRF token errors on forms
+Solution:
+- Verify csrf_token() macro is in HTML templates: {{ csrf_token() }}
+- Check X-CSRFToken header in JavaScript requests
+- Increase WTF_CSRF_TIME_LIMIT if needed: 3600 (1 hour)
+- Clear browser cookies and try again
+- Or: Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+
+Issue 9: start.py fails to initialize
+Solution:
+- Check migrations are up to date: flask db upgrade
+- Verify database permissions in instance/ directory
+- Review console error messages for specific issues
 └── datasets/                   # Training data (4 CSVs)
 
 TROUBLESHOOTING

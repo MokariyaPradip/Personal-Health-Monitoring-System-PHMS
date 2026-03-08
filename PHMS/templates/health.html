@@ -90,7 +90,7 @@
 
                     <button class="delete-btn"
                         title="Delete entry"
-                        onclick="deleteHealth({{ entry.entry_id }})">
+                        onclick="deleteHealth({{ entry.entry_id }}, this)">
                         🗑️
                     </button>
                 </div>
@@ -207,12 +207,12 @@
 
 <script>
 
-function deleteHealth(entryId) {
+function deleteHealth(entryId, triggerButton) {
     if (!confirm("Are you sure you want to delete this health record?")) {
         return;
     }
 
-    fetch(`/deleteHealth/${entryId}`, {
+    const request = () => fetch(`/deleteHealth/${entryId}`, {
         method: 'DELETE',
         headers: {
             'X-CSRFToken': window.getCsrfToken()
@@ -222,10 +222,18 @@ function deleteHealth(entryId) {
     .then(data => {
         alert(data.message);
         if (data.success) {
+            if (window.PHMSLoading) {
+                window.PHMSLoading.showOverlay('Refreshing health history...');
+            }
             location.reload();
         }
-    })
-    .catch(() => alert("Failed to delete entry."));
+    });
+
+    const requestPromise = triggerButton && window.PHMSLoading
+        ? window.PHMSLoading.withLoading({ button: triggerButton, buttonText: 'Deleting...' }, request)
+        : request();
+
+    requestPromise.catch(() => alert("Failed to delete entry."));
 }
 
 function openModal() {
@@ -285,9 +293,15 @@ function addHealth(event) {
     }
 
     /* ===== DISABLE BUTTON & SHOW LOADING STATE ===== */
-    const submitBtn = event.target;
-    submitBtn.disabled = true;
-    submitBtn.textContent = 'Submitting...';
+    const submitBtn = event ? event.target : null;
+    if (submitBtn) {
+        if (window.PHMSLoading) {
+            window.PHMSLoading.setButtonLoading(submitBtn, 'Submitting...');
+        } else {
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Submitting...';
+        }
+    }
 
     /* ===== SEND DATA ===== */
     const formData = {
@@ -312,17 +326,32 @@ function addHealth(event) {
         if (data.message && data.message.toLowerCase().includes('added')) {
             alert("✅ Health entry saved successfully!");
             closeModal();
+            if (window.PHMSLoading) {
+                window.PHMSLoading.showOverlay('Refreshing health history...');
+            }
             location.reload();
         } else {
             alert(data.message || "Failed to save health entry.");
-            submitBtn.disabled = false;
-            submitBtn.textContent = 'Submit';
+            if (submitBtn) {
+                if (window.PHMSLoading) {
+                    window.PHMSLoading.clearButtonLoading(submitBtn);
+                } else {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Submit';
+                }
+            }
         }
     })
     .catch(err => {
         alert("❌ Something went wrong. Please try again.");
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Submit';
+        if (submitBtn) {
+            if (window.PHMSLoading) {
+                window.PHMSLoading.clearButtonLoading(submitBtn);
+            } else {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Submit';
+            }
+        }
     });
 }
 

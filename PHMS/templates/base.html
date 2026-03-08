@@ -8,7 +8,9 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
     <link rel="stylesheet" href="{{ url_for('static', filename='style/base.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style/loading-states.css') }}">
 
+    <script src="{{ url_for('static', filename='js/loading-states.js') }}"></script>
     <!-- Shared notification utilities -->
     <script src="{{ url_for('static', filename='js/notifications-common.js') }}"></script>
 
@@ -39,7 +41,7 @@
                 <div class="notification-dropdown" id="notificationDropdown" onmouseenter="cancelHideDropdown()" onmouseleave="hideNotifications()">
                     <div class="notification-header">
                         <h3>Notifications</h3>
-                        <button class="mark-all-read" onclick="markAllAsRead()" title="Mark all as read">✓</button>
+                        <button class="mark-all-read" onclick="markAllAsRead(() => loadNotifications(), this)" title="Mark all as read">✓</button>
                     </div>
                     <div class="notification-list" id="notificationList">
                         <div class="notification-loading">Loading...</div>
@@ -94,6 +96,11 @@
         }
 
         function loadNotifications() {
+            const notificationList = document.getElementById('notificationList');
+            if (window.PHMSLoading && notificationList) {
+                window.PHMSLoading.setRegionLoading(notificationList, true, 'Loading notifications...');
+            }
+
             fetch('/notifications/api?limit=15', {
                 method: 'GET',
                 headers: {
@@ -107,7 +114,17 @@
                     updateNotificationBadge(data.count);
                 }
             })
-            .catch(err => console.error('Error loading notifications:', err));
+            .catch(err => {
+                console.error('Error loading notifications:', err);
+                if (notificationList) {
+                    notificationList.innerHTML = '<div class="notification-empty">Failed to load notifications</div>';
+                }
+            })
+            .finally(() => {
+                if (window.PHMSLoading && notificationList) {
+                    window.PHMSLoading.setRegionLoading(notificationList, false);
+                }
+            });
         }
 
         function displayNotifications(notifications) {

@@ -1,0 +1,107 @@
+:root {
+    --phms-loading-overlay-bg: rgba(15, 23, 42, 0.45);
+    --phms-loading-surface-bg: #ffffff;
+    --phms-loading-text: #111827;
+    --phms-loading-accent: #2563eb;
+}
+
+body.phms-loading-active {
+    cursor: progress;
+}
+
+.phms-loading-overlay {
+    position: fixed;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: var(--phms-loading-overlay-bg);
+    z-index: 11000;
+}
+
+.phms-loading-overlay.phms-visible {
+    display: flex;
+}
+
+.phms-loading-panel {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 220px;
+    max-width: 90vw;
+    padding: 14px 16px;
+    border-radius: 10px;
+    background: var(--phms-loading-surface-bg);
+    color: var(--phms-loading-text);
+    box-shadow: 0 12px 35px rgba(0, 0, 0, 0.22);
+}
+
+.phms-spinner {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 3px solid rgba(37, 99, 235, 0.25);
+    border-top-color: var(--phms-loading-accent);
+    animation: phms-spin 0.75s linear infinite;
+    flex-shrink: 0;
+}
+
+.phms-loading-text {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 600;
+}
+
+.phms-btn-loading {
+    pointer-events: none;
+    opacity: 0.8;
+}
+
+.phms-btn-content {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.phms-btn-spinner {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.5);
+    border-top-color: currentColor;
+    animation: phms-spin 0.75s linear infinite;
+}
+
+.phms-region-loading {
+    position: relative;
+    pointer-events: none;
+}
+
+.phms-inline-loader {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    min-height: 56px;
+    color: #475569;
+    font-size: 0.9rem;
+}
+
+.phms-inline-loader .phms-spinner {
+    width: 18px;
+    height: 18px;
+    border-width: 2px;
+}
+
+@keyframes phms-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@media (max-width: 640px) {
+    .phms-loading-panel {
+        min-width: 0;
+        width: calc(100vw - 32px);
+    }
+}

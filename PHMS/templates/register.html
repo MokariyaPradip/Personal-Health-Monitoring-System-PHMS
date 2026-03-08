@@ -5,6 +5,8 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     
     <link rel="stylesheet" href="{{ url_for('static', filename='style/register.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style/loading-states.css') }}">
+    <script src="{{ url_for('static', filename='js/loading-states.js') }}"></script>
     
     <style>
     </style>
@@ -38,7 +40,7 @@
     <input id="height" type="number" step="0.1" placeholder="Height (cm)">
     <input id="weight" type="number" step="0.1" placeholder="Weight (kg)">
 
-    <button onclick="register()">Register</button>
+    <button onclick="register(event)">Register</button>
 
         <!-- login link -->
     <div class="login-link">
@@ -47,7 +49,17 @@
 </div>
 
 <script>
-function register() {
+function register(event) {
+    const registerBtn = event ? event.target : null;
+    if (registerBtn) {
+        if (window.PHMSLoading) {
+            window.PHMSLoading.setButtonLoading(registerBtn, 'Creating account...');
+        } else {
+            registerBtn.disabled = true;
+            registerBtn.textContent = 'Creating account...';
+        }
+    }
+
     fetch('/register', {
         method: 'POST',
         headers: {
@@ -68,7 +80,31 @@ function register() {
     .then(data => {
         alert(data.message);
         if (data.success) {
+            if (window.PHMSLoading) {
+                window.PHMSLoading.showOverlay('Redirecting to login...');
+            }
             window.location = "/login";
+            return;
+        }
+
+        if (registerBtn) {
+            if (window.PHMSLoading) {
+                window.PHMSLoading.clearButtonLoading(registerBtn);
+            } else {
+                registerBtn.disabled = false;
+                registerBtn.textContent = 'Register';
+            }
+        }
+    })
+    .catch(() => {
+        alert('Registration failed. Please try again.');
+        if (registerBtn) {
+            if (window.PHMSLoading) {
+                window.PHMSLoading.clearButtonLoading(registerBtn);
+            } else {
+                registerBtn.disabled = false;
+                registerBtn.textContent = 'Register';
+            }
         }
     });
 }

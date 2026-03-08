@@ -126,17 +126,135 @@ logger = logging.getLogger(__name__)
 
 
 class SchedulerSetup:
-    """Helper class for setting up medication scheduler"""
+    """Medication scheduler setup and management class.
+    
+    Provides methods to configure and initialize APScheduler for automated
+    medication log management tasks. Supports both standalone BackgroundScheduler
+    and Flask-APScheduler integration.
+    
+    Scheduled Tasks:
+        1. create_daily_logs: Midnight (00:00) - Creates logs for all active medications
+        2. schedule_notifications: Every 1 minute - Sends medication reminders
+        3. check_grace_period: Every 1 minute - Marks overdue medications as missed
+        4. check_consecutive_missed: Daily at 11:59 PM - Sends email alerts
+    
+    Class Attributes:
+        _scheduler (BackgroundScheduler | None): Singleton scheduler instance
+    
+    Scheduler Configuration:
+        - Timezone: UTC for consistency
+        - Max instances: 1 per job (prevents overlap)
+        - Misfire grace time: 10 seconds (allows late starts)
+        - Coalesce: Enabled (merges multiple missed executions)
+    
+    Usage Patterns:
+        Option 1 - BackgroundScheduler:
+            >>> from scheduler_config import SchedulerSetup
+            >>> scheduler = SchedulerSetup.setup_apscheduler(app)
+        
+        Option 2 - Flask-APScheduler Extension:
+            >>> from flask_apscheduler import APScheduler
+            >>> scheduler = SchedulerSetup.setup_flask_apscheduler(app)
+        
+        Option 3 - Get Existing Scheduler:
+            >>> scheduler = SchedulerSetup.get_scheduler()
+    
+    Methods:
+        setup_apscheduler(app): Configure standalone BackgroundScheduler
+        setup_flask_apscheduler(app): Configure Flask-APScheduler extension
+        get_scheduler(): Retrieve singleton scheduler instance
+    
+    Integration:
+        - All job functions wrapped with app.app_context() for database access
+        - Jobs defined in MedicationLogManager class
+        - Email notifications use Flask-Mail configuration
+        - Database operations use SQLAlchemy ORM
+    
+    Error Handling:
+        - Returns None if APScheduler not installed
+        - Logs errors to application logger
+        - Provides installation instructions on import failure
+    
+    Note:
+        - Call setup method only once during app initialization
+        - Scheduler runs in background thread (non-blocking)
+        - Jobs respect Flask application context for request-specific operations
+        - Singleton pattern ensures only one scheduler instance exists
+    """
     
     _scheduler: Optional[object] = None
     
     @classmethod
     def setup_apscheduler(cls, app):
-        """
-        Setup APScheduler with medication log jobs
+        """Set up APScheduler with medication log management jobs.
         
-        Usage in app.py:
-            scheduler = SchedulerSetup.setup_apscheduler(app)
+        Configures and starts a BackgroundScheduler with four automated jobs
+        for medication log management. All jobs run with Flask app context.
+        
+        Args:
+            app (Flask): Flask application instance for context management
+        
+        Returns:
+            BackgroundScheduler | None: Configured scheduler instance, or None on error
+        
+        Jobs Configured:
+            1. create_daily_logs (Cron: 00:00 daily):
+               - Creates medication log entries for all active medications
+               - Scheduled times based on medication frequency
+               - Skips if logs already exist for today
+            
+            2. schedule_notifications (Interval: Every 1 minute):
+               - Checks for upcoming medication doses (within next hour)
+               - Creates Alert records for pending medications
+               - Sends email reminders for critical medications
+               - Max 1 instance, 10s misfire grace, coalesce enabled
+            
+            3. check_grace_period (Interval: Every 1 minute):
+               - Identifies pending logs past their grace period
+               - Marks overdue medications as 'missed'
+               - Grace period: max(30 minutes, dose_gap_time)
+               - Max 1 instance, 10s misfire grace, coalesce enabled
+            
+            4. check_consecutive_missed (Cron: 23:59 daily):
+               - Analyzes missed medication patterns
+               - Sends email alerts for 2+ consecutive missed doses
+               - Updates user notification preferences
+        
+        Configuration:
+            - Timezone: UTC (pytz.UTC)
+            - Replace existing: True (allows restart)
+            - Coalesce: True for interval jobs (prevents queue buildup)
+            - Max instances: 1 for interval jobs (prevents overlap)
+        
+        Example:
+            >>> from config import create_app
+            >>> from scheduler_config import SchedulerSetup
+            >>> app = create_app()
+            >>> scheduler = SchedulerSetup.setup_apscheduler(app)
+            ✓ Scheduled: Create daily logs at 00:00
+            ✓ Scheduled: Send notifications every minute
+            ✓ Scheduled: Check grace period every minute
+            ✓ Scheduled: Check consecutive missed at 23:59
+            ✓ Medication scheduler started successfully!
+        
+        Error Handling:
+            - Returns None if APScheduler not installed
+            - Returns None if job setup fails
+            - Logs errors with logger.error()
+            - Provides pip install instructions
+        
+        Context Management:
+            - All jobs wrapped with app.app_context()
+            - Ensures database access works in background threads
+            - Required for SQLAlchemy operations
+            - Prevents "working outside application context" errors
+        
+        Note:
+            - Scheduler starts automatically after job registration
+            - Stores instance in cls._scheduler for later access
+            - Jobs use MedicationLogManager static methods
+            - Call this only once during app initialization
+            - Requires APScheduler: pip install APScheduler
         """
         try:
             from apscheduler.schedulers.background import BackgroundScheduler
@@ -232,12 +350,68 @@ class SchedulerSetup:
     
     @classmethod
     def setup_flask_apscheduler(cls, app):
-        """
-        Setup Flask-APScheduler extension
+        """Set up Flask-APScheduler extension with medication management jobs.
         
-        Usage in app.py:
-            from flask_apscheduler import APScheduler
-            scheduler = SchedulerSetup.setup_flask_apscheduler(app)
+        Alternative to setup_apscheduler() that uses Flask-APScheduler extension.
+        Provides better Flask integration with built-in API endpoints for job
+        monitoring and management.
+        
+        Args:
+            app (Flask): Flask application instance
+        
+        Returns:
+            APScheduler | None: Flask-APScheduler instance, or None on error
+        
+        Features:
+            - Web API for job management (enable via SCHEDULER_API_ENABLED)
+            - Job monitoring endpoints at /scheduler/*
+            - Automatic Flask context management
+            - Built-in authentication support
+        
+        Configuration (app.config):
+            SCHEDULER_API_ENABLED: True
+            SCHEDULER_ENDPOINT_PREFIX: '/scheduler'
+            SCHEDULER_JOBS: List of job definitions
+        
+        Jobs Configured:
+            Same 4 jobs as setup_apscheduler():
+            - create_daily_logs (00:00 daily)
+            - schedule_notifications (every minute)
+            - check_grace_period (every minute)
+            - check_consecutive_missed (23:59 daily)
+        
+        API Endpoints (when SCHEDULER_API_ENABLED=True):
+            GET  /scheduler/jobs - List all jobs
+            GET  /scheduler/jobs/<job_id> - Get job details
+            POST /scheduler/jobs/<job_id>/pause - Pause a job
+            POST /scheduler/jobs/<job_id>/resume - Resume a job
+            POST /scheduler/jobs/<job_id>/run - Run job immediately
+        
+        Example:
+            >>> from config import create_app
+            >>> from scheduler_config import SchedulerSetup
+            >>> from flask_apscheduler import APScheduler
+            >>> app = create_app()
+            >>> scheduler = SchedulerSetup.setup_flask_apscheduler(app)
+            >>> scheduler.start()
+        
+        Advantages over BackgroundScheduler:
+            - Better Flask integration
+            - Web-based job monitoring
+            - Automatic app context handling
+            - Job pause/resume via API
+            - Real-time job status
+        
+        Error Handling:
+            - Returns None if Flask-APScheduler not installed
+            - Returns None if configuration fails
+            - Logs errors with logger
+        
+        Note:
+            - Requires Flask-APScheduler: pip install Flask-APScheduler
+            - Configure SCHEDULER_API_ENABLED for web API
+            - Jobs store references in app.config['SCHEDULER_JOBS']
+            - Recommended for production deployments
         """
         try:
             from flask_apscheduler import APScheduler
@@ -292,7 +466,49 @@ class SchedulerSetup:
     
     @classmethod
     def get_scheduler(cls):
-        """Get the current scheduler instance"""
+        """Retrieve the singleton scheduler instance.
+        
+        Returns the currently active scheduler that was created by either
+        setup_apscheduler() or setup_flask_apscheduler().
+        
+        Returns:
+            BackgroundScheduler | APScheduler | None: Active scheduler instance,
+                or None if no scheduler has been initialized
+        
+        Use Cases:
+            - Check if scheduler is running
+            - Access scheduler for manual job management
+            - Shutdown scheduler gracefully
+            - Query job status and next run times
+        
+        Example:
+            >>> from scheduler_config import SchedulerSetup
+            >>> scheduler = SchedulerSetup.get_scheduler()
+            >>> if scheduler:
+            ...     print("Scheduler is running")
+            ...     for job in scheduler.get_jobs():
+            ...         print(f"Job: {job.id}, Next run: {job.next_run_time}")
+            ... else:
+            ...     print("No scheduler initialized")
+        
+        Example - Graceful Shutdown:
+            >>> scheduler = SchedulerSetup.get_scheduler()
+            >>> if scheduler:
+            ...     scheduler.shutdown(wait=True)
+            ...     print("✓ Scheduler stopped")
+        
+        Example - Manual Job Trigger:
+            >>> scheduler = SchedulerSetup.get_scheduler()
+            >>> if scheduler:
+            ...     job = scheduler.get_job('create_daily_logs')
+            ...     job.modify(next_run_time=datetime.now())
+        
+        Note:
+            - Returns None if setup_apscheduler() not called yet
+            - Singleton pattern ensures only one instance exists
+            - Safe to call multiple times
+            - Does not start scheduler if not running
+        """
         return cls._scheduler
 
 

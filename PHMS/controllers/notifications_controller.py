@@ -8,7 +8,62 @@ from controllers.medication_log_controller import MedicationLogManager
 
 @login_required
 def notifications_page():
-    """Render the notifications page with all alerts grouped by category"""
+    """Display comprehensive notifications page with alerts and medication logs.
+    
+    Renders the notifications page showing all user alerts grouped by category
+    (health/medication) and medication logs for the past 7 days. Includes counters
+    for unread alerts and logs categorized by status (pending/taken/missed/skipped).
+    
+    Endpoints:
+        GET /notifications: Display notifications and medication logs page
+    
+    Data Retrieved:
+        Alerts:
+            - all_alerts: All alerts for the user (ordered by most recent)
+            - health_alerts: Filtered alerts with category='health'
+            - medication_alerts: Filtered alerts with category='medication'
+            - Unread counts per category
+        
+        Medication Logs (Last 7 Days):
+            - pending_logs: Status='pending', ordered by nearest time (ascending)
+            - taken_logs: Status='taken', ordered by most recent (descending)
+            - missed_logs: Status='missed', ordered by most recent (descending)
+            - skipped_logs: Status='skipped', ordered by most recent (descending)
+            - Grace period info added to each pending log via MedicationLogManager
+    
+    Sorting Logic:
+        - Alerts: Descending by created_at (most recent first)
+        - Pending logs: Ascending by log_date and scheduled_time (next dose first)
+        - Taken/Missed/Skipped logs: Descending by log_date and scheduled_time
+    
+    Returns:
+        Rendered notifications.html template with context:
+            - all_alerts: List[Alert] - All alerts
+            - health_alerts: List[Alert] - Health category alerts
+            - medication_alerts: List[Alert] - Medication category alerts
+            - total_count: int - Total alert count
+            - unread_count: int - Total unread alerts
+            - health_unread: int - Unread health alerts
+            - medication_unread: int - Unread medication alerts
+            - medication_logs: List[MedicationLog] - Combined all logs
+            - pending_logs: List[MedicationLog] - Pending logs with grace_period_minutes
+            - taken_logs: List[MedicationLog] - Taken logs
+            - missed_logs: List[MedicationLog] - Missed logs
+            - skipped_logs: List[MedicationLog] - Skipped logs
+            - pending_count: int - Count of pending logs
+            - taken_count: int - Count of taken logs
+            - missed_count: int - Count of missed logs
+    
+    Error Handling:
+        - On exception: Returns template with all empty lists/zero counts
+        - Rolls back database session on error
+        - Gracefully degrades to empty state (no error displayed to user)
+    
+    Security:
+        - Requires @login_required (authenticated session)
+        - All data filtered by current_user.user_id
+        - Uses JOIN queries for medication logs (ensures data integrity)
+    """
     try:
         # Fetch all alerts for the current user, ordered by most recent
         all_alerts = Alert.query.filter_by(

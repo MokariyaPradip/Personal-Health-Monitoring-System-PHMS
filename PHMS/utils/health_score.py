@@ -99,6 +99,38 @@ def calculate_health_score(bmi, heart_rate, temperature, steps, sleep_hours, blo
 
 
 def score_to_label(score):
+    """Convert numeric health score to categorical risk label.
+    
+    Maps health score values to human-readable risk categories for
+    display and ML classifier labeling.
+    
+    Args:
+        score (int | float): Health score value (typically 0-100)
+    
+    Returns:
+        str: Risk category label:
+            - 'Low Risk': Score >= 80 (healthy range)
+            - 'Medium Risk': Score 60-79 (moderate concern)
+            - 'High Risk': Score < 60 (significant concern)
+    
+    Thresholds:
+        - Low Risk: >= 80
+        - Medium Risk: 60-79
+        - High Risk: < 60
+    
+    Example:
+        >>> score_to_label(85)
+        'Low Risk'
+        >>> score_to_label(70)
+        'Medium Risk'
+        >>> score_to_label(45)
+        'High Risk'
+    
+    Note:
+        - Used by ML classifier model for training labels
+        - Consistent with risk thresholds in reports module
+        - No validation performed on input range
+    """
     if score >= 80:
         return "Low Risk"
     elif score >= 60:

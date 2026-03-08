@@ -80,7 +80,7 @@
     <div class="action-section">
         <button class="btn-update" onclick="openUpdate()">✏️ Update Profile</button>
         <button class="btn-password" onclick="openPassword()">🔐 Change Password</button>
-        <button class="btn-logout" onclick="logoutUser()">🚪 Logout</button>
+        <button class="btn-logout" onclick="logoutUser(this)">🚪 Logout</button>
     </div>
 
 </div>
@@ -130,7 +130,7 @@
 
         <div class="modal-footer">
             <button type="button" class="btn-cancel" onclick="closeAll()">Cancel</button>
-            <button type="button" class="btn-submit" onclick="updateProfile()">Update</button>
+            <button type="button" class="btn-submit" onclick="updateProfile(event)">Update</button>
         </div>
     </div>
 </div>
@@ -164,7 +164,7 @@
 
         <div class="modal-footer">
             <button type="button" class="btn-cancel" onclick="closeAll()">Cancel</button>
-            <button type="button" class="btn-submit" onclick="resetPassword()">Change Password</button>
+            <button type="button" class="btn-submit" onclick="resetPassword(event)">Change Password</button>
         </div>
     </div>
 </div>
@@ -186,7 +186,7 @@ function closeAll() {
     document.getElementById('passwordModal').style.display = 'none';
 }
 
-function updateProfile() {
+function updateProfile(event) {
     const username = document.getElementById('edit_username').value;
     const gender = document.getElementById('edit_gender').value;
     const age = document.getElementById('edit_age').value;
@@ -196,6 +196,16 @@ function updateProfile() {
     if (!username || !gender || !age || !height || !weight) {
         alert("Please fill in all fields.");
         return;
+    }
+
+    const submitBtn = event ? event.target : null;
+    if (submitBtn) {
+        if (window.PHMSLoading) {
+            window.PHMSLoading.setButtonLoading(submitBtn, 'Updating...');
+        } else {
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Updating...';
+        }
     }
 
     fetch('/updateProfile', {
@@ -216,15 +226,36 @@ function updateProfile() {
     .then(data => {
         if (data.success) {
             alert("✅ Profile updated successfully!");
+            if (window.PHMSLoading) {
+                window.PHMSLoading.showOverlay('Refreshing profile...');
+            }
             location.reload();
         } else {
             alert("❌ " + (data.message || "Failed to update profile."));
+            if (submitBtn) {
+                if (window.PHMSLoading) {
+                    window.PHMSLoading.clearButtonLoading(submitBtn);
+                } else {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Update';
+                }
+            }
         }
     })
-    .catch(err => alert("❌ Error updating profile. Please try again."));
+    .catch(err => {
+        alert("❌ Error updating profile. Please try again.");
+        if (submitBtn) {
+            if (window.PHMSLoading) {
+                window.PHMSLoading.clearButtonLoading(submitBtn);
+            } else {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Update';
+            }
+        }
+    });
 }
 
-function resetPassword() {
+function resetPassword(event) {
     const currentPassword = document.getElementById('current_password').value;
     const newPassword = document.getElementById('new_password').value;
     const repeat = document.getElementById('confirm_password').value;
@@ -242,6 +273,16 @@ function resetPassword() {
     if (newPassword.length < 8) {
         alert("❌ Password must be at least 8 characters long.");
         return;
+    }
+
+    const submitBtn = event ? event.target : null;
+    if (submitBtn) {
+        if (window.PHMSLoading) {
+            window.PHMSLoading.setButtonLoading(submitBtn, 'Changing...');
+        } else {
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Changing...';
+        }
     }
 
     fetch('/changePassword', {
@@ -264,11 +305,39 @@ function resetPassword() {
         } else {
             alert("❌ " + (data.message || "Failed to reset password."));
         }
+
+        if (submitBtn) {
+            if (window.PHMSLoading) {
+                window.PHMSLoading.clearButtonLoading(submitBtn);
+            } else {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Change Password';
+            }
+        }
     })
-    .catch(err => alert("❌ Error resetting password. Please try again."));
+    .catch(err => {
+        alert("❌ Error resetting password. Please try again.");
+        if (submitBtn) {
+            if (window.PHMSLoading) {
+                window.PHMSLoading.clearButtonLoading(submitBtn);
+            } else {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Change Password';
+            }
+        }
+    });
 }
 
-function logoutUser() {
+function logoutUser(triggerButton) {
+    if (triggerButton) {
+        if (window.PHMSLoading) {
+            window.PHMSLoading.setButtonLoading(triggerButton, 'Logging out...');
+        } else {
+            triggerButton.disabled = true;
+            triggerButton.textContent = 'Logging out...';
+        }
+    }
+
     fetch('/logout', {
         method: 'POST',
         headers: {
@@ -278,14 +347,33 @@ function logoutUser() {
     })
     .then(res => {
         if (res.ok) {
+            if (window.PHMSLoading) {
+                window.PHMSLoading.showOverlay('Signing out...');
+            }
             window.location.href = '/login';
         } else {
             alert('❌ Logout failed. Please try again.');
+            if (triggerButton) {
+                if (window.PHMSLoading) {
+                    window.PHMSLoading.clearButtonLoading(triggerButton);
+                } else {
+                    triggerButton.disabled = false;
+                    triggerButton.textContent = '🚪 Logout';
+                }
+            }
         }
     })
     .catch(err => {
         console.error('Logout error:', err);
         alert('❌ Error during logout. Please try again.');
+        if (triggerButton) {
+            if (window.PHMSLoading) {
+                window.PHMSLoading.clearButtonLoading(triggerButton);
+            } else {
+                triggerButton.disabled = false;
+                triggerButton.textContent = '🚪 Logout';
+            }
+        }
     });
 }
 
