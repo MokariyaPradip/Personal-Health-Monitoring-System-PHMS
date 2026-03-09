@@ -126,26 +126,94 @@ def _get_glucose_status(sugar):
     else:
         return 'Normal'
 
+
+def _format_risk_label(label):
+    """Format risk label with proper spacing for display.
+    
+    Args:
+        label (str): Risk label from ML/rule-based scoring (e.g., 'Low Risk', 'High Risk')
+    
+    Returns:
+        str: Formatted label for display (e.g., 'Low Risk', 'N/A')
+    
+    Examples:
+        >>> _format_risk_label('Low Risk')
+        'Low Risk'
+        >>> _format_risk_label('LowRisk')
+        'Low Risk'
+        >>> _format_risk_label(None)
+        'N/A'
+    """
+    if not label or label == 'N/A':
+        return 'N/A'
+    # Handle both 'LowRisk' and 'Low Risk' formats
+    if 'Risk' in label and ' ' not in label:
+        # Convert 'LowRisk' to 'Low Risk'
+        label = label.replace('Risk', ' Risk')
+    return label
+
+
 @login_required
 def health_page():
-    """Display health data page"""
+    """Display health data page with pagination support.
+    
+    Query Parameters:
+        page (int): Page number for pagination (default: 1)
+    
+    Pagination:
+        - Shows 50 entries per page in history section
+        - Last entry (most recent) always shown at top
+        - Total count and monthly count unaffected by pagination
+    """
     from datetime import datetime, timedelta
     
-    # Fetch all health entries for user, ordered by timestamp desc
-    all_entries = HealthData.query.filter_by(
+    # Get pagination parameter
+    page = request.args.get('page', 1, type=int)
+    per_page = 50
+    
+    # Fetch paginated health entries for history section
+    pagination = HealthData.query.filter_by(
         user_id=current_user.user_id
-    ).order_by(HealthData.recorded_at.desc()).all()
-
-    for entry in all_entries:
+    ).order_by(HealthData.recorded_at.desc()).paginate(
+        page=page,
+        per_page=per_page,
+        error_out=False
+    )
+    
+    # Process entries with risk label formatting
+    for entry in pagination.items:
         entry.rule_based_risk_label = score_to_label(entry.health_score) if entry.health_score is not None else None
         entry.regression_based_risk_label = (
             score_to_label(entry.ml_regression_health_score)
             if entry.ml_regression_health_score is not None
             else None
         )
+        # Format labels for display
+        entry.rule_based_risk_label_display = _format_risk_label(entry.rule_based_risk_label)
+        entry.ml_classifier_risk_label_display = _format_risk_label(entry.ml_classifier_risk_label)
+        entry.regression_based_risk_label_display = _format_risk_label(entry.regression_based_risk_label)
     
-    # Get last/most recent entry
-    last_entry = all_entries[0] if all_entries else None
+    # Get last/most recent entry (not affected by pagination)
+    last_entry = HealthData.query.filter_by(
+        user_id=current_user.user_id
+    ).order_by(HealthData.recorded_at.desc()).first()
+    
+    if last_entry:
+        last_entry.rule_based_risk_label = score_to_label(last_entry.health_score) if last_entry.health_score is not None else None
+        last_entry.regression_based_risk_label = (
+            score_to_label(last_entry.ml_regression_health_score)
+            if last_entry.ml_regression_health_score is not None
+            else None
+        )
+        # Format labels for display
+        last_entry.rule_based_risk_label_display = _format_risk_label(last_entry.rule_based_risk_label)
+        last_entry.ml_classifier_risk_label_display = _format_risk_label(last_entry.ml_classifier_risk_label)
+        last_entry.regression_based_risk_label_display = _format_risk_label(last_entry.regression_based_risk_label)
+    
+    # Get total count for stats (all time)
+    total_entries = HealthData.query.filter_by(
+        user_id=current_user.user_id
+    ).count()
     
     # Count health records this month
     today = datetime.now()
@@ -154,7 +222,14 @@ def health_page():
         user_id=current_user.user_id
     ).filter(HealthData.recorded_at >= first_of_month).count()
     
-    return render_template('health.html', last_entry=last_entry, all_entries=all_entries, monthly_records_count=monthly_records_count)
+    return render_template(
+        'health.html',
+        last_entry=last_entry,
+        entries=pagination.items,
+        pagination=pagination,
+        total_entries=total_entries,
+        monthly_records_count=monthly_records_count
+    )
 
 
 @login_required
@@ -162,8 +237,8 @@ def add_health():
     """Add health data entry with comprehensive input validation"""
     data = request.get_json(silent=True) or {}
     
-    # Debug logging
-    current_app.logger.info(f"Received health data: {data}")
+    # Log data submission without exposing sensitive values
+    current_app.logger.info(f"Health data submission initiated for user {current_user.user_id}")
 
     # ✅ INPUT VALIDATION & SAFE TYPE CONVERSION
     try:

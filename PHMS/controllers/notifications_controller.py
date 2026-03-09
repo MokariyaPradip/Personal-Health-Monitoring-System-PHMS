@@ -6,6 +6,17 @@ from datetime import date, timedelta
 from controllers.medication_log_controller import MedicationLogManager
 
 
+def _normalize_severity(value):
+    """Normalize severity to project-standard Title Case values."""
+    severity_map = {
+        'low': 'Low',
+        'medium': 'Medium',
+        'high': 'High',
+        'critical': 'Critical',
+    }
+    return severity_map.get(str(value or '').strip().lower(), 'Medium')
+
+
 @login_required
 def notifications_page():
     """Display comprehensive notifications page with alerts and medication logs.
@@ -205,7 +216,7 @@ def get_notifications():
                 'title': alert.title or 'Alert',
                 'message': alert.message,
                 'category': alert.category or 'general',
-                'severity': alert.severity or 'medium',
+                'severity': _normalize_severity(alert.severity),
                 'created_at': alert.created_at.strftime('%b %d, %Y %I:%M %p'),
                 'is_read': alert.is_read
             })

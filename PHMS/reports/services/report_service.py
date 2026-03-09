@@ -339,7 +339,7 @@ def _alert_summary(user_id: int, dr: ReportDateRange) -> dict:
         dict: Alert counts:
             {
                 'total_alerts': int,
-                'critical_alerts': int  # severity='high'
+                'critical_alerts': int  # severity in {'High', 'Critical'}
             }
     
     Example:
@@ -348,7 +348,7 @@ def _alert_summary(user_id: int, dr: ReportDateRange) -> dict:
         {'total_alerts': 15, 'critical_alerts': 3}
     
     Note:
-        - Critical alerts defined as severity='high' (case-insensitive)
+        - Critical alerts include severities 'High' and 'Critical' (case-insensitive)
         - Uses datetime range (start_dt to end_dt) for timestamp comparison
     """
     alerts = Alert.query.filter(
@@ -357,8 +357,21 @@ def _alert_summary(user_id: int, dr: ReportDateRange) -> dict:
         Alert.created_at <= dr.end_dt,
     ).all()
 
+    def _normalize_alert_severity(value):
+        severity_map = {
+            "low": "Low",
+            "medium": "Medium",
+            "high": "High",
+            "critical": "Critical",
+        }
+        return severity_map.get(str(value or "").strip().lower(), "Medium")
+
     total = len(alerts)
-    critical = sum(1 for item in alerts if (item.severity or "").lower() == "high")
+    critical = sum(
+        1
+        for item in alerts
+        if _normalize_alert_severity(item.severity) in {"High", "Critical"}
+    )
 
     return {
         "total_alerts": total,

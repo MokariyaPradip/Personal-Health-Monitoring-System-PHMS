@@ -5,7 +5,7 @@ Flask-Migrate==4.0.5
 Flask-Login==0.6.3
 Flask-WTF==1.2.1
 Flask-Mail==0.9.1
-Werkzeug==2.3.7
+Werkzeug==2.3.7 # required for rate limiting
 Jinja2==3.1.2
 MarkupSafe==2.1.3
 
@@ -34,4 +34,3 @@ Flask-APScheduler==1.13.1
 # Security & Rate Limiting
 Flask-Limiter==3.5.0
 redis==5.0.1  # Storage backend for Flask-Limiter (production-ready)
-Werkzeug==2.3.7  # Required for rate limiting storage

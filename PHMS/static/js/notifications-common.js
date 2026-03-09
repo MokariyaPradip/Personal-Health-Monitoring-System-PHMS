@@ -174,13 +174,19 @@ function getCategoryEmoji(category) {
     return emojiMap[category] || emojiMap['general'];
 }
 
-function getSeverityLabel(severity) {
-    const labelMap = {
+function normalizeSeverityValue(severity) {
+    const normalized = String(severity || '').trim().toLowerCase();
+    const severityMap = {
         'high': 'High',
         'medium': 'Medium',
-        'low': 'Low'
+        'low': 'Low',
+        'critical': 'Critical'
     };
-    return labelMap[severity] || 'Normal';
+    return severityMap[normalized] || 'Medium';
+}
+
+function getSeverityLabel(severity) {
+    return normalizeSeverityValue(severity);
 }
 
 function escapeHtml(text) {

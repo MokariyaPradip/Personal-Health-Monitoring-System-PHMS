@@ -10,13 +10,13 @@ This module sets up the scheduled tasks for automatic medication log management:
 To integrate with your Flask app, add this to your main app.py or a separate scheduler setup file:
 
 from apscheduler.schedulers.background import BackgroundScheduler
-from pytz import UTC
+from datetime import datetime
 import logging
 
 def setup_medication_scheduler(app):
     '''Setup APScheduler for medication log management'''
     
-    scheduler = BackgroundScheduler(timezone=UTC)
+    scheduler = BackgroundScheduler(timezone=datetime.now().astimezone().tzinfo)
     
     # Import the manager class
     from controllers.medication_log_controller import MedicationLogManager
@@ -125,6 +125,18 @@ from datetime import datetime
 logger = logging.getLogger(__name__)
 
 
+def _get_local_timezone():
+    """Resolve device-local timezone for scheduler jobs.
+
+    Returns:
+        tzinfo | None: Local timezone if available, else None.
+    """
+    try:
+        return datetime.now().astimezone().tzinfo
+    except Exception:
+        return None
+
+
 class SchedulerSetup:
     """Medication scheduler setup and management class.
     
@@ -142,7 +154,7 @@ class SchedulerSetup:
         _scheduler (BackgroundScheduler | None): Singleton scheduler instance
     
     Scheduler Configuration:
-        - Timezone: UTC for consistency
+        - Timezone: Device local timezone
         - Max instances: 1 per job (prevents overlap)
         - Misfire grace time: 10 seconds (allows late starts)
         - Coalesce: Enabled (merges multiple missed executions)
@@ -221,7 +233,7 @@ class SchedulerSetup:
                - Updates user notification preferences
         
         Configuration:
-            - Timezone: UTC (pytz.UTC)
+            - Timezone: Device local timezone
             - Replace existing: True (allows restart)
             - Coalesce: True for interval jobs (prevents queue buildup)
             - Max instances: 1 for interval jobs (prevents overlap)
@@ -255,13 +267,24 @@ class SchedulerSetup:
             - Jobs use MedicationLogManager static methods
             - Call this only once during app initialization
             - Requires APScheduler: pip install APScheduler
+        
+        Multi-Worker Safety:
+            - Only ONE process should run the scheduler
+            - In production with multiple workers, set ENABLE_SCHEDULER=1 for one process
+            - Or run scheduler as a separate dedicated process
+            - Prevents duplicate job execution and redundant email notifications
         """
         try:
             from apscheduler.schedulers.background import BackgroundScheduler
-            from pytz import UTC
             from controllers.medication_log_controller import MedicationLogManager
             
-            scheduler = BackgroundScheduler(timezone=UTC)
+            local_timezone = _get_local_timezone()
+            if local_timezone is not None:
+                scheduler = BackgroundScheduler(timezone=local_timezone)
+                logger.info(f"✓ Scheduler timezone set to local device timezone: {local_timezone}")
+            else:
+                scheduler = BackgroundScheduler()
+                logger.warning("⚠️ Could not resolve local timezone. Using APScheduler default timezone.")
             
             # ============ WRAPPER FUNCTIONS WITH APP CONTEXT ============
             def job_create_daily_logs():

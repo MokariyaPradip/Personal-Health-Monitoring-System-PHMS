@@ -19,13 +19,13 @@ Status Values:
 - skipped: Past pending logs that were never taken (from previous days)
 """
 
-from flask import jsonify, request
+from flask import jsonify, request, render_template
 from flask_login import login_required, current_user
 from models import Medication, MedicationLog, Alert, User
-from config import db
+from config import db, mail
+from flask_mail import Message
 from datetime import datetime, date, time, timedelta
 from utils.medication_schedule import get_scheduled_time_for_frequency, get_minimum_dose_gap_minutes
-from pytz import UTC
 import logging
 
 logger = logging.getLogger(__name__)
@@ -34,8 +34,9 @@ logger = logging.getLogger(__name__)
 class MedicationLogManager:
     """Manager class for medication log operations"""
     
-    # Minimum grace period is 30 minutes
-    # Actual grace period = max(30 minutes, time_gap_between_doses)
+    # Maximum grace period is 30 minutes
+    # Actual grace period = min(30 minutes, time_gap_between_doses)
+    # For high-frequency meds, grace period is shorter to avoid overlapping with next dose
     MIN_GRACE_PERIOD_MINUTES = 30
     CONSECUTIVE_MISSED_THRESHOLD = 2
     
@@ -373,7 +374,7 @@ class MedicationLogManager:
         Send in-app notification for a pending medication at scheduled time.
         
         If medication is critical:
-        - Sets severity to 'critical'
+        - Sets severity to 'Critical'
         - Sends immediate email reminder to user
         
         Creates a notification that appears in the user's notification center
@@ -402,7 +403,7 @@ class MedicationLogManager:
             
             # Determine severity based on whether medication is critical
             is_critical = medication.is_critical if hasattr(medication, 'is_critical') else False
-            severity = 'critical' if is_critical else 'high'
+            severity = 'Critical' if is_critical else 'High'
             
             # Create notification alert
             notification = Alert(
@@ -663,12 +664,6 @@ class MedicationLogManager:
             consecutive_count: Number of consecutive missed logs for this medication
         """
         try:
-            from flask_mail import Mail, Message
-            from app import app
-            from flask import render_template
-            
-            mail = Mail(app)
-            
             subject = f"⚠️ CONSECUTIVE MISSED DOSES - {medication.medicine.medicine_name} ⚠️"
             
             # Prepare email template variables
@@ -748,12 +743,6 @@ Your trusted health companion
             log: MedicationLog object
         """
         try:
-            from flask_mail import Mail, Message
-            from app import app
-            from flask import render_template
-            
-            mail = Mail(app)
-            
             subject = f"🚨 CRITICAL MEDICATION REMINDER - {medication.medicine.medicine_name}"
             
             # Prepare email context
@@ -832,12 +821,6 @@ This is an automated critical medication reminder from your Personal Health Moni
             log: MedicationLog object
         """
         try:
-            from flask_mail import Mail, Message
-            from app import app
-            from flask import render_template
-            
-            mail = Mail(app)
-            
             subject = f"🚨 CRITICAL - Medication Missed: {medication.medicine.medicine_name}"
             
             # Prepare email template variables
@@ -895,14 +878,14 @@ This is an automated critical notification from your Personal Health Monitoring 
             
             mail.send(msg)
             
-            # Also create an in-app alert with high severity
+            # Also create an in-app alert with Critical severity
             critical_alert = Alert(
                 user_id=user.user_id,
                 medication_log_id=log.log_id,
                 title=f"🚨 CRITICAL - {medication.medicine.medicine_name} Missed",
                 message=f"Critical medication {medication.medicine.medicine_name} ({medication.dosage}) was marked as missed on {log.log_date.strftime('%B %d, %Y')} at {log.scheduled_time.strftime('%I:%M %p')}. This requires immediate attention.",
                 category='medication',
-                severity='critical',
+                severity='Critical',
                 is_read=False
             )
             db.session.add(critical_alert)
@@ -986,7 +969,8 @@ def update_medication_log_status(log_id):
         
         # Check if scheduled time has arrived (for taken/missed status updates)
         if status in ['taken', 'missed']:
-            current_datetime = datetime.utcnow()
+            # Use local device time consistently for medication flow checks.
+            current_datetime = datetime.now()
             current_date = current_datetime.date()
             current_time = current_datetime.time()
             scheduled_time = log.scheduled_time
@@ -1003,7 +987,7 @@ def update_medication_log_status(log_id):
         
         log.status = status
         if status == 'taken':
-            log.taken_at = datetime.utcnow()
+            log.taken_at = datetime.now()
         elif status == 'missed':
             # Check if medication is critical
             medication = log.medication
@@ -1183,7 +1167,7 @@ def mark_medication_taken(log_id):
     
     Side Effects:
         - Updates log.status = 'taken'
-        - Sets log.taken_at = current UTC timestamp
+        - Sets log.taken_at = current local timestamp
         - Commits change to database immediately
         - Logs operation to application logger
     
@@ -1242,7 +1226,7 @@ def mark_medication_taken(log_id):
             }), 400
         
         log.status = 'taken'
-        log.taken_at = datetime.utcnow()
+        log.taken_at = datetime.now()
         db.session.commit()
         
         logger.info(f"Log {log_id} marked as taken")
@@ -1268,7 +1252,7 @@ def mark_medication_missed(log_id):
     
     If medication is critical:
     - Sends immediate email notification (via send_critical_medication_missed_email)
-    - Creates in-app alert with severity='critical'
+    - Creates in-app alert with severity='Critical'
     """
     
     try:

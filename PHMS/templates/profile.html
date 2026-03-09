@@ -265,7 +265,7 @@ function updateProfile(event) {
     const weight = document.getElementById('edit_weight').value;
 
     if (!username || !gender || !age || !height || !weight) {
-        alert("Please fill in all fields.");
+        showToast('Please fill in all fields', 'error');
         return;
     }
 
@@ -296,13 +296,13 @@ function updateProfile(event) {
     .then(res => res.json())
     .then(data => {
         if (data.success) {
-            alert("✅ Profile updated successfully!");
+            showToast('Profile updated successfully');
             if (window.PHMSLoading) {
                 window.PHMSLoading.showOverlay('Refreshing profile...');
             }
             location.reload();
         } else {
-            alert("❌ " + (data.message || "Failed to update profile."));
+            showToast(data.message || 'Failed to update profile', 'error');
             if (submitBtn) {
                 if (window.PHMSLoading) {
                     window.PHMSLoading.clearButtonLoading(submitBtn);
@@ -314,7 +314,7 @@ function updateProfile(event) {
         }
     })
     .catch(err => {
-        alert("❌ Error updating profile. Please try again.");
+        showToast('Error updating profile. Please try again.', 'error');
         if (submitBtn) {
             if (window.PHMSLoading) {
                 window.PHMSLoading.clearButtonLoading(submitBtn);
@@ -332,17 +332,17 @@ function resetPassword(event) {
     const repeat = document.getElementById('confirm_password').value;
 
     if (!currentPassword || !newPassword || !repeat) {
-        alert("Please fill in all fields.");
+        showToast('Please fill in all fields', 'error');
         return;
     }
 
     if (newPassword !== repeat) {
-        alert("❌ Passwords do not match. Please try again.");
+        showToast('Passwords do not match. Please try again.', 'error');
         return;
     }
 
     if (newPassword.length < 8) {
-        alert("❌ Password must be at least 8 characters long.");
+        showToast('Password must be at least 8 characters long', 'error');
         return;
     }
 
@@ -371,10 +371,10 @@ function resetPassword(event) {
     .then(res => res.json())
     .then(data => {
         if (data.success) {
-            alert("✅ " + data.message);
+            showToast(data.message);
             closeAll();
         } else {
-            alert("❌ " + (data.message || "Failed to reset password."));
+            showToast(data.message || 'Failed to reset password', 'error');
         }
 
         if (submitBtn) {
@@ -387,7 +387,7 @@ function resetPassword(event) {
         }
     })
     .catch(err => {
-        alert("❌ Error resetting password. Please try again.");
+        showToast('Error resetting password. Please try again.', 'error');
         if (submitBtn) {
             if (window.PHMSLoading) {
                 window.PHMSLoading.clearButtonLoading(submitBtn);
@@ -423,7 +423,7 @@ function logoutUser(triggerButton) {
             }
             window.location.href = '/login';
         } else {
-            alert('❌ Logout failed. Please try again.');
+            showToast('Logout failed. Please try again.', 'error');
             if (triggerButton) {
                 if (window.PHMSLoading) {
                     window.PHMSLoading.clearButtonLoading(triggerButton);
@@ -435,8 +435,7 @@ function logoutUser(triggerButton) {
         }
     })
     .catch(err => {
-        console.error('Logout error:', err);
-        alert('❌ Error during logout. Please try again.');
+        showToast('Error during logout. Please try again.', 'error');
         if (triggerButton) {
             if (window.PHMSLoading) {
                 window.PHMSLoading.clearButtonLoading(triggerButton);

@@ -39,7 +39,16 @@ Usage:
         $ python app.py
     
     Production Server (using Gunicorn):
-        $ gunicorn -w 4 -b 0.0.0.0:5000 app:app
+        Option 1 - Separate scheduler process (RECOMMENDED):
+            Terminal 1: $ ENABLE_SCHEDULER=1 python app.py  # Dedicated scheduler
+            Terminal 2: $ gunicorn -w 4 -b 0.0.0.0:5000 app:app  # Web workers
+        
+        Option 2 - Single worker with scheduler:
+            $ gunicorn -w 1 -e ENABLE_SCHEDULER=1 -b 0.0.0.0:5000 app:app
+        
+        Option 3 - Systemd service (Linux):
+            # Create separate services for web and scheduler
+            # See deployment documentation for details
     
     CLI Commands:
         $ flask create-initial-logs
@@ -50,12 +59,14 @@ Server Access:
 
 Note:
     - Debug mode auto-reloads on code changes
-    - Scheduler starts automatically in app context
+    - Scheduler runs in single-instance mode to prevent duplicate jobs
+    - Set ENABLE_SCHEDULER=1 to explicitly enable scheduler in production
     - Database migrations run automatically on first start
     - Medication logs initialized at startup for today's schedule
 """
 
 import os
+import sys
 from config import create_app, db
 from models import *   # noqa: F401 (needed for migrations)
 from routes import register_routes
@@ -171,17 +182,72 @@ def init_medication_logs():
         print(f"❌ Error initializing medication logs: {str(e)}")
         return None
 
-# Start scheduler and initialize logs when app context exists
-with app.app_context():
-    # Initialize medication logs first (create/verify logs)
-    print("\n🔄 Initializing medication logs...")
-    init_result = init_medication_logs()
-    if init_result and init_result.get('status') == 'success':
-        print(f"✅ Medication logs initialized successfully")
+# ============ SCHEDULER INITIALIZATION ============
+# Only initialize scheduler if explicitly enabled to prevent duplicate execution
+# in multi-worker environments (Gunicorn, uWSGI, etc.)
+#
+# For production deployment:
+#   Option 1: Run scheduler in a separate dedicated process
+#     $ ENABLE_SCHEDULER=1 python app.py  # Scheduler process only
+#     $ gunicorn -w 4 app:app              # Web workers without scheduler
+#
+#   Option 2: Enable scheduler in single worker/process
+#     $ gunicorn -w 1 -e ENABLE_SCHEDULER=1 app:app
+#
+# For development (single process):
+#     $ python app.py  # Scheduler starts automatically
+
+scheduler = None
+
+def should_start_scheduler():
+    """Determine if scheduler should start in this process.
     
-    # Then start the scheduler
-    print("\n🚀 Starting scheduler...")
-    scheduler = init_scheduler()
+    Scheduler starts only when:
+    1. ENABLE_SCHEDULER=1 is explicitly set (production multi-worker), OR
+    2. Running directly via 'python app.py' (development single-process)
+    3. NOT running via WSGI server without explicit enable flag
+    
+    Returns:
+        bool: True if scheduler should start, False otherwise
+    """
+    # Check for explicit enable flag (production)
+    enable_scheduler = os.environ.get('ENABLE_SCHEDULER', '').lower() in ('1', 'true', 'yes')
+    if enable_scheduler:
+        return True
+    
+    # Detect if running under WSGI server (Gunicorn, uWSGI, etc.)
+    # These servers set specific environment variables
+    wsgi_indicators = [
+        'gunicorn',  # Gunicorn process
+        'uwsgi',     # uWSGI process
+        'mod_wsgi',  # Apache mod_wsgi
+    ]
+    
+    # Check if running under WSGI server by examining process and environment
+    server_software = os.environ.get('SERVER_SOFTWARE', '').lower()
+    for indicator in wsgi_indicators:
+        if indicator in server_software or indicator in sys.argv[0].lower():
+            # Running under WSGI server without explicit enable - don't start
+            return False
+    
+    # Default: start scheduler (development mode via 'python app.py')
+    return True
+
+if should_start_scheduler():
+    with app.app_context():
+        # Initialize medication logs first (create/verify logs)
+        print("\n🔄 Initializing medication logs...")
+        init_result = init_medication_logs()
+        if init_result and init_result.get('status') == 'success':
+            print(f"✅ Medication logs initialized successfully")
+        
+        # Then start the scheduler
+        print("\n🚀 Starting scheduler...")
+        scheduler = init_scheduler()
+        if scheduler:
+            print("✅ Scheduler started successfully (single instance mode)")
+else:
+    print("⏸️  Scheduler disabled in this worker process (set ENABLE_SCHEDULER=1 to enable)")
 
 # ============ CLI COMMANDS ============
 @app.cli.command('create-initial-logs')

@@ -278,8 +278,6 @@ def login():
             "message": "Invalid email or password"
         })
 
-    if current_user.is_authenticated:
-        return render_template('login.html')
     return render_template('login.html')
 
 

@@ -47,6 +47,7 @@ from flask_wtf import CSRFProtect
 from flask_mail import Mail
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 # Base directory of project
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
@@ -243,6 +244,15 @@ def create_app():
     """
     app = Flask(__name__)
     
+    # ================== PROXY SUPPORT ==================
+    # Apply ProxyFix middleware to handle X-Forwarded-* headers from reverse proxies
+    # This ensures request.scheme, request.host, etc. reflect the client's original request
+    # x_for=1: Trust X-Forwarded-For (client IP)
+    # x_proto=1: Trust X-Forwarded-Proto (HTTPS detection)
+    # x_host=1: Trust X-Forwarded-Host (original host)
+    # x_prefix=1: Trust X-Forwarded-Prefix (URL prefix)
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+    
     # ================== SUPPRESS VERBOSE LOGGING ==================
     # Completely suppress SMTP protocol debug output
     smtp_logger = logging.getLogger('smtplib')
@@ -382,9 +392,19 @@ def create_app():
     # ================== SECURITY HEADERS ==================
     @app.before_request
     def enforce_https_redirect():
-        """Redirect HTTP to HTTPS in production."""
+        """Redirect HTTP to HTTPS in production.
+        
+        Proxy-aware HTTPS detection:
+        - Checks X-Forwarded-Proto header first (set by reverse proxies)
+        - Falls back to request.scheme if no proxy header present
+        - Prevents redirect loops in common deployment scenarios (nginx, ALB, etc.)
+        """
         if IS_PRODUCTION and app.config.get('FORCE_HTTPS'):
-            if request.scheme != 'https' and not app.debug:
+            # Check X-Forwarded-Proto header for proxy-terminated SSL
+            forwarded_proto = request.headers.get('X-Forwarded-Proto', '').lower()
+            actual_scheme = forwarded_proto if forwarded_proto else request.scheme
+            
+            if actual_scheme != 'https' and not app.debug:
                 return redirect(request.url.replace('http://', 'https://', 1), code=301)
     
     @app.after_request

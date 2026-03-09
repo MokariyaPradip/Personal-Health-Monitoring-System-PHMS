@@ -8,22 +8,17 @@ function isScheduledTimeArrived(logDate, scheduledTime) {
     const currentDate = `${year}-${month}-${day}`;
     const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
 
-    console.log(`[Time Check] Current: ${currentDate} ${currentTime}, Scheduled: ${logDate} ${scheduledTime}`);
-
     // Compare dates
     if (logDate > currentDate) {
-        console.log('[Time Check] Future date - not arrived');
         return false; // Future date
     }
 
     // Same date, compare times
     if (logDate === currentDate) {
         const arrived = currentTime >= scheduledTime;
-        console.log(`[Time Check] Same date - arrived: ${arrived}`);
         return arrived;
     }
 
-    console.log('[Time Check] Past date - arrived');
     return true; // Past date
 }
 
@@ -37,41 +32,31 @@ function isWithinGracePeriod(logDate, scheduledTime, gracePeriodMinutes) {
     
     // If it's a future date, not within grace period
     if (logDate > currentDate) {
-        console.log('[Grace Period] Future date - not in grace period');
         return false;
     }
     
     // Create datetime objects for comparison
     const scheduledDateTime = new Date(`${logDate}T${scheduledTime}`);
     const gracePeriodEnd = new Date(scheduledDateTime.getTime() + gracePeriodMinutes * 60000); // Add minutes in milliseconds
-    
-    console.log(`[Grace Period] Now: ${now.toLocaleString()}, Scheduled: ${scheduledDateTime.toLocaleString()}, Grace End: ${gracePeriodEnd.toLocaleString()}`);
-    
     // Current time must be >= scheduled time AND <= grace period end
     const withinPeriod = now >= scheduledDateTime && now <= gracePeriodEnd;
-    console.log(`[Grace Period] Within period: ${withinPeriod}`);
     return withinPeriod;
 }
 
 function updateMedicationButtonStatus(logId, logDate, scheduledTime, gracePeriodMinutes) {
     const logCard = document.querySelector(`.medication-log-card.pending[data-log-id="${logId}"]`);
     if (!logCard) {
-        console.warn(`[Med Validation] Card not found for log ID ${logId}`);
         return;
     }
 
     const takenBtn = logCard.querySelector('.btn-log-action.taken');
     const missedBtn = logCard.querySelector('.btn-log-action.missed');
     if (!takenBtn || !missedBtn) {
-        console.warn(`[Med Validation] Buttons not found for log ID ${logId}`);
         return;
     }
     
     const hasArrived = isScheduledTimeArrived(logDate, scheduledTime);
     const withinGracePeriod = isWithinGracePeriod(logDate, scheduledTime, gracePeriodMinutes);
-    
-    console.log(`[Med Validation] Log ${logId}: hasArrived=${hasArrived}, withinGracePeriod=${withinGracePeriod}, scheduled=${logDate} ${scheduledTime}, grace=${gracePeriodMinutes}min`);
-    
     // "Mark as Taken" button: Enabled only during grace period (scheduled time to scheduled time + grace period)
     if (withinGracePeriod) {
         takenBtn.disabled = false;
@@ -79,7 +64,6 @@ function updateMedicationButtonStatus(logId, logDate, scheduledTime, gracePeriod
         takenBtn.style.cursor = 'pointer';
         takenBtn.style.pointerEvents = 'auto';
         takenBtn.title = 'Mark as taken';
-        console.log(`[Med Validation] Log ${logId}: ENABLED "Mark as Taken" button`);
     } else if (!hasArrived) {
         // Before scheduled time
         takenBtn.disabled = true;
@@ -103,7 +87,6 @@ function updateMedicationButtonStatus(logId, logDate, scheduledTime, gracePeriod
         missedBtn.style.cursor = 'pointer';
         missedBtn.style.pointerEvents = 'auto';
         missedBtn.title = 'Mark as missed';
-        console.log(`[Med Validation] Log ${logId}: ENABLED "Mark as Missed" button`);
     } else if (!hasArrived) {
         // Before scheduled time
         missedBtn.disabled = true;
@@ -125,11 +108,8 @@ function updateMedicationButtonStatus(logId, logDate, scheduledTime, gracePeriod
 let medicationCheckInterval = null;
 
 function initializeScheduledTimeValidation() {
-    console.log('[Med Validation] Initializing scheduled time validation...');
-    
     // Clear any existing interval first
     if (medicationCheckInterval) {
-        console.log('[Med Validation] Clearing existing interval');
         clearInterval(medicationCheckInterval);
         medicationCheckInterval = null;
     }
@@ -137,10 +117,7 @@ function initializeScheduledTimeValidation() {
     // Function to update all pending medication buttons
     function updateAllMedicationButtons() {
         const pendingCards = document.querySelectorAll('.medication-log-card.pending');
-        console.log(`[Med Validation] Found ${pendingCards.length} pending medication cards`);
-        
         if (pendingCards.length === 0) {
-            console.log('[Med Validation] No pending medication cards found. Skipping update.');
             return;
         }
         
@@ -153,25 +130,17 @@ function initializeScheduledTimeValidation() {
             if (logId && logDate && scheduledTime) {
                 updateMedicationButtonStatus(logId, logDate, scheduledTime, gracePeriod);
             } else {
-                console.warn(`[Med Validation] Missing data for card with log_id=${logId}`);
             }
         });
-        
-        console.log(`[Med Validation] Update complete at ${new Date().toLocaleTimeString()}`);
     }
-    
     // Initial update - run immediately
-    console.log('[Med Validation] Running initial button update...');
     updateAllMedicationButtons();
 
     // Update every 5 seconds to reflect real-time changes
-    console.log('[Med Validation] Setting up 5-second interval check');
     medicationCheckInterval = setInterval(updateAllMedicationButtons, 5000);
 }
 
 function filterByCategory(category) {
-    console.log(`[Tabs] Switching to category: ${category}`);
-    
     // Update active tab
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.classList.remove('active');
@@ -190,13 +159,11 @@ function filterByCategory(category) {
     } else if (category === 'medication') {
         document.getElementById('medication-container').classList.remove('hidden');
     } else if (category === 'medication-logs') {
-        console.log('[Tabs] Showing medication logs container');
         document.getElementById('medication-logs-container').classList.remove('hidden');
         
         // Re-initialize validation when medication-logs tab is shown
         // Use setTimeout to ensure DOM has fully updated after unhiding
         setTimeout(() => {
-            console.log('[Tabs] Initializing medication validation after tab switch');
             initializeScheduledTimeValidation();
         }, 50);
     }
@@ -247,7 +214,6 @@ function markMedicationTaken(logId, sourceButton) {
         : request();
 
     requestPromise.catch(err => {
-            console.error('Error marking medication as taken:', err);
             showToast('Failed to update medication', 'error');
         });
 }
@@ -298,7 +264,6 @@ function markMedicationMissed(logId, sourceButton) {
         : request();
 
     requestPromise.catch(err => {
-            console.error('Error marking medication as missed:', err);
             showToast('Failed to update medication', 'error');
         });
 }
@@ -381,8 +346,6 @@ function updateOrCreateBadge(tabSelector, count) {
 
 // Attach event listeners when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('[Notifications] Page loaded, setting up event listeners...');
-    
     // Mark all as read button
     const markAllBtn = document.getElementById('mark-all-btn');
     if (markAllBtn) {
@@ -433,6 +396,5 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Initialize scheduled time validation
-    console.log('[Notifications] Initializing medication button validation on page load...');
     initializeScheduledTimeValidation();
 });

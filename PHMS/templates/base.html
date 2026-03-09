@@ -138,7 +138,8 @@
             let html = '';
             notifications.forEach(notification => {
                 const categoryClass = `category-${notification.category || 'general'}`;
-                const severityClass = `severity-${notification.severity || 'medium'}`;
+                const normalizedSeverity = normalizeSeverityValue(notification.severity);
+                const severityClass = `severity-${normalizedSeverity.toLowerCase()}`;
                 const categoryEmoji = getCategoryEmoji(notification.category);
                 const severityLabel = getSeverityLabel(notification.severity);
 
