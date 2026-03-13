@@ -78,18 +78,19 @@ def get_minimum_dose_gap_minutes(frequency):
     if len(times) <= 1:
         return 1440
     
-    # Calculate gaps between consecutive doses
-    gaps = []
-    for i in range(len(times) - 1):
-        current_time_minutes = times[i].hour * 60 + times[i].minute
-        next_time_minutes = times[i + 1].hour * 60 + times[i + 1].minute
-        gap = next_time_minutes - current_time_minutes
-        gaps.append(gap)
+    # Convert to minutes and sort chronologically.
+    # frequency=6 stores times as [..., 22:00, 02:00]; without sorting the raw
+    # subtraction produces a negative gap (-1200 min) and the wrap-around
+    # calculation using times[-1]/times[0] gives a bogus 28-hour result.
+    minutes_list = sorted(t.hour * 60 + t.minute for t in times)
     
-    # Handle gap from last dose to first dose next day
-    last_time_minutes = times[-1].hour * 60 + times[-1].minute
-    first_time_minutes = times[0].hour * 60 + times[0].minute
-    gap_to_next_day = (24 * 60 - last_time_minutes) + first_time_minutes
+    # Calculate gaps between consecutive sorted doses
+    gaps = []
+    for i in range(len(minutes_list) - 1):
+        gaps.append(minutes_list[i + 1] - minutes_list[i])
+    
+    # Wrap-around gap: last dose of the day back to first dose the next day
+    gap_to_next_day = (24 * 60 - minutes_list[-1]) + minutes_list[0]
     gaps.append(gap_to_next_day)
     
     # Return minimum gap between any two consecutive doses

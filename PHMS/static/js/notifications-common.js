@@ -43,6 +43,24 @@ function showToast(message, type = 'success') {
     }, 3000);
 }
 
+// ===== CONFIRM MODAL =====
+function showConfirmModal(message, onConfirm) {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;z-index:10001;';
+    const box = document.createElement('div');
+    box.style.cssText = 'background:#fff;border-radius:12px;padding:28px 32px;max-width:360px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.18);text-align:center;';
+    box.innerHTML = `
+        <p style="margin:0 0 24px;font-size:15px;color:#374151;line-height:1.5;">${message}</p>
+        <button id="phms-modal-cancel" style="margin-right:10px;padding:9px 22px;border:1px solid #d1d5db;border-radius:7px;background:#fff;color:#374151;font-size:14px;cursor:pointer;">Cancel</button>
+        <button id="phms-modal-confirm" style="padding:9px 22px;border:none;border-radius:7px;background:#3b82f6;color:#fff;font-size:14px;font-weight:500;cursor:pointer;">Confirm</button>
+    `;
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+    box.querySelector('#phms-modal-cancel').addEventListener('click', () => overlay.remove());
+    box.querySelector('#phms-modal-confirm').addEventListener('click', () => { overlay.remove(); onConfirm(); });
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+}
+
 // ===== NOTIFICATION BADGE =====
 function updateNotificationBadge(count) {
     const badge = document.getElementById('notificationBadge');
@@ -97,8 +115,7 @@ function markAsRead(alertId, callback, sourceButton) {
         ? window.PHMSLoading.withLoading({ button: sourceButton, buttonText: 'Marking...' }, request)
         : request();
 
-    requestPromise.catch(err => {
-        console.error('Error marking notification as read:', err);
+    requestPromise.catch(() => {
         showToast('Failed to mark notification as read', 'error');
     });
 }
@@ -107,59 +124,61 @@ function markAsRead(alertId, callback, sourceButton) {
 function markAllAsRead(callback, sourceButton) {
     // Check if we're on the notifications page or in the dropdown
     const isNotificationsPage = document.getElementById('all-container') !== null;
-    
-    // Only show confirmation on the notifications page
-    if (isNotificationsPage && !confirm('Mark all notifications as read?')) {
-        return;
-    }
 
-    const request = () => fetch('/notifications/mark-all-read', {
-        method: 'PUT',
-        headers: {
-            'X-CSRFToken': window.getCsrfToken(),
-            'Content-Type': 'application/json'
-        }
-    })
-    .then(res => {
-        if (!res.ok) {
-            throw new Error('Network response was not ok');
-        }
-        return res.json();
-    })
-    .then(data => {
-        if (data.success) {
-            // Check if there were any notifications to mark
-            if (data.updated_count === 0) {
-                showToast('No unread notifications to mark', 'info');
-                return;
+    const proceed = () => {
+        const request = () => fetch('/notifications/mark-all-read', {
+            method: 'PUT',
+            headers: {
+                'X-CSRFToken': window.getCsrfToken(),
+                'Content-Type': 'application/json'
             }
-            
-            // If on notifications page, reload to show updated state
-            if (isNotificationsPage) {
-                showToast(data.message || `${data.updated_count} notification${data.updated_count !== 1 ? 's' : ''} marked as read`, 'success');
-                setTimeout(() => window.location.reload(), 1000);
-            } else {
-                // In dropdown, just update the UI
-                showToast(data.message || 'All notifications marked as read', 'success');
-                
-                // Execute callback if provided (for reloading dropdown)
-                if (callback) {
-                    callback(data);
+        })
+        .then(res => {
+            if (!res.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return res.json();
+        })
+        .then(data => {
+            if (data.success) {
+                // Check if there were any notifications to mark
+                if (data.updated_count === 0) {
+                    showToast('No unread notifications to mark', 'info');
+                    return;
                 }
+
+                // If on notifications page, reload to show updated state
+                if (isNotificationsPage) {
+                    showToast(data.message || `${data.updated_count} notification${data.updated_count !== 1 ? 's' : ''} marked as read`, 'success');
+                    setTimeout(() => window.location.reload(), 1000);
+                } else {
+                    // In dropdown, just update the UI
+                    showToast(data.message || 'All notifications marked as read', 'success');
+
+                    // Execute callback if provided (for reloading dropdown)
+                    if (callback) {
+                        callback(data);
+                    }
+                }
+            } else {
+                showToast(data.message || 'Failed to mark notifications as read', 'error');
             }
-        } else {
-            showToast(data.message || 'Failed to mark notifications as read', 'error');
-        }
-    });
+        });
 
-    const requestPromise = sourceButton && window.PHMSLoading
-        ? window.PHMSLoading.withLoading({ button: sourceButton, buttonText: 'Marking...' }, request)
-        : request();
+        const requestPromise = sourceButton && window.PHMSLoading
+            ? window.PHMSLoading.withLoading({ button: sourceButton, buttonText: 'Marking...' }, request)
+            : request();
 
-    requestPromise.catch(err => {
-        console.error('Error marking all as read:', err);
-        showToast('Failed to mark all notifications as read', 'error');
-    });
+        requestPromise.catch(() => {
+            showToast('Failed to mark all notifications as read', 'error');
+        });
+    };
+
+    if (isNotificationsPage) {
+        showConfirmModal('Mark all notifications as read?', proceed);
+    } else {
+        proceed();
+    }
 }
 
 // ===== HELPER FUNCTIONS =====

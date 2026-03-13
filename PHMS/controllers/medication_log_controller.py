@@ -9,21 +9,22 @@ Features:
 2. Send notifications at scheduled times
 3. 30-minute grace period for taking medication
 4. Auto-mark as missed after grace period
-5. Auto-mark past pending logs as skipped
+5. Auto-mark overdue pending logs as skipped at startup
 6. Send email alerts for 2 consecutive missed days
 
 Status Values:
 - pending: Medication scheduled but not yet taken
 - taken: Medication was taken on time or within grace period
 - missed: Medication was not taken within grace period (same day)
-- skipped: Past pending logs that were never taken (from previous days)
+- skipped: Overdue pending logs from past dates or today's passed schedule
 """
 
 from flask import jsonify, request, render_template
 from flask_login import login_required, current_user
 from models import Medication, MedicationLog, Alert, User
-from config import db, mail
+from config import db, mail, admin_required
 from flask_mail import Message
+from sqlalchemy.exc import IntegrityError
 from datetime import datetime, date, time, timedelta
 from utils.medication_schedule import get_scheduled_time_for_frequency, get_minimum_dose_gap_minutes
 import logging
@@ -39,6 +40,125 @@ class MedicationLogManager:
     # For high-frequency meds, grace period is shorter to avoid overlapping with next dose
     MIN_GRACE_PERIOD_MINUTES = 30
     CONSECUTIVE_MISSED_THRESHOLD = 2
+    EMAIL_SEND_MAX_ATTEMPTS = 2  # First attempt + one retry
+
+    @staticmethod
+    def _create_email_failure_alert(user, medication, log, email_context, error_message):
+        """Create an in-app fallback alert when SMTP delivery fails."""
+        try:
+            if not user:
+                logger.critical(
+                    "Email delivery failed for %s but user context is unavailable. Error: %s",
+                    email_context,
+                    error_message,
+                )
+                return False
+
+            log_id = log.log_id if log else None
+            existing_failure_alert = Alert.query.filter_by(
+                user_id=user.user_id,
+                medication_log_id=log_id,
+                title='Email notification delivery failed'
+            ).first()
+            if existing_failure_alert:
+                return True
+
+            medicine_name = 'your medication'
+            if medication and getattr(medication, 'medicine', None):
+                medicine_name = medication.medicine.medicine_name
+
+            failure_alert = Alert(
+                user_id=user.user_id,
+                medication_log_id=log_id,
+                title='Email notification delivery failed',
+                message=(
+                    f"PHMS could not send a {email_context} email for {medicine_name}. "
+                    "Please check this item in the Notifications module."
+                ),
+                category='medication',
+                severity='Critical',
+                is_read=False
+            )
+
+            db.session.add(failure_alert)
+            db.session.commit()
+            logger.critical(
+                "Created fallback in-app alert for email delivery failure (user_id=%s, log_id=%s, context=%s).",
+                user.user_id,
+                log_id,
+                email_context,
+            )
+            return True
+
+        except Exception as alert_error:
+            db.session.rollback()
+            logger.critical(
+                "Failed to create fallback email failure alert. user_id=%s, log_id=%s, context=%s, smtp_error=%s, alert_error=%s",
+                getattr(user, 'user_id', None),
+                getattr(log, 'log_id', None) if log else None,
+                email_context,
+                error_message,
+                str(alert_error),
+                exc_info=True,
+            )
+            return False
+
+    @staticmethod
+    def _send_email_with_retry(msg, user, medication, log, email_context):
+        """Send email with one retry and in-app fallback on final failure."""
+        last_error = 'Unknown SMTP error'
+
+        for attempt in range(1, MedicationLogManager.EMAIL_SEND_MAX_ATTEMPTS + 1):
+            try:
+                mail.send(msg)
+                if attempt > 1:
+                    logger.warning(
+                        "Email delivery succeeded on retry (attempt %s/%s) for %s, user_id=%s, log_id=%s",
+                        attempt,
+                        MedicationLogManager.EMAIL_SEND_MAX_ATTEMPTS,
+                        email_context,
+                        getattr(user, 'user_id', None),
+                        getattr(log, 'log_id', None) if log else None,
+                    )
+                return {
+                    'success': True,
+                    'attempts': attempt,
+                }
+            except Exception as send_error:
+                last_error = str(send_error)
+                if attempt < MedicationLogManager.EMAIL_SEND_MAX_ATTEMPTS:
+                    logger.warning(
+                        "Email delivery attempt %s/%s failed for %s (user_id=%s, log_id=%s): %s. Retrying once.",
+                        attempt,
+                        MedicationLogManager.EMAIL_SEND_MAX_ATTEMPTS,
+                        email_context,
+                        getattr(user, 'user_id', None),
+                        getattr(log, 'log_id', None) if log else None,
+                        last_error,
+                    )
+                else:
+                    logger.critical(
+                        "Email delivery failed after %s attempts for %s (user_id=%s, log_id=%s): %s",
+                        MedicationLogManager.EMAIL_SEND_MAX_ATTEMPTS,
+                        email_context,
+                        getattr(user, 'user_id', None),
+                        getattr(log, 'log_id', None) if log else None,
+                        last_error,
+                        exc_info=True,
+                    )
+
+        MedicationLogManager._create_email_failure_alert(
+            user,
+            medication,
+            log,
+            email_context,
+            last_error,
+        )
+        return {
+            'success': False,
+            'attempts': MedicationLogManager.EMAIL_SEND_MAX_ATTEMPTS,
+            'error': last_error,
+        }
     
     @staticmethod
     def get_grace_period_for_medication(medication):
@@ -195,7 +315,7 @@ class MedicationLogManager:
         
         This method:
         1. Creates logs for today's active medications (only for upcoming scheduled times)
-        2. Verifies existing pending logs and marks as missed if grace period elapsed
+        2. Marks overdue pending logs as skipped (past dates + today's passed times)
         
         Should be called once when the application starts
         
@@ -208,7 +328,7 @@ class MedicationLogManager:
         
         created_count = 0
         verified_count = 0
-        marked_missed_count = 0
+        skipped_count = 0
         error_count = 0
         
         try:
@@ -266,79 +386,24 @@ class MedicationLogManager:
                 db.session.commit()
                 logger.info(f"✓ Created {created_count} new medication logs")
             
-            # ============ PART 2: VERIFY EXISTING LOGS AND MARK MISSED IF NEEDED ============
-            pending_logs = MedicationLog.query.join(
-                Medication
-            ).filter(
-                MedicationLog.log_date == today,
-                MedicationLog.status == 'pending',
-                db.or_(
-                    Medication.end_date == None,
-                    Medication.end_date >= today
+            # ============ PART 2: MARK OVERDUE PENDING LOGS AS SKIPPED ============
+            skip_result = MedicationLogManager.mark_past_pending_logs_as_skipped(now)
+            if skip_result.get('status') == 'success':
+                verified_count = skip_result.get('evaluated', 0)
+                skipped_count = skip_result.get('skipped', 0)
+            else:
+                error_count += 1
+                logger.error(
+                    "Error during startup catch-up skip routine: %s",
+                    skip_result.get('message', 'Unknown error')
                 )
-            ).all()
-            
-            logger.info(f"Verifying {len(pending_logs)} existing pending logs...")
-            
-            for log in pending_logs:
-                try:
-                    verified_count += 1
-                    
-                    # Get dynamic grace period based on medication frequency
-                    medication = log.medication
-                    grace_period_minutes = MedicationLogManager.get_grace_period_for_medication(medication)
-                    
-                    scheduled_dt = datetime.combine(today, log.scheduled_time)
-                    grace_period_end = scheduled_dt + timedelta(minutes=grace_period_minutes)
-                    
-                    # If current time is past grace period, mark as missed
-                    if now > grace_period_end:
-                        log.status = 'missed'
-                        marked_missed_count += 1
-                        logger.info(f"✓ Marked log {log.log_id} as missed (grace period={grace_period_minutes}min expired)")
-                    
-                except Exception as e:
-                    error_count += 1
-                    logger.error(f"Error verifying log {log.log_id}: {str(e)}")
-            
-            # Commit status updates
-            if marked_missed_count > 0:
-                db.session.commit()
-                logger.info(f"✓ Marked {marked_missed_count} logs as missed")
-            
-            # ============ PART 3: CHECK PAST LOGS AND MARK AS SKIPPED ============
-            skipped_count = 0
-            
-            # Find all pending logs from past dates (before today)
-            past_pending_logs = MedicationLog.query.filter(
-                MedicationLog.log_date < today,
-                MedicationLog.status == 'pending'
-            ).all()
-            
-            logger.info(f"Found {len(past_pending_logs)} pending logs from past dates...")
-            
-            for past_log in past_pending_logs:
-                try:
-                    # Mark as skipped since the scheduled date has passed
-                    past_log.status = 'skipped'
-                    skipped_count += 1
-                    logger.info(f"✓ Marked log {past_log.log_id} as skipped (date={past_log.log_date}, scheduled={past_log.scheduled_time})")
-                    
-                except Exception as e:
-                    error_count += 1
-                    logger.error(f"Error marking log {past_log.log_id} as skipped: {str(e)}")
-            
-            # Commit skipped status updates
-            if skipped_count > 0:
-                db.session.commit()
-                logger.info(f"✓ Marked {skipped_count} past logs as skipped")
             
             stats = {
                 'date': str(today),
                 'time': str(current_time),
                 'created': created_count,
                 'verified': verified_count,
-                'marked_missed': marked_missed_count,
+                'marked_missed': 0,
                 'marked_skipped': skipped_count,
                 'errors': error_count,
                 'status': 'success'
@@ -348,8 +413,8 @@ class MedicationLogManager:
             logger.info(f"✅ Medication log initialization completed:")
             logger.info(f"   📝 Created: {created_count} new logs")
             logger.info(f"   🔍 Verified: {verified_count} existing logs")
-            logger.info(f"   ❌ Marked missed: {marked_missed_count} logs")
-            logger.info(f"   ⏭️  Marked skipped: {skipped_count} past logs")
+            logger.info("   ❌ Marked missed: 0 logs")
+            logger.info(f"   ⏭️  Marked skipped: {skipped_count} overdue logs")
             logger.info(f"   ⚠️ Errors: {error_count}")
             logger.info("━" * 50)
             
@@ -363,9 +428,71 @@ class MedicationLogManager:
                 'message': str(e),
                 'created': created_count,
                 'verified': verified_count,
-                'marked_missed': marked_missed_count,
-                'marked_skipped': 0,
+                'marked_missed': 0,
+                'marked_skipped': skipped_count,
                 'errors': error_count
+            }
+
+    @staticmethod
+    def mark_past_pending_logs_as_skipped(reference_datetime=None):
+        """Mark overdue pending logs as skipped.
+
+        Overdue includes:
+        - Logs from past dates
+        - Logs from today with scheduled time already passed
+
+        Args:
+            reference_datetime (datetime | None): Datetime used as "now" for
+                comparisons. Defaults to local datetime.now().
+
+        Returns:
+            dict: Operation summary with evaluated/skipped counts.
+        """
+        now = reference_datetime or datetime.now()
+        today = now.date()
+        current_time = now.time()
+
+        try:
+            overdue_pending_logs = MedicationLog.query.filter(
+                MedicationLog.status == 'pending',
+                db.or_(
+                    MedicationLog.log_date < today,
+                    db.and_(
+                        MedicationLog.log_date == today,
+                        MedicationLog.scheduled_time < current_time
+                    )
+                )
+            ).all()
+
+            skipped_count = 0
+            for pending_log in overdue_pending_logs:
+                pending_log.status = 'skipped'
+                skipped_count += 1
+
+            if skipped_count > 0:
+                db.session.commit()
+                logger.info(
+                    "✓ Startup catch-up: marked %s overdue pending logs as skipped",
+                    skipped_count
+                )
+            else:
+                logger.info("✓ Startup catch-up: no overdue pending logs to skip")
+
+            return {
+                'status': 'success',
+                'evaluated': len(overdue_pending_logs),
+                'skipped': skipped_count,
+                'timestamp': str(now)
+            }
+
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Error marking overdue pending logs as skipped: {str(e)}")
+            return {
+                'status': 'error',
+                'message': str(e),
+                'evaluated': 0,
+                'skipped': 0
             }
     
     @staticmethod
@@ -387,7 +514,7 @@ class MedicationLogManager:
             dict: Result of notification creation
         """
         try:
-            log = MedicationLog.query.get(log_id)
+            log = db.session.get(MedicationLog, log_id)
             
             if not log:
                 logger.warning(f"Medication log {log_id} not found")
@@ -417,20 +544,35 @@ class MedicationLogManager:
             )
             
             db.session.add(notification)
-            db.session.commit()
+            try:
+                db.session.commit()
+            except IntegrityError:
+                db.session.rollback()
+                # A concurrent scheduler tick already created this alert.
+                logger.info(f"Duplicate reminder alert ignored for log {log_id}")
+                return {
+                    'status': 'skipped',
+                    'message': 'Notification already exists for this medication log'
+                }
             
             logger.info(f"Notification created for log {log_id} with severity={severity}")
             
             # If medication is critical, send immediate email reminder
+            email_sent = False
+            email_status = 'not_required'
             if is_critical:
-                MedicationLogManager.send_critical_medication_reminder_email(user, medication, log)
+                email_result = MedicationLogManager.send_critical_medication_reminder_email(user, medication, log)
+                email_sent = email_result.get('success', False)
+                email_status = 'sent' if email_sent else 'failed'
             
             return {
                 'status': 'success',
                 'alert_id': notification.alert_id,
                 'message': 'Notification sent',
                 'severity': severity,
-                'email_sent': is_critical
+                'email_sent': email_sent,
+                'email_status': email_status,
+                'email_required': is_critical
             }
             
         except Exception as e:
@@ -595,30 +737,44 @@ class MedicationLogManager:
                 logger.info(f"Marked {marked_missed} medications as missed")
             
             # Now send emails after database is committed (avoids locking issues)
+            emails_sent = 0
+            email_failures = 0
             for email_task in emails_to_send:
                 try:
+                    send_result = {'success': False}
                     if email_task['type'] == 'consecutive_missed':
-                        MedicationLogManager.send_consecutive_missed_email(
+                        send_result = MedicationLogManager.send_consecutive_missed_email(
                             email_task['user'],
                             email_task['medication'],
                             email_task['log'],
                             email_task['consecutive_count']
                         )
-                        logger.info(f"Consecutive missed email sent for medication {email_task['medication'].medication_id} (log {email_task['log_id']}, count={email_task['consecutive_count']})")
                     elif email_task['type'] == 'critical':
-                        MedicationLogManager.send_critical_medication_missed_email(
+                        send_result = MedicationLogManager.send_critical_medication_missed_email(
                             email_task['user'],
                             email_task['medication'],
                             email_task['log']
                         )
-                        logger.info(f"Critical medication missed email sent for log {email_task['log_id']}")
+
+                    if send_result.get('success', False):
+                        emails_sent += 1
+                    else:
+                        email_failures += 1
+                        logger.warning(
+                            "Email notification failed for task=%s, log_id=%s",
+                            email_task['type'],
+                            email_task['log_id'],
+                        )
                 except Exception as email_send_error:
+                    email_failures += 1
                     logger.error(f"Error sending email: {str(email_send_error)}")
             
             return {
                 'status': 'success',
                 'marked_missed': marked_missed,
-                'emails_sent': len(emails_to_send),
+                'emails_attempted': len(emails_to_send),
+                'emails_sent': emails_sent,
+                'email_failures': email_failures,
                 'timestamp': str(now)
             }
             
@@ -722,12 +878,20 @@ Your trusted health companion
                 body=plain_text_body,
                 # extra_headers={'X-Priority': '1 (Highest)'}
             )
-            
-            mail.send(msg)
-            logger.info(f"Consecutive missed alert email sent to {user.user_email} for {medication.medicine.medicine_name} ({consecutive_count} consecutive misses)")
+            send_result = MedicationLogManager._send_email_with_retry(
+                msg,
+                user,
+                medication,
+                log,
+                'consecutive missed medication alert',
+            )
+            if send_result.get('success', False):
+                logger.info(f"Consecutive missed alert email sent to {user.user_email} for {medication.medicine.medicine_name} ({consecutive_count} consecutive misses)")
+            return send_result
             
         except Exception as e:
             logger.error(f"Error sending consecutive missed alert email to {user.user_email}: {str(e)}")
+            return {'success': False, 'error': str(e)}
     
     @staticmethod
     def send_critical_medication_reminder_email(user, medication, log):
@@ -798,13 +962,20 @@ This is an automated critical medication reminder from your Personal Health Moni
                 body=plain_text_body,
                 # extra_headers={'X-Priority': '1 (Highest)'}
             )
-            
-            mail.send(msg)
-            
-            logger.info(f"Critical medication reminder email sent to {user.user_email} for {medication.medicine.medicine_name}")
+            send_result = MedicationLogManager._send_email_with_retry(
+                msg,
+                user,
+                medication,
+                log,
+                'critical medication reminder',
+            )
+            if send_result.get('success', False):
+                logger.info(f"Critical medication reminder email sent to {user.user_email} for {medication.medicine.medicine_name}")
+            return send_result
             
         except Exception as e:
             logger.error(f"Error sending critical medication reminder email to {user.user_email}: {str(e)}")
+            return {'success': False, 'error': str(e)}
     
     @staticmethod
     def send_critical_medication_missed_email(user, medication, log):
@@ -875,26 +1046,38 @@ This is an automated critical notification from your Personal Health Monitoring 
                 body=plain_text_body,
                 # extra_headers={'X-Priority': '1 (Highest)'}
             )
-            
-            mail.send(msg)
+            send_result = MedicationLogManager._send_email_with_retry(
+                msg,
+                user,
+                medication,
+                log,
+                'critical medication missed alert',
+            )
             
             # Also create an in-app alert with Critical severity
+            failure_suffix = ""
+            if not send_result.get('success', False):
+                failure_suffix = " Email delivery failed, so please rely on in-app notifications and contact support if needed."
+
             critical_alert = Alert(
                 user_id=user.user_id,
                 medication_log_id=log.log_id,
                 title=f"🚨 CRITICAL - {medication.medicine.medicine_name} Missed",
-                message=f"Critical medication {medication.medicine.medicine_name} ({medication.dosage}) was marked as missed on {log.log_date.strftime('%B %d, %Y')} at {log.scheduled_time.strftime('%I:%M %p')}. This requires immediate attention.",
+                message=f"Critical medication {medication.medicine.medicine_name} ({medication.dosage}) was marked as missed on {log.log_date.strftime('%B %d, %Y')} at {log.scheduled_time.strftime('%I:%M %p')}. This requires immediate attention.{failure_suffix}",
                 category='medication',
                 severity='Critical',
                 is_read=False
             )
             db.session.add(critical_alert)
             db.session.commit()
-            
-            logger.info(f"Critical medication missed email sent to {user.user_email} for {medication.medicine.medicine_name}")
+
+            if send_result.get('success', False):
+                logger.info(f"Critical medication missed email sent to {user.user_email} for {medication.medicine.medicine_name}")
+            return send_result
             
         except Exception as e:
             logger.error(f"Error sending critical medication missed email to {user.user_email}: {str(e)}")
+            return {'success': False, 'error': str(e)}
     
     @staticmethod
     def get_medication_status(user_id=None):
@@ -986,6 +1169,7 @@ def update_medication_log_status(log_id):
                 }), 400
         
         log.status = status
+        email_notification_failed = False
         if status == 'taken':
             log.taken_at = datetime.now()
         elif status == 'missed':
@@ -993,19 +1177,25 @@ def update_medication_log_status(log_id):
             medication = log.medication
             if medication and medication.is_critical:
                 # Send immediate email notification for critical medication
-                MedicationLogManager.send_critical_medication_missed_email(
+                email_result = MedicationLogManager.send_critical_medication_missed_email(
                     current_user,
                     medication,
                     log
                 )
+                email_notification_failed = not email_result.get('success', False)
         
         db.session.commit()
         
         logger.info(f"Log {log_id} updated to status: {status}")
+
+        response_message = f'Medication marked as {status}'
+        if email_notification_failed:
+            response_message = f'Medication marked as {status}, but email notification failed. Please check Notifications.'
         
         return jsonify({
             'success': True,
-            'message': f'Medication marked as {status}'
+            'message': response_message,
+            'email_notification_failed': email_notification_failed
         })
         
     except Exception as e:
@@ -1038,18 +1228,14 @@ def get_user_medication_status():
         }), 500
 
 
-@login_required
+@admin_required
 def create_medication_logs_manual():
     """
-    Manually trigger medication log creation (admin only or for testing)
-    
+    Manually trigger medication log creation (admin only)
+
     Endpoint: POST /medication-log/create-daily
     """
     try:
-        # Optional: Add admin check here
-        # if not current_user.is_admin:
-        #     return jsonify({'success': False, 'message': 'Unauthorized'}), 403
-        
         result = MedicationLogManager.create_daily_logs()
         return jsonify({
             'success': result['status'] == 'success',
@@ -1063,11 +1249,11 @@ def create_medication_logs_manual():
         }), 500
 
 
-@login_required
+@admin_required
 def manually_send_notifications():
     """
-    Manually trigger notification scheduling (admin/testing)
-    
+    Manually trigger notification scheduling (admin only)
+
     Endpoint: POST /medication-log/send-notifications
     """
     try:
@@ -1084,11 +1270,11 @@ def manually_send_notifications():
         }), 500
 
 
-@login_required
+@admin_required
 def manually_check_grace_period():
     """
-    Manually check grace period and mark missed (admin/testing)
-    
+    Manually check grace period and mark missed (admin only)
+
     Endpoint: POST /medication-log/check-grace-period
     """
     try:
@@ -1105,11 +1291,11 @@ def manually_check_grace_period():
         }), 500
 
 
-@login_required
+@admin_required
 def manually_check_consecutive_missed():
     """
-    Manually check for consecutive missed and send emails (admin/testing)
-    
+    Manually check for consecutive missed and send emails (admin only)
+
     Endpoint: POST /medication-log/check-consecutive-missed
     """
     try:
@@ -1301,15 +1487,20 @@ def mark_medication_missed(log_id):
             }), 400
         
         log.status = 'missed'
+        email_notification_failed = False
         
         # If medication is critical, send critical email and skip consecutive check
         if medication and medication.is_critical:
-            MedicationLogManager.send_critical_medication_missed_email(
+            email_result = MedicationLogManager.send_critical_medication_missed_email(
                 current_user,
                 medication,
                 log
             )
-            logger.info(f"Critical medication missed email sent for log {log_id}")
+            if email_result.get('success', False):
+                logger.info(f"Critical medication missed email sent for log {log_id}")
+            else:
+                email_notification_failed = True
+                logger.warning(f"Critical medication email failed for log {log_id}; fallback alert created")
         else:
             # Check for consecutive missed logs of the SAME medication based on time gap
             try:
@@ -1319,30 +1510,40 @@ def mark_medication_missed(log_id):
                 )
                 
                 if consecutive_missed_count >= 2:
-                    MedicationLogManager.send_consecutive_missed_email(
+                    email_result = MedicationLogManager.send_consecutive_missed_email(
                         current_user,
                         medication,
                         log,
                         consecutive_missed_count
                     )
-                    if gap_minutes is not None:
-                        logger.info(
-                            f"Consecutive missed email sent for medication {medication.medication_id} (gap_minutes={gap_minutes:.1f})"
-                        )
+                    if email_result.get('success', False):
+                        if gap_minutes is not None:
+                            logger.info(
+                                f"Consecutive missed email sent for medication {medication.medication_id} (gap_minutes={gap_minutes:.1f})"
+                            )
+                        else:
+                            logger.info(
+                                f"Consecutive missed email sent for medication {medication.medication_id}"
+                            )
                     else:
-                        logger.info(
-                            f"Consecutive missed email sent for medication {medication.medication_id}"
-                        )
+                        email_notification_failed = True
+                        logger.warning(f"Consecutive missed email failed for medication {medication.medication_id}; fallback alert created")
             except Exception as consecutive_error:
+                email_notification_failed = True
                 logger.error(f"Error checking/sending consecutive missed email: {str(consecutive_error)}")
         
         db.session.commit()
         
         logger.info(f"Log {log_id} marked as missed (critical={medication.is_critical if medication else False})")
+
+        response_message = 'Medication marked as missed'
+        if email_notification_failed:
+            response_message = 'Medication marked as missed, but email notification failed. Please check Notifications.'
         
         return jsonify({
             'success': True,
-            'message': 'Medication marked as missed'
+            'message': response_message,
+            'email_notification_failed': email_notification_failed
         })
         
     except Exception as e:

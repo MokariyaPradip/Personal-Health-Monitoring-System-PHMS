@@ -14,8 +14,8 @@ class PasswordResetOTP(db.Model):
         user_email (str): Email address (max 100 chars, indexed, not unique)
         otp_code (str): 6-digit OTP code (generated via secrets module)
         attempts (int): Verification attempt counter (default: 0, max: 5)
-        created_at (datetime): OTP creation timestamp (UTC, auto-set)
-        expires_at (datetime): OTP expiration timestamp (UTC, 10 minutes from creation)
+        created_at (datetime): OTP creation timestamp (device local time, auto-set)
+        expires_at (datetime): OTP expiration timestamp (device local time, 10 minutes from creation)
         is_verified (bool): Verification status flag (default: False)
     
     Methods:
@@ -62,7 +62,7 @@ class PasswordResetOTP(db.Model):
     user_email = db.Column(db.String(100), index=True, nullable=False)
     otp_code = db.Column(db.String(6), nullable=False)
     attempts = db.Column(db.Integer, default=0)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.now, nullable=False)
     expires_at = db.Column(db.DateTime, nullable=False)
     is_verified = db.Column(db.Boolean, default=False)
     
@@ -127,7 +127,7 @@ class PasswordResetOTP(db.Model):
         otp = PasswordResetOTP(
             user_email=email,
             otp_code=PasswordResetOTP.generate_otp(),
-            expires_at=datetime.utcnow() + timedelta(minutes=10)
+            expires_at=datetime.now() + timedelta(minutes=10)
         )
         db.session.add(otp)
         db.session.commit()
@@ -136,7 +136,7 @@ class PasswordResetOTP(db.Model):
     def is_expired(self):
         """Check if OTP has passed its expiration time.
         
-        Compares current UTC time against the OTP's expires_at timestamp.
+        Compares current local device time against the OTP's expires_at timestamp.
         
         Returns:
             bool: True if current time > expires_at, False otherwise
@@ -153,7 +153,7 @@ class PasswordResetOTP(db.Model):
             - OTPs expire 10 minutes after creation
             - Expired OTPs cannot be verified (returns error in verify())
         """
-        return datetime.utcnow() > self.expires_at
+        return datetime.now() > self.expires_at
     
     def verify(self, code):
         """Verify OTP code with expiration and attempt limiting.

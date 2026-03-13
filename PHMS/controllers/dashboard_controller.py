@@ -1,5 +1,6 @@
 from flask import render_template, redirect
 from flask_login import login_required, current_user
+from config import db
 from models.user_model import User
 from models.health_model import HealthData
 from models.medication_model import Medication
@@ -57,7 +58,7 @@ def dashboard():
         Risk labels are computed using score_to_label() utility which maps
         health scores (0-100) to categories: Low (70-100), Medium (40-69), High (0-39)
     """
-    user = User.query.get(current_user.user_id)
+    user = db.session.get(User, current_user.user_id)
 
     last_health = HealthData.query.filter_by(
         user_id=user.user_id

@@ -6,6 +6,7 @@ from datetime import date, datetime, time, timedelta
 import pandas as pd
 from sqlalchemy import and_
 
+from config import db
 from models import Alert, HealthData, MedicationLog, User
 from reports.utils.risk_utils import classify_metric_risk, to_pct_change
 
@@ -540,7 +541,7 @@ def build_report_for_range(
                     'end_date': str (ISO),
                     'previous_start_date': str (ISO),
                     'previous_end_date': str (ISO),
-                    'generated_at': str (ISO UTC),
+                    'generated_at': str (ISO local time),
                     'record_count': int,
                     'records_per_day': float
                 },
@@ -599,7 +600,7 @@ def build_report_for_range(
         - All timestamps in ISO format for JSON serialization
         - Records per day rounded to 1 decimal place
     """
-    user = User.query.get(user_id)
+    user = db.session.get(User, user_id)
     if not user:
         raise ValueError("User not found")
 
@@ -634,7 +635,7 @@ def build_report_for_range(
             "end_date": dr.end_date.isoformat(),
             "previous_start_date": prev_dr.start_date.isoformat(),
             "previous_end_date": prev_dr.end_date.isoformat(),
-            "generated_at": datetime.utcnow().isoformat(),
+            "generated_at": datetime.now().isoformat(),
             "record_count": int(record_count),
             "records_per_day": records_per_day,
         },

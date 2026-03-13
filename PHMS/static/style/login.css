@@ -47,3 +47,17 @@ button:hover {
 .register-link a:hover {
     text-decoration: underline;
 }
+
+.phms-page-toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    padding: 12px 22px;
+    border-radius: 8px;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 500;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    z-index: 9999;
+    transition: opacity 0.3s ease;
+}

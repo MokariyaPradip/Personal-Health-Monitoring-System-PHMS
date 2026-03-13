@@ -3,6 +3,8 @@ from __future__ import annotations
 from datetime import datetime
 from io import BytesIO
 
+from utils.health_score import LOW_RISK_SCORE_THRESHOLD, MEDIUM_RISK_SCORE_THRESHOLD
+
 
 def _safe_float(value, default=0.0):
     """Safely convert value to float with fallback default.
@@ -69,7 +71,7 @@ def generate_report_pdf(report_data: dict) -> bytes:
         8. Section 4: Medication Adherence table (scheduled, taken, %)
         9. Section 5: Alerts Summary table (total and critical counts)
         10. Section 6: ML Classifier Distribution (Low/Medium/High risk counts)
-        11. Footer: UTC generation timestamp
+        11. Footer: Local device generation timestamp
     
     Design Features:
         - A4 page size with 18mm margins
@@ -93,7 +95,7 @@ def generate_report_pdf(report_data: dict) -> bytes:
         - Requires reportlab package: pip install reportlab
         - Uses ReportLab's Platypus for document assembly
         - All colors use hex codes for consistency
-        - Generated at UTC timestamp in footer
+        - Generated at local device timestamp in footer
         - Handles missing data gracefully with "N/A" or default values
     """
     try:
@@ -165,7 +167,7 @@ def generate_report_pdf(report_data: dict) -> bytes:
     )
     story.append(
         Paragraph(
-            f"Generated At: {meta.get('generated_at', datetime.utcnow().isoformat())}",
+            f"Generated At: {meta.get('generated_at', datetime.now().isoformat())}",
             subtitle_style,
         )
     )
@@ -254,7 +256,7 @@ def generate_report_pdf(report_data: dict) -> bytes:
 
     story.append(
         Paragraph(
-            f"Generated on: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}",
+            f"Generated on: {datetime.now().astimezone().strftime('%Y-%m-%d %H:%M:%S %Z')}",
             ParagraphStyle(
                 "FooterStyle",
                 parent=styles["Italic"],
@@ -417,9 +419,9 @@ def _kpi_snapshot_table(report_data, colors_module, Paragraph, ParagraphStyle, s
            - Monitor (1-2): Yellow
            - High (>= 3): Red
         
-        3. Average Health Score:
-           - Good (>= 82): Green
-           - Moderate (60-81): Yellow
+          3. Average Health Score:
+              - Good (>= 80): Green
+              - Moderate (60-79): Yellow
            - Risky (< 60): Red
            - No Data: Yellow
         
@@ -476,9 +478,9 @@ def _kpi_snapshot_table(report_data, colors_module, Paragraph, ParagraphStyle, s
         if v is None:
             return "No Data", colors_module.HexColor("#8A5B14"), colors_module.HexColor("#FFF4D8")
         score = _safe_float(v, 0)
-        if score >= 82:
+        if score >= LOW_RISK_SCORE_THRESHOLD:
             return "Good", colors_module.HexColor("#166534"), colors_module.HexColor("#DCFCE7")
-        if score >= 60:
+        if score >= MEDIUM_RISK_SCORE_THRESHOLD:
             return "Moderate", colors_module.HexColor("#8A5B14"), colors_module.HexColor("#FFF4D8")
         return "Risky", colors_module.HexColor("#991B1B"), colors_module.HexColor("#FEE2E2")
 

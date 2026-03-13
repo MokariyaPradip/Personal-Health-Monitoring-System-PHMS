@@ -4,7 +4,7 @@ This module provides the application factory pattern for creating and configurin
 the PHMS (Personal Health Monitoring System) Flask application instance.
 
 Configuration:
-    - Database: SQLite with SQLAlchemy ORM
+    - Database: SQLAlchemy ORM (DATABASE_URL with SQLite fallback)
     - Authentication: Flask-Login with session management
     - Security: CSRF protection, security headers, secure cookies
     - Email: Flask-Mail for OTP and alert notifications
@@ -20,6 +20,7 @@ Extensions:
 Environment Variables (loaded from .env):
     - SECRET_KEY: Flask session encryption key
     - SECURITY_PASSWORD_SALT: Additional password hashing salt
+    - DATABASE_URL: Database connection string (optional; defaults to local SQLite)
     - MAIL_SERVER: SMTP server hostname
     - MAIL_PORT: SMTP server port (default: 587)
     - MAIL_USERNAME: SMTP authentication username
@@ -38,11 +39,12 @@ Usage:
 import os
 import logging
 import warnings
+import functools
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
-from flask_login import LoginManager
+from flask_login import LoginManager, login_required, current_user
 from flask_wtf import CSRFProtect
 from flask_mail import Mail
 from flask_limiter import Limiter
@@ -74,9 +76,46 @@ if IS_PRODUCTION:
         )
 
 # Database config (ONE place only)
-SQLALCHEMY_DATABASE_URI = "sqlite:///" + os.path.join(
-    BASE_DIR, "instance", "phms.db"
-)
+def _to_sqlite_uri(path: str) -> str:
+    """Build a normalized SQLite URI from a filesystem path."""
+    normalized = os.path.abspath(path).replace('\\', '/')
+    return f"sqlite:///{normalized}"
+
+
+def _get_database_uri() -> str:
+    """Resolve DATABASE_URL with SQLite fallback.
+
+    Behavior:
+        1. Use DATABASE_URL if provided.
+        2. Normalize Heroku-style postgres:// to postgresql://
+        3. For relative sqlite paths (sqlite:///instance/phms.db), resolve
+           them against the PHMS package directory.
+        4. Fall back to local SQLite instance DB if DATABASE_URL is missing.
+    """
+    database_url = os.environ.get('DATABASE_URL', '').strip()
+
+    # Default to project-local SQLite DB when DATABASE_URL is not set.
+    if not database_url:
+        return _to_sqlite_uri(os.path.join(BASE_DIR, 'instance', 'phms.db'))
+
+    # Compatibility for environments that provide postgres:// URI.
+    if database_url.startswith('postgres://'):
+        database_url = database_url.replace('postgres://', 'postgresql://', 1)
+
+    # Keep in-memory SQLite URI untouched.
+    if database_url == 'sqlite:///:memory:':
+        return database_url
+
+    # Resolve relative SQLite paths from .env against PHMS base directory.
+    if database_url.startswith('sqlite:///') and not database_url.startswith('sqlite:////'):
+        sqlite_path = database_url.replace('sqlite:///', '', 1)
+        if sqlite_path and not os.path.isabs(sqlite_path):
+            return _to_sqlite_uri(os.path.join(BASE_DIR, sqlite_path))
+
+    return database_url
+
+
+SQLALCHEMY_DATABASE_URI = _get_database_uri()
 
 SQLALCHEMY_TRACK_MODIFICATIONS = False
 
@@ -156,6 +195,25 @@ else:
     )
 
 
+def admin_required(f):
+    """Decorator that restricts a view to admin users only.
+
+    Must be used together with (or after) @login_required, or on its own — it
+    internally enforces authentication via @login_required before checking the
+    admin flag, so a single @admin_required is sufficient.
+
+    Returns 403 JSON for authenticated non-admins.
+    Redirects to login (via @login_required behaviour) for unauthenticated requests.
+    """
+    @functools.wraps(f)
+    @login_required
+    def decorated(*args, **kwargs):
+        if not current_user.is_admin:
+            return jsonify({'success': False, 'message': 'Admin access required'}), 403
+        return f(*args, **kwargs)
+    return decorated
+
+
 def create_app():
     """Create and configure the Flask application instance.
     
@@ -165,7 +223,7 @@ def create_app():
     Configuration Steps:
         1. Load environment variables from .env file
         2. Validate production security settings
-        3. Configure database connection (SQLite)
+        3. Configure database connection (DATABASE_URL with SQLite fallback)
         4. Set up security (CSRF, secure cookies, sessions, rate limiting)
         5. Configure email service (Flask-Mail with SMTP)
         6. Initialize Flask extensions
@@ -173,7 +231,7 @@ def create_app():
         8. Configure logging (suppress verbose SMTP output)
     
     Extensions Initialized:
-        - SQLAlchemy: Database ORM with SQLite backend
+        - SQLAlchemy: Database ORM with env-configurable backend
         - Flask-Migrate: Database migration management
         - Flask-Login: User session and authentication management
         - Flask-WTF: CSRF protection for forms
@@ -197,7 +255,8 @@ def create_app():
             * Strict-Transport-Security: HTTPS-only in production
     
     Database:
-        - Location: instance/phms.db (SQLite)
+        - Uses DATABASE_URL when set
+        - Fallback location: instance/phms.db (SQLite)
         - Auto-creates instance directory if missing
         - Track modifications disabled for performance
     
@@ -216,6 +275,7 @@ def create_app():
         - SECURITY_PASSWORD_SALT: REQUIRED for password reset
         - FLASK_ENV: 'development' or 'production' (controls security settings)
         - FLASK_DEBUG: Debug mode (0=off, 1=on) - disabled in production
+        - DATABASE_URL: Optional DB URI (e.g., sqlite:///instance/phms.db)
         - MAIL_SERVER: SMTP server (optional, disables email if not set)
         - MAIL_USERNAME, MAIL_PASSWORD: SMTP credentials
         - SESSION_COOKIE_SECURE: Set to 1 in production (enforced if FLASK_ENV=production)

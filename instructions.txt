@@ -18,7 +18,7 @@ PRE-REQUISITES
    - SQLite (built-in with Python - no separate installation needed)
    - Database file created automatically at: PHMS/instance/phms.db
 
-
+flask shell
 🔒 SECURITY CONFIGURATION (CRITICAL FOR PRODUCTION)
 ================================================================================
 

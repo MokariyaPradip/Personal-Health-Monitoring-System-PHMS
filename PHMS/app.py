@@ -24,7 +24,7 @@ Scheduler Jobs:
     - Daily log creation (midnight): Creates medication logs for all active meds
     - Notification scheduling (every minute): Sends medication reminders
     - Grace period checking (every minute): Marks overdue medications as missed
-    - Consecutive missed checking (11:59 PM): Sends email alerts for patterns
+    - Consecutive missed detection is evaluated during grace-period checks
 
 CLI Commands:
     - flask create-initial-logs: Manually trigger daily log creation
@@ -80,11 +80,10 @@ register_routes(app)
 def init_scheduler():
     """Initialize the APScheduler for automated medication management.
     
-    Sets up background scheduler with four automated tasks:
+    Sets up background scheduler with three automated tasks:
     1. Daily log creation at midnight (00:00)
     2. Medication reminders every minute
     3. Grace period expiration checking every minute
-    4. Consecutive missed alert checking at 11:59 PM
     
     Returns:
         BackgroundScheduler | None: Scheduler instance if successful, None on error
@@ -93,10 +92,9 @@ def init_scheduler():
         - create_daily_logs: Creates medication logs for all active medications
         - schedule_notifications: Sends medication intake reminders
         - check_grace_period: Marks medications as missed after grace period
-        - check_consecutive_missed: Emails users about missed dose patterns
     
     Configuration:
-        - Timezone: UTC
+        - Timezone: Device local timezone
         - Max instances: 1 per job (prevents overlapping executions)
         - Misfire grace time: 10 seconds
         - Coalesce: Enabled (merges missed executions)
@@ -106,7 +104,6 @@ def init_scheduler():
         ✓ Scheduled: Create daily logs at 00:00
         ✓ Scheduled: Send notifications every minute
         ✓ Scheduled: Check grace period every minute
-        ✓ Scheduled: Check consecutive missed at 23:59
         ✓ Medication scheduler started successfully!
     
     Error Handling:
@@ -147,7 +144,7 @@ def init_medication_logs():
         2. For each medication, get scheduled times from frequency
         3. Check if logs already exist for today
         4. Create pending logs for upcoming scheduled times
-        5. Mark past pending logs as missed (if grace period expired)
+        5. Mark overdue pending logs as skipped (past dates + today's passed times)
     
     Example Result:
         {

@@ -98,6 +98,10 @@ def calculate_health_score(bmi, heart_rate, temperature, steps, sleep_hours, blo
     return int(round(score))
 
 
+LOW_RISK_SCORE_THRESHOLD = 80
+MEDIUM_RISK_SCORE_THRESHOLD = 60
+
+
 def score_to_label(score):
     """Convert numeric health score to categorical risk label.
     
@@ -131,9 +135,9 @@ def score_to_label(score):
         - Consistent with risk thresholds in reports module
         - No validation performed on input range
     """
-    if score >= 80:
+    if score >= LOW_RISK_SCORE_THRESHOLD:
         return "Low Risk"
-    elif score >= 60:
+    elif score >= MEDIUM_RISK_SCORE_THRESHOLD:
         return "Medium Risk"
     else:
         return "High Risk"

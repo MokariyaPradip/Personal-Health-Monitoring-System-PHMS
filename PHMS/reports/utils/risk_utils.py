@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from utils.health_score import LOW_RISK_SCORE_THRESHOLD, MEDIUM_RISK_SCORE_THRESHOLD
+
 
 def classify_metric_risk(metric_name: str, value: float | int | None) -> str:
     """Classify health metric into risk category using medical thresholds.
@@ -49,8 +51,8 @@ def classify_metric_risk(metric_name: str, value: float | int | None) -> str:
             - critical: < 4000
         
         health_score (0-100):
-            - normal: >= 82
-            - warning: 60-81
+            - normal: >= 80
+            - warning: 60-79
             - critical: < 60
         
         ml_regression_health_score (0-100):
@@ -125,17 +127,17 @@ def classify_metric_risk(metric_name: str, value: float | int | None) -> str:
         return "critical"
 
     if metric == "health_score":
-        if v >= 82:
+        if v >= LOW_RISK_SCORE_THRESHOLD:
             return "normal"
-        if 60 <= v < 82:
+        if MEDIUM_RISK_SCORE_THRESHOLD <= v < LOW_RISK_SCORE_THRESHOLD:
             return "warning"
         return "critical"
 
     if metric == "ml_regression_health_score":
         # ML regression score uses same thresholds as health_score
-        if v >= 80:
+        if v >= LOW_RISK_SCORE_THRESHOLD:
             return "normal"
-        if 60 <= v < 80:
+        if MEDIUM_RISK_SCORE_THRESHOLD <= v < LOW_RISK_SCORE_THRESHOLD:
             return "warning"
         return "critical"
 

@@ -242,40 +242,40 @@ def add_health():
 
     # ✅ INPUT VALIDATION & SAFE TYPE CONVERSION
     try:
-        heart_rate = int(data.get('heart_rate')) if data.get('heart_rate') else None
-        if heart_rate and (heart_rate < 30 or heart_rate > 220):
+        heart_rate = int(data.get('heart_rate')) if data.get('heart_rate') is not None else None
+        if heart_rate is not None and (heart_rate < 30 or heart_rate > 220):
             return jsonify({
                 "success": False,
                 "message": "Heart rate must be between 30 and 220 bpm"
             }), 400
             
-        temperature = float(data.get('temperature')) if data.get('temperature') else None
-        if temperature and (temperature < 35 or temperature > 42):
+        temperature = float(data.get('temperature')) if data.get('temperature') is not None else None
+        if temperature is not None and (temperature < 35 or temperature > 42):
             return jsonify({
                 "success": False,
                 "message": "Temperature must be between 35°C and 42°C"
             }), 400
             
-        steps = int(data.get('steps')) if data.get('steps') else None
-        if steps and (steps < 0 or steps > 60000):
+        steps = int(data.get('steps')) if data.get('steps') is not None else None
+        if steps is not None and (steps < 0 or steps > 60000):
             return jsonify({"success": False, "message": "Steps must be between 0 and 60,000"}), 400
             
-        sleep_hours = float(data.get('sleep_hours')) if data.get('sleep_hours') else None
-        if sleep_hours and (sleep_hours < 0 or sleep_hours > 24):
+        sleep_hours = float(data.get('sleep_hours')) if data.get('sleep_hours') is not None else None
+        if sleep_hours is not None and (sleep_hours < 0 or sleep_hours > 24):
             return jsonify({
                 "success": False,
                 "message": "Sleep hours must be between 0 and 24"
             }), 400
             
-        blood_pressure = float(data.get('blood_pressure')) if data.get('blood_pressure') else None
-        if blood_pressure and (blood_pressure < 40 or blood_pressure > 250):
+        blood_pressure = float(data.get('blood_pressure')) if data.get('blood_pressure') is not None else None
+        if blood_pressure is not None and (blood_pressure < 40 or blood_pressure > 250):
             return jsonify({
                 "success": False,
                 "message": "Blood pressure must be between 40 and 250 mmHg"
             }), 400
             
-        sugar = float(data.get('sugar')) if data.get('sugar') else None
-        if sugar and (sugar < 40 or sugar > 600):
+        sugar = float(data.get('sugar')) if data.get('sugar') is not None else None
+        if sugar is not None and (sugar < 40 or sugar > 600):
             return jsonify({
                 "success": False,
                 "message": "Blood sugar must be between 40 and 600 mg/dL"
@@ -289,7 +289,7 @@ def add_health():
         }), 400
 
     # Get user's BMI
-    user = User.query.get(current_user.user_id)
+    user = db.session.get(User, current_user.user_id)
     if not user:
         return jsonify({"success": False, "message": "User not found"}), 404
         

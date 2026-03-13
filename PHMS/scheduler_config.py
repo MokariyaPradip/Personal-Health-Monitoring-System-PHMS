@@ -5,7 +5,7 @@ This module sets up the scheduled tasks for automatic medication log management:
 1. Daily log creation (runs at midnight)
 2. Notification scheduling (runs every minute)
 3. Grace period checking (runs every minute)
-4. Consecutive missed checking (runs daily at 11:59 PM)
+4. Consecutive missed detection is handled inside grace-period checks
 
 To integrate with your Flask app, add this to your main app.py or a separate scheduler setup file:
 
@@ -59,18 +59,6 @@ def setup_medication_scheduler(app):
     )
     logger.info("Scheduled: Check grace period every minute")
     
-    # 4. Check consecutive missed at 23:59 (11:59 PM)
-    scheduler.add_job(
-        func=MedicationLogManager.check_consecutive_missed_and_email,
-        trigger='cron',
-        hour=23,
-        minute=59,
-        id='check_consecutive_missed',
-        name='Check consecutive missed and send email',
-        replace_existing=True
-    )
-    logger.info("Scheduled: Check consecutive missed at 23:59")
-    
     scheduler.start()
     logger.info("Medication scheduler started successfully!")
     
@@ -104,14 +92,6 @@ SCHEDULER_CONFIG = {
             'func': 'controllers.medication_log_controller:MedicationLogManager.check_grace_period_and_mark_missed',
             'trigger': 'interval',
             'minutes': 1,
-            'args': ()
-        },
-        {
-            'id': 'check_consecutive_missed',
-            'func': 'controllers.medication_log_controller:MedicationLogManager.check_consecutive_missed_and_email',
-            'trigger': 'cron',
-            'hour': 23,
-            'minute': 59,
             'args': ()
         }
     ]
@@ -148,7 +128,7 @@ class SchedulerSetup:
         1. create_daily_logs: Midnight (00:00) - Creates logs for all active medications
         2. schedule_notifications: Every 1 minute - Sends medication reminders
         3. check_grace_period: Every 1 minute - Marks overdue medications as missed
-        4. check_consecutive_missed: Daily at 11:59 PM - Sends email alerts
+        4. Consecutive missed handling runs inside check_grace_period
     
     Class Attributes:
         _scheduler (BackgroundScheduler | None): Singleton scheduler instance
@@ -200,7 +180,7 @@ class SchedulerSetup:
     def setup_apscheduler(cls, app):
         """Set up APScheduler with medication log management jobs.
         
-        Configures and starts a BackgroundScheduler with four automated jobs
+        Configures and starts a BackgroundScheduler with three automated jobs
         for medication log management. All jobs run with Flask app context.
         
         Args:
@@ -227,11 +207,6 @@ class SchedulerSetup:
                - Grace period: max(30 minutes, dose_gap_time)
                - Max 1 instance, 10s misfire grace, coalesce enabled
             
-            4. check_consecutive_missed (Cron: 23:59 daily):
-               - Analyzes missed medication patterns
-               - Sends email alerts for 2+ consecutive missed doses
-               - Updates user notification preferences
-        
         Configuration:
             - Timezone: Device local timezone
             - Replace existing: True (allows restart)
@@ -246,7 +221,6 @@ class SchedulerSetup:
             ✓ Scheduled: Create daily logs at 00:00
             ✓ Scheduled: Send notifications every minute
             ✓ Scheduled: Check grace period every minute
-            ✓ Scheduled: Check consecutive missed at 23:59
             ✓ Medication scheduler started successfully!
         
         Error Handling:
@@ -299,10 +273,6 @@ class SchedulerSetup:
                 with app.app_context():
                     return MedicationLogManager.check_grace_period_and_mark_missed()
             
-            def job_check_consecutive_missed():
-                with app.app_context():
-                    return MedicationLogManager.check_consecutive_missed_and_email()
-            
             # Create daily logs at 00:00 (midnight)
             scheduler.add_job(
                 func=job_create_daily_logs,
@@ -343,20 +313,24 @@ class SchedulerSetup:
             )
             logger.info("✓ Scheduled: Check grace period every minute")
             
-            # Check consecutive missed at 23:59 (11:59 PM)
-            scheduler.add_job(
-                func=job_check_consecutive_missed,
-                trigger='cron',
-                hour=23,
-                minute=59,
-                id='check_consecutive_missed',
-                name='Check consecutive missed and send email',
-                replace_existing=True
-            )
-            logger.info("✓ Scheduled: Check consecutive missed at 23:59")
-            
             scheduler.start()
             cls._scheduler = scheduler
+
+            # Catch up pending overdue logs immediately when scheduler boots.
+            with app.app_context():
+                startup_skip_result = MedicationLogManager.mark_past_pending_logs_as_skipped()
+            if startup_skip_result.get('status') == 'success':
+                logger.info(
+                    "✓ Startup catch-up complete: skipped=%s (evaluated=%s)",
+                    startup_skip_result.get('skipped', 0),
+                    startup_skip_result.get('evaluated', 0)
+                )
+            else:
+                logger.warning(
+                    "⚠️ Startup catch-up failed: %s",
+                    startup_skip_result.get('message', 'Unknown error')
+                )
+
             logger.info("━" * 50)
             logger.info("✓ Medication scheduler started successfully!")
             logger.info("━" * 50)
@@ -397,11 +371,10 @@ class SchedulerSetup:
             SCHEDULER_JOBS: List of job definitions
         
         Jobs Configured:
-            Same 4 jobs as setup_apscheduler():
+            Same 3 jobs as setup_apscheduler():
             - create_daily_logs (00:00 daily)
             - schedule_notifications (every minute)
             - check_grace_period (every minute)
-            - check_consecutive_missed (23:59 daily)
         
         API Endpoints (when SCHEDULER_API_ENABLED=True):
             GET  /scheduler/jobs - List all jobs
@@ -460,13 +433,6 @@ class SchedulerSetup:
                     'func': MedicationLogManager.check_grace_period_and_mark_missed,
                     'trigger': 'interval',
                     'minutes': 1
-                },
-                {
-                    'id': 'check_consecutive_missed',
-                    'func': MedicationLogManager.check_consecutive_missed_and_email,
-                    'trigger': 'cron',
-                    'hour': 23,
-                    'minute': 59
                 }
             ]
             
@@ -475,6 +441,20 @@ class SchedulerSetup:
             scheduler = APScheduler()
             scheduler.init_app(app)
             scheduler.start()
+
+            with app.app_context():
+                startup_skip_result = MedicationLogManager.mark_past_pending_logs_as_skipped()
+            if startup_skip_result.get('status') == 'success':
+                logger.info(
+                    "✓ Startup catch-up complete: skipped=%s (evaluated=%s)",
+                    startup_skip_result.get('skipped', 0),
+                    startup_skip_result.get('evaluated', 0)
+                )
+            else:
+                logger.warning(
+                    "⚠️ Startup catch-up failed: %s",
+                    startup_skip_result.get('message', 'Unknown error')
+                )
             
             logger.info("✓ Flask-APScheduler initialized successfully!")
             return scheduler
@@ -549,9 +529,6 @@ class SchedulerSetup:
 # 3. Check grace period every minute
 * * * * * /usr/bin/curl -X POST http://localhost:5000/medication-log/check-grace-period
 
-# 4. Check consecutive missed at 23:59 (11:59 PM)
-59 23 * * * /usr/bin/curl -X POST http://localhost:5000/medication-log/check-consecutive-missed
-
 Alternative using celery (if you're using Celery for task queue):
 
 from celery import Celery
@@ -572,11 +549,6 @@ def check_grace_period_task():
     from controllers.medication_log_controller import MedicationLogManager
     return MedicationLogManager.check_grace_period_and_mark_missed()
 
-@celery.task
-def check_consecutive_missed_task():
-    from controllers.medication_log_controller import MedicationLogManager
-    return MedicationLogManager.check_consecutive_missed_and_email()
-
 # Configure beat schedule
 from celery.schedules import crontab
 
@@ -592,10 +564,6 @@ celery.conf.beat_schedule = {
     'check-grace-period': {
         'task': 'tasks.check_grace_period_task',
         'schedule': crontab(),  # Every minute
-    },
-    'check-consecutive-missed': {
-        'task': 'tasks.check_consecutive_missed_task',
-        'schedule': crontab(hour=23, minute=59),
     }
 }
 """

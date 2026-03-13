@@ -20,8 +20,8 @@ class MedicationLog(db.Model):
             - 'missed': Not taken within grace period
             - 'skipped': Intentionally skipped by user
         scheduled_time (time): Time when dose should be taken (required)
-        taken_at (datetime, optional): Actual UTC timestamp when marked as taken
-        created_at (datetime): Log creation timestamp (UTC, auto-set)
+        taken_at (datetime, optional): Actual local timestamp when marked as taken
+        created_at (datetime): Log creation timestamp (device local time, auto-set)
     
     Relationships:
         user (User): Many-to-one with User model (backref: medication_logs)
@@ -46,7 +46,7 @@ class MedicationLog(db.Model):
         >>> db.session.commit()
         >>> # User marks as taken:
         >>> log.status = 'taken'
-        >>> log.taken_at = datetime.utcnow()
+        >>> log.taken_at = datetime.now()
         >>> db.session.commit()
     
     Note:
@@ -81,7 +81,7 @@ class MedicationLog(db.Model):
 
     scheduled_time = db.Column(db.Time, nullable=False)
     taken_at = db.Column(db.DateTime, nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now)
     
     user = db.relationship(
         "User",

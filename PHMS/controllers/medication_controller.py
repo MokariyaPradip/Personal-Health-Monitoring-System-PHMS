@@ -354,7 +354,7 @@ def delete_medication(id):
         Exception: Database deletion failure (rolled back automatically)
     """
     try:
-        medication = Medication.query.get(id)
+        medication = db.session.get(Medication, id)
         
         if not medication:
             return jsonify({"message": "Could not delete medication", "success": False}), 404

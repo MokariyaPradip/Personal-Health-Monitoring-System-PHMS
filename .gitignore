@@ -17,6 +17,12 @@ __pycache__/
 *.spec
 .python-version
 
+# Explicit PHMS cache paths
+/PHMS/**/__pycache__/
+/PHMS/**/*.pyc
+/PHMS/**/*.pyo
+/PHMS/**/*.pyd
+
 # ===============================
 # Python tooling caches
 # ===============================

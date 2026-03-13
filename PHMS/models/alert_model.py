@@ -19,7 +19,7 @@ class Alert(db.Model):
         message (str, optional): Detailed alert message (text field)
         category (str, optional): Alert category (max 30 chars)
             - Values: 'health', 'medication'
-        created_at (datetime): Alert creation timestamp (UTC, auto-set)
+        created_at (datetime): Alert creation timestamp (device local time, auto-set)
         severity (str, optional): Alert severity level (max 20 chars)
             - Values: 'low', 'medium', 'high', 'critical'
         is_read (bool): Read status flag (default: False)
@@ -73,6 +73,9 @@ class Alert(db.Model):
         - Deleted when associated user, health record, or medication log is deleted
     """
     __tablename__ = 'alert'
+    __table_args__ = (
+        db.UniqueConstraint('medication_log_id', 'title', name='uq_alert_medication_log_title'),
+    )
 
     alert_id = db.Column(db.Integer, primary_key=True)
     
@@ -93,7 +96,7 @@ class Alert(db.Model):
     
     created_at = db.Column(
         db.DateTime,
-        default=datetime.utcnow,
+        default=datetime.now,
         nullable=False
     )
 

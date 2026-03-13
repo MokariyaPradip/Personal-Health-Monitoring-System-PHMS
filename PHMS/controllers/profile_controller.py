@@ -45,7 +45,7 @@ def profile():
         - Requires @login_required (authenticated session)
         - Only displays current_user's data
     """
-    user = User.query.get(current_user.user_id)
+    user = db.session.get(User, current_user.user_id)
 
     # Health snapshot
     total_health_entries = HealthData.query.filter_by(user_id=user.user_id).count()
@@ -150,7 +150,7 @@ def update_profile():
         - Type coercion with try/except for numeric fields
     """
     data = request.get_json(silent=True) or {}
-    user = User.query.get(current_user.user_id)
+    user = db.session.get(User, current_user.user_id)
 
     # ✅ INPUT VALIDATION
     username = data.get('username', '').strip() if data.get('username') else user.username
@@ -158,8 +158,8 @@ def update_profile():
     
     # Validate age is within reasonable range
     try:
-        age = int(data.get('age')) if data.get('age') else user.age
-        if age and (age < 1 or age > 150):
+        age = int(data.get('age')) if data.get('age') is not None else user.age
+        if age is not None and (age < 1 or age > 150):
             return jsonify({
                 "success": False,
                 "message": "Age must be between 1 and 150"
@@ -172,8 +172,8 @@ def update_profile():
     
     # Validate height is positive and reasonable (cm)
     try:
-        height = float(data.get('height')) if data.get('height') else user.height
-        if height and (height < 50 or height > 300):
+        height = float(data.get('height')) if data.get('height') is not None else user.height
+        if height is not None and (height < 50 or height > 300):
             return jsonify({
                 "success": False,
                 "message": "Height must be between 50cm and 300cm"
@@ -186,8 +186,8 @@ def update_profile():
     
     # Validate weight is positive and reasonable (kg)
     try:
-        weight = float(data.get('weight')) if data.get('weight') else user.weight
-        if weight and (weight < 10 or weight > 500):
+        weight = float(data.get('weight')) if data.get('weight') is not None else user.weight
+        if weight is not None and (weight < 10 or weight > 500):
             return jsonify({
                 "success": False,
                 "message": "Weight must be between 10kg and 500kg"

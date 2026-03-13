@@ -7,14 +7,19 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style/register.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='style/loading-states.css') }}">
     <script src="{{ url_for('static', filename='js/loading-states.js') }}"></script>
-    
-    <style>
-    </style>
 
     <script>
     function getCsrfToken() {
         const el = document.querySelector('meta[name="csrf-token"]');
         return el ? el.getAttribute('content') : '';
+    }
+    function showPageToast(message, isError) {
+        const t = document.createElement('div');
+        t.className = 'phms-page-toast';
+        t.textContent = message;
+        t.style.background = isError ? '#ef4444' : '#10b981';
+        document.body.appendChild(t);
+        setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 3500);
     }
     </script>
 </head>
@@ -78,7 +83,7 @@ function register(event) {
     })
     .then(res => res.json())
     .then(data => {
-        alert(data.message);
+        showPageToast(data.message, !data.success);
         if (data.success) {
             if (window.PHMSLoading) {
                 window.PHMSLoading.showOverlay('Redirecting to login...');
@@ -97,7 +102,7 @@ function register(event) {
         }
     })
     .catch(() => {
-        alert('Registration failed. Please try again.');
+        showPageToast('Registration failed. Please try again.', true);
         if (registerBtn) {
             if (window.PHMSLoading) {
                 window.PHMSLoading.clearButtonLoading(registerBtn);

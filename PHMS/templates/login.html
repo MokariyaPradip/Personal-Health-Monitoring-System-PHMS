@@ -7,14 +7,19 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style/login.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='style/loading-states.css') }}">
     <script src="{{ url_for('static', filename='js/loading-states.js') }}"></script>
-    
-    <style>
-    </style>
 
     <script>
     function getCsrfToken() {
         const el = document.querySelector('meta[name="csrf-token"]');
         return el ? el.getAttribute('content') : '';
+    }
+    function showPageToast(message, isError) {
+        const t = document.createElement('div');
+        t.className = 'phms-page-toast';
+        t.textContent = message;
+        t.style.background = isError ? '#ef4444' : '#10b981';
+        document.body.appendChild(t);
+        setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 3500);
     }
     </script>
 </head>
@@ -69,7 +74,7 @@ function login(event) {
             }
             window.location = "/dashboard";
         } else {
-            alert(data.message);
+            showPageToast(data.message, true);
             if (loginBtn) {
                 if (window.PHMSLoading) {
                     window.PHMSLoading.clearButtonLoading(loginBtn);
@@ -81,7 +86,7 @@ function login(event) {
         }
     })
     .catch(() => {
-        alert('Login failed. Please try again.');
+        showPageToast('Login failed. Please try again.', true);
         if (loginBtn) {
             if (window.PHMSLoading) {
                 window.PHMSLoading.clearButtonLoading(loginBtn);

@@ -20,8 +20,8 @@ class User(UserMixin, db.Model):
         height (float, optional): Height in centimeters
         weight (float, optional): Weight in kilograms
         bmi (float, optional): Body Mass Index, auto-calculated from height/weight
-        created_at (datetime): Account creation timestamp (UTC)
-        updated_at (datetime): Last profile update timestamp (UTC, auto-updated)
+        created_at (datetime): Account creation timestamp (device local time)
+        updated_at (datetime): Last profile update timestamp (device local time, auto-updated)
     
     Relationships:
         health_records (List[HealthData]): One-to-many with HealthData
@@ -72,11 +72,14 @@ class User(UserMixin, db.Model):
     # NEW COLUMN BMI
     bmi = db.Column(db.Float)
 
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    # Admin flag — only True for system administrators
+    is_admin = db.Column(db.Boolean, default=False, nullable=False)
+
+    created_at = db.Column(db.DateTime, default=datetime.now, nullable=False)
     updated_at = db.Column(
         db.DateTime,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
+        default=datetime.now,
+        onupdate=datetime.now,
         nullable=False
     )
 
@@ -188,6 +191,6 @@ def load_user(user_id):
         User.get_id(): Returns user_id as string for session storage
     """
     try:
-        return User.query.get(int(user_id))
+        return db.session.get(User, int(user_id))
     except (TypeError, ValueError):
         return None

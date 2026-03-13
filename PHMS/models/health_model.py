@@ -18,7 +18,7 @@ class HealthData(db.Model):
         sleep_hours (float, optional): Hours of sleep per day
         blood_pressure (float, optional): Systolic blood pressure in mmHg
         sugar (float, optional): Blood glucose level in mg/dL
-        recorded_at (datetime): Timestamp when vitals were recorded (UTC, auto-set)
+        recorded_at (datetime): Timestamp when vitals were recorded (device local time, auto-set)
         health_score (int, optional): Rule-based health score (0-100)
         ml_regression_health_score (float, optional): ML regression prediction (0-100)
         ml_classifier_risk_label (str, optional): ML classifier prediction
@@ -76,7 +76,7 @@ class HealthData(db.Model):
     
     recorded_at = db.Column(
         db.DateTime,
-        default=datetime.utcnow,
+        default=datetime.now,
         nullable=False
     )
 

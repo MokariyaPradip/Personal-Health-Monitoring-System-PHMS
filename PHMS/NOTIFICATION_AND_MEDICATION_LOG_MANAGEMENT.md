@@ -1111,8 +1111,8 @@ APP_URL=http://localhost:5000
 **File:** [scheduler_config.py](PHMS/scheduler_config.py)
 
 ```python
-# Timezone (UTC recommended for server consistency)
-TIMEZONE = UTC
+# Timezone (use local device timezone)
+TIMEZONE = LOCAL_DEVICE_TIMEZONE
 
 # Task Configurations
 JOBS = [
