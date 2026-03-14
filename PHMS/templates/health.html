@@ -365,7 +365,7 @@ function executeDelete() {
 
 function deleteHealth(entryId, triggerButton) {
 
-    const request = () => fetch(`/deleteHealth/${entryId}`, {
+    const request = () => fetch(`/delete-health/${entryId}`, {
         method: 'DELETE',
         headers: {
             'X-CSRFToken': window.getCsrfToken()
@@ -468,7 +468,7 @@ function addHealth(event) {
         sugar: sugar || null
     };
 
-    fetch('/add_health', {
+    fetch('/add-health', {
     method: 'POST',
     headers: {
         'Content-Type': 'application/json',

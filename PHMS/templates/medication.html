@@ -413,7 +413,7 @@ function executeDeleteMedication() {
 }
 
 function deleteMedication(medicationId, triggerButton) {
-    const request = () => fetch(`/deleteMedication/${medicationId}`, {
+    const request = () => fetch(`/delete-medication/${medicationId}`, {
         method: 'DELETE',
         headers: {
             'X-CSRFToken': window.getCsrfToken()
@@ -476,7 +476,7 @@ function addMedication(event) {
     }
 
     /* ===== SEND DATA ===== */
-    fetch('/addMedication', {
+    fetch('/add-medication', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -558,7 +558,7 @@ function addMedicine(event) {
         }
     }
 
-    fetch('/addMedicine', {
+    fetch('/add-medicine', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',

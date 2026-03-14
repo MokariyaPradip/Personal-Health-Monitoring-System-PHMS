@@ -1,4 +1,4 @@
-from config import db, login_manager
+from config import db
 from datetime import datetime
 from sqlalchemy import event
 from flask_login import UserMixin
@@ -108,9 +108,6 @@ class User(UserMixin, db.Model):
     def get_id(self):
         return str(self.user_id)
 
-
-from sqlalchemy import event
-
 @event.listens_for(User, 'before_insert')
 @event.listens_for(User, 'before_update')
 def calculate_bmi(mapper, connection, target):
@@ -159,38 +156,3 @@ def calculate_bmi(mapper, connection, target):
     except (ValueError, TypeError):
         # Invalid input → don't crash registration
         target.bmi = None
-
-
-@login_manager.user_loader
-def load_user(user_id):
-    """Flask-Login user loader callback for session management.
-    
-    Retrieves User instance by user_id for Flask-Login's session management.
-    Called automatically by Flask-Login to load the current user from the
-    session cookie on each request.
-    
-    Args:
-        user_id (str): User ID from session cookie (converted from string)
-    
-    Returns:
-        User or None: User instance if found, None if user_id is invalid or not found
-    
-    Example:
-        Flask-Login calls this automatically:
-        >>> # On request with session cookie containing user_id=5
-        >>> user = load_user('5')
-        >>> print(user.username)
-        'john_doe'
-    
-    Note:
-        - Required by Flask-Login for @login_required decorator
-        - Returns None on exceptions (invalid ID, database errors)
-        - Registered via @login_manager.user_loader decorator
-    
-    See Also:
-        User.get_id(): Returns user_id as string for session storage
-    """
-    try:
-        return db.session.get(User, int(user_id))
-    except (TypeError, ValueError):
-        return None

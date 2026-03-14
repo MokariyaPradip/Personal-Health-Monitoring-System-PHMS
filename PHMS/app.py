@@ -62,15 +62,15 @@ Note:
     - Scheduler runs in single-instance mode to prevent duplicate jobs
     - Set ENABLE_SCHEDULER=1 to explicitly enable scheduler in production
     - Database migrations run automatically on first start
-    - Medication logs initialized at startup for today's schedule
+    - Medication logs and scheduler start only via explicit runtime bootstrap
+      (importing this module does not start background services)
 """
 
 import os
 import sys
-from config import create_app, db
-from models import *   # noqa: F401 (needed for migrations)
+from config import create_app
+import models  # noqa: F401 (needed for migrations)
 from routes import register_routes
-import click
 
 app = create_app()
 
@@ -172,7 +172,7 @@ def init_medication_logs():
         - Past pending logs automatically marked as 'skipped'
     """
     try:
-        from controllers.medication_log_controller import MedicationLogManager
+        from services.medication_log_service import MedicationLogManager
         result = MedicationLogManager.initialize_medication_logs()
         return result
     except Exception as e:
@@ -230,21 +230,56 @@ def should_start_scheduler():
     # Default: start scheduler (development mode via 'python app.py')
     return True
 
-if should_start_scheduler():
+def bootstrap_background_services(start_scheduler=None, initialize_logs=True):
+    """Explicitly initialize startup/background services for this process.
+
+    This function is intentionally NOT called at import time. Call it from
+    explicit runtime entrypoints only (for example `if __name__ == '__main__'`).
+
+    Args:
+        start_scheduler (bool | None):
+            - None: follow should_start_scheduler() policy
+            - True: force scheduler start in this process
+            - False: keep scheduler disabled in this process
+        initialize_logs (bool): whether to run startup medication log initialization
+
+    Returns:
+        dict: startup status details
+    """
+    global scheduler
+
+    scheduler_enabled = should_start_scheduler() if start_scheduler is None else bool(start_scheduler)
+    startup_status = {
+        'initialize_logs_requested': initialize_logs,
+        'scheduler_enabled': scheduler_enabled,
+        'logs_initialized': False,
+        'scheduler_started': False,
+        'init_result': None,
+    }
+
     with app.app_context():
-        # Initialize medication logs first (create/verify logs)
-        print("\n🔄 Initializing medication logs...")
-        init_result = init_medication_logs()
-        if init_result and init_result.get('status') == 'success':
-            print(f"✅ Medication logs initialized successfully")
-        
-        # Then start the scheduler
-        print("\n🚀 Starting scheduler...")
-        scheduler = init_scheduler()
-        if scheduler:
-            print("✅ Scheduler started successfully (single instance mode)")
-else:
-    print("⏸️  Scheduler disabled in this worker process (set ENABLE_SCHEDULER=1 to enable)")
+        if initialize_logs:
+            print("\n🔄 Initializing medication logs...")
+            init_result = init_medication_logs()
+            startup_status['init_result'] = init_result
+            if init_result and init_result.get('status') == 'success':
+                startup_status['logs_initialized'] = True
+                print("✅ Medication logs initialized successfully")
+
+        if scheduler_enabled:
+            if scheduler is not None:
+                startup_status['scheduler_started'] = True
+                print("✅ Scheduler already started in this process")
+            else:
+                print("\n🚀 Starting scheduler...")
+                scheduler = init_scheduler()
+                startup_status['scheduler_started'] = scheduler is not None
+                if scheduler:
+                    print("✅ Scheduler started successfully (single instance mode)")
+        else:
+            print("⏸️  Scheduler disabled in this process (set ENABLE_SCHEDULER=1 to enable)")
+
+    return startup_status
 
 # ============ CLI COMMANDS ============
 @app.cli.command('create-initial-logs')
@@ -295,7 +330,7 @@ def create_initial_logs():
     """
     with app.app_context():
         try:
-            from controllers.medication_log_controller import MedicationLogManager
+            from services.medication_log_service import MedicationLogManager
             
             print("📋 Creating initial medication logs for all active medications...")
             result = MedicationLogManager.create_daily_logs()
@@ -312,5 +347,8 @@ def create_initial_logs():
             print(f"❌ Error creating logs: {str(e)}")
 
 if __name__ == '__main__':
+    # Explicit one-time startup wiring for local/dev or dedicated scheduler process.
+    bootstrap_background_services()
+
     debug_mode = os.environ.get('FLASK_DEBUG', '0') == '1'
     app.run(debug=debug_mode)

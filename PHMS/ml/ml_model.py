@@ -11,7 +11,11 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # LOGGING SETUP
 # ===============================
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+
+if os.getenv("FLASK_ENV") == "development":
+    logger.setLevel(logging.DEBUG)
+else:
+    logger.setLevel(logging.INFO)
 
 if not logger.handlers:
     handler = logging.StreamHandler()

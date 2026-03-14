@@ -56,6 +56,14 @@ class MedicationLog(db.Model):
         - Consecutive missed doses (2+) trigger email notifications
     """
     __tablename__ = 'medication_log'
+    __table_args__ = (
+        db.UniqueConstraint(
+            'medication_id',
+            'log_date',
+            'scheduled_time',
+            name='uq_medication_log_schedule'
+        ),
+    )
 
     log_id = db.Column(db.Integer, primary_key=True)
     

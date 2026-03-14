@@ -22,7 +22,7 @@ class Medicine(db.Model):
     
     Relationships:
         medications (List[Medication]): One-to-many with Medication
-            - CASCADE delete: deletes all user prescriptions when medicine is removed
+            - Delete is restricted when any prescription references this medicine
     
     Example:
         >>> medicine = Medicine(
@@ -55,7 +55,7 @@ class Medicine(db.Model):
     medications = db.relationship(
         "Medication",
         back_populates="medicine",
-        cascade="all, delete-orphan"
+        passive_deletes=True
     )
 
     def __repr__(self):

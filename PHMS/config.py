@@ -391,6 +391,7 @@ def create_app():
     app.config['RATELIMIT_AUTH_ATTEMPTS'] = os.environ.get('RATELIMIT_AUTH_ATTEMPTS', '5 per minute')
     app.config['RATELIMIT_PASSWORD_RESET'] = os.environ.get('RATELIMIT_PASSWORD_RESET', '3 per hour')
     app.config['RATELIMIT_REGISTRATION'] = os.environ.get('RATELIMIT_REGISTRATION', '5 per hour')
+    app.config['RATELIMIT_CHANGE_PASSWORD'] = os.environ.get('RATELIMIT_CHANGE_PASSWORD', '10 per hour')
 
     # ================== SECURITY: HTTPS & TLS ==================
     app.config['FORCE_HTTPS'] = os.environ.get('FORCE_HTTPS', '1' if IS_PRODUCTION else '0') == '1'
@@ -429,6 +430,16 @@ def create_app():
     limiter.init_app(app)  # Initialize rate limiter
 
     login_manager.login_view = 'login'
+
+    # Keep login loader registration in app setup (not in entity model modules).
+    from models import User
+
+    @login_manager.user_loader
+    def load_user(user_id):
+        try:
+            return db.session.get(User, int(user_id))
+        except (TypeError, ValueError):
+            return None
     
     # ================== LOGGING: EMAIL CONFIGURATION STATUS ==================
     with app.app_context():

@@ -1,367 +1,86 @@
-from flask import jsonify, request, render_template
-from flask_login import login_required, current_user
-from models import Alert, MedicationLog, Medication
-from config import db
-from datetime import date, timedelta
-from controllers.medication_log_controller import MedicationLogManager
+from flask import jsonify, render_template, request
+from flask_login import current_user, login_required
+
+from services.notification_service import (
+    get_notification_count as fetch_notification_count,
+    get_notifications as fetch_notifications,
+    mark_all_notifications_read as mark_every_notification_read,
+    mark_notification_read as mark_single_notification_read,
+    notifications_page as build_notifications_page_context,
+)
 
 
-def _normalize_severity(value):
-    """Normalize severity to project-standard Title Case values."""
-    severity_map = {
-        'low': 'Low',
-        'medium': 'Medium',
-        'high': 'High',
-        'critical': 'Critical',
-    }
-    return severity_map.get(str(value or '').strip().lower(), 'Medium')
+_MAX_NOTIFICATIONS_LIMIT = 100
+_DEFAULT_NOTIFICATIONS_LIMIT = 10
+_ALLOWED_TABS = {'all', 'health', 'medication', 'medication-log'}
+
+
+def _parse_limit_arg():
+    """Parse and clamp notifications limit from query string."""
+    raw_limit = request.args.get('limit', _DEFAULT_NOTIFICATIONS_LIMIT)
+    try:
+        limit = int(raw_limit)
+    except (TypeError, ValueError):
+        limit = _DEFAULT_NOTIFICATIONS_LIMIT
+
+    if limit < 1:
+        return 1
+    if limit > _MAX_NOTIFICATIONS_LIMIT:
+        return _MAX_NOTIFICATIONS_LIMIT
+    return limit
+
+
+def _parse_active_tab():
+    """Normalize active tab input for template/UI state."""
+    tab = (request.args.get('tab') or 'all').strip().lower()
+    return tab if tab in _ALLOWED_TABS else 'all'
+
+
+def _json_response_from_service(result):
+    """Translate a service result dictionary into an HTTP JSON response."""
+    if not isinstance(result, dict):
+        return jsonify({'success': False, 'message': 'Unexpected service response'}), 500
+
+    response_payload = dict(result)
+    status_code = response_payload.pop('status_code', 200)
+    return jsonify(response_payload), status_code
 
 
 @login_required
 def notifications_page():
-    """Display comprehensive notifications page with alerts and medication logs.
-    
-    Renders the notifications page showing all user alerts grouped by category
-    (health/medication) and medication logs for the past 7 days. Includes counters
-    for unread alerts and logs categorized by status (pending/taken/missed/skipped).
-    
-    Endpoints:
-        GET /notifications: Display notifications and medication logs page
-    
-    Data Retrieved:
-        Alerts:
-            - all_alerts: All alerts for the user (ordered by most recent)
-            - health_alerts: Filtered alerts with category='health'
-            - medication_alerts: Filtered alerts with category='medication'
-            - Unread counts per category
-        
-        Medication Logs (Last 7 Days):
-            - pending_logs: Status='pending', ordered by nearest time (ascending)
-            - taken_logs: Status='taken', ordered by most recent (descending)
-            - missed_logs: Status='missed', ordered by most recent (descending)
-            - skipped_logs: Status='skipped', ordered by most recent (descending)
-            - Grace period info added to each pending log via MedicationLogManager
-    
-    Sorting Logic:
-        - Alerts: Descending by created_at (most recent first)
-        - Pending logs: Ascending by log_date and scheduled_time (next dose first)
-        - Taken/Missed/Skipped logs: Descending by log_date and scheduled_time
-    
-    Returns:
-        Rendered notifications.html template with context:
-            - all_alerts: List[Alert] - All alerts
-            - health_alerts: List[Alert] - Health category alerts
-            - medication_alerts: List[Alert] - Medication category alerts
-            - total_count: int - Total alert count
-            - unread_count: int - Total unread alerts
-            - health_unread: int - Unread health alerts
-            - medication_unread: int - Unread medication alerts
-            - medication_logs: List[MedicationLog] - Combined all logs
-            - pending_logs: List[MedicationLog] - Pending logs with grace_period_minutes
-            - taken_logs: List[MedicationLog] - Taken logs
-            - missed_logs: List[MedicationLog] - Missed logs
-            - skipped_logs: List[MedicationLog] - Skipped logs
-            - pending_count: int - Count of pending logs
-            - taken_count: int - Count of taken logs
-            - missed_count: int - Count of missed logs
-    
-    Error Handling:
-        - On exception: Returns template with all empty lists/zero counts
-        - Rolls back database session on error
-        - Gracefully degrades to empty state (no error displayed to user)
-    
-    Security:
-        - Requires @login_required (authenticated session)
-        - All data filtered by current_user.user_id
-        - Uses JOIN queries for medication logs (ensures data integrity)
-    """
-    try:
-        # Fetch all alerts for the current user, ordered by most recent
-        all_alerts = Alert.query.filter_by(
-            user_id=current_user.user_id
-        ).order_by(Alert.created_at.desc()).all()
-
-        # Group alerts by category
-        health_alerts = [alert for alert in all_alerts if alert.category == 'health']
-        medication_alerts = [alert for alert in all_alerts if alert.category == 'medication']
-
-        # Count unread alerts
-        unread_count = sum(1 for alert in all_alerts if not alert.is_read)
-        health_unread = sum(1 for alert in health_alerts if not alert.is_read)
-        medication_unread = sum(1 for alert in medication_alerts if not alert.is_read)
-
-        # Fetch medication logs for today and recent days (last 7 days)
-        today = date.today()
-        week_ago = today - timedelta(days=7)
-
-        # Fetch pending logs separately - ordered by nearest time first (ascending)
-        pending_logs = MedicationLog.query.join(
-            Medication
-        ).filter(
-            MedicationLog.user_id == current_user.user_id,
-            MedicationLog.log_date >= week_ago,
-            MedicationLog.status == 'pending'
-        ).order_by(
-            MedicationLog.log_date.asc(),
-            MedicationLog.scheduled_time.asc()
-        ).all()
-        
-        # Add grace period info to each pending log
-        for log in pending_logs:
-            log.grace_period_minutes = MedicationLogManager.get_grace_period_for_medication(log.medication)
-
-        # Fetch taken and missed logs - ordered by most recent first (descending)
-        taken_logs = MedicationLog.query.join(
-            Medication
-        ).filter(
-            MedicationLog.user_id == current_user.user_id,
-            MedicationLog.log_date >= week_ago,
-            MedicationLog.status == 'taken'
-        ).order_by(
-            MedicationLog.log_date.desc(),
-            MedicationLog.scheduled_time.desc()
-        ).all()
-
-        missed_logs = MedicationLog.query.join(
-            Medication
-        ).filter(
-            MedicationLog.user_id == current_user.user_id,
-            MedicationLog.log_date >= week_ago,
-            MedicationLog.status == 'missed'
-        ).order_by(
-            MedicationLog.log_date.desc(),
-            MedicationLog.scheduled_time.desc()
-        ).all()
-
-        # Fetch skipped logs - ordered by most recent first (descending)
-        skipped_logs = MedicationLog.query.join(
-            Medication
-        ).filter(
-            MedicationLog.user_id == current_user.user_id,
-            MedicationLog.log_date >= week_ago,
-            MedicationLog.status == 'skipped'
-        ).order_by(
-            MedicationLog.log_date.desc(),
-            MedicationLog.scheduled_time.desc()
-        ).all()
-
-        # Combine all logs for total count
-        medication_logs = pending_logs + taken_logs + missed_logs + skipped_logs
-
-        return render_template(
-            'notifications.html',
-            all_alerts=all_alerts,
-            health_alerts=health_alerts,
-            medication_alerts=medication_alerts,
-            total_count=len(all_alerts),
-            unread_count=unread_count,
-            health_unread=health_unread,
-            medication_unread=medication_unread,
-            medication_logs=medication_logs,
-            pending_logs=pending_logs,
-            taken_logs=taken_logs,
-            missed_logs=missed_logs,
-            skipped_logs=skipped_logs,
-            pending_count=len(pending_logs),
-            taken_count=len(taken_logs),
-            missed_count=len(missed_logs),
-            skipped_count=len(skipped_logs)
-        )
-    except Exception:
-        db.session.rollback()
-        return render_template(
-            'notifications.html',
-            all_alerts=[],
-            health_alerts=[],
-            medication_alerts=[],
-            total_count=0,
-            unread_count=0,
-            health_unread=0,
-            medication_unread=0,
-            medication_logs=[],
-            pending_logs=[],
-            taken_logs=[],
-            missed_logs=[],
-            pending_count=0,
-            taken_count=0,
-            missed_count=0
-        )
+    context = build_notifications_page_context(current_user.user_id)
+    context['active_tab'] = _parse_active_tab()
+    return render_template('notifications.html', **context)
 
 
 @login_required
 def get_notifications():
-    """
-    Fetch unread notifications for the current user via API
-    
-    Query Parameters:
-        limit (int): Maximum number of notifications to return (default: 10)
-    
-    Returns:
-        JSON with success, count, and list of notification objects
-    """
-    try:
-        # Get limit from query params (default: 10)
-        limit = request.args.get('limit', 10, type=int)
-
-        # Fetch unread alerts ordered by most recent
-        alerts = Alert.query.filter_by(
-            user_id=current_user.user_id,
-            is_read=False
-        ).order_by(Alert.created_at.desc()).limit(limit).all()
-
-        notifications = []
-        for alert in alerts:
-            notifications.append({
-                'alert_id': alert.alert_id,
-                'title': alert.title or 'Alert',
-                'message': alert.message,
-                'category': alert.category or 'general',
-                'severity': _normalize_severity(alert.severity),
-                'created_at': alert.created_at.strftime('%b %d, %Y %I:%M %p'),
-                'is_read': alert.is_read
-            })
-
-        return jsonify({
-            'success': True,
-            'count': len(notifications),
-            'notifications': notifications
-        })
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({
-            'success': False,
-            'message': 'Error fetching notifications',
-            'error': str(e)
-        }), 500
+    limit = _parse_limit_arg()
+    result = fetch_notifications(current_user.user_id, limit=limit)
+    return _json_response_from_service(result)
 
 
 @login_required
 def mark_notification_read(alert_id):
-    """
-    Mark a single notification as read by the current user
-    
-    Parameters:
-        alert_id (int): ID of the alert to mark as read
-    
-    Returns:
-        JSON with success status and message
-        404 if alert not found or doesn't belong to user
-    """
-    try:
-        # Query alert by ID and verify ownership
-        alert = Alert.query.filter_by(
-            alert_id=alert_id,
-            user_id=current_user.user_id
-        ).first()
-
-        if not alert:
-            return jsonify({
-                'success': False,
-                'message': 'Notification not found'
-            }), 404
-
-        alert.is_read = True
-        db.session.commit()
-
-        return jsonify({
-            'success': True,
-            'message': 'Notification marked as read'
-        })
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({
-            'success': False,
-            'message': 'Error marking notification as read',
-            'error': str(e)
-        }), 500
+    result = mark_single_notification_read(current_user.user_id, alert_id)
+    return _json_response_from_service(result)
 
 
 @login_required
 def mark_all_notifications_read():
-    """
-    Mark all unread notifications as read for the current user
-    
-    Bulk updates all unread Alert records for current user to is_read=True.
-    Frontend updates UI without page reload and shows success toast notification.
-    Returns count of updated notifications and category breakdown.
-    
-    Returns:
-        JSON with success status, message, count of updated notifications,
-        and category breakdown (health and medication counts)
-    """
-    try:
-        # Count unread alerts before updating
-        unread_alerts = Alert.query.filter_by(
-            user_id=current_user.user_id,
-            is_read=False
-        ).all()
-        
-        total_updated = len(unread_alerts)
-        
-        # Count by category
-        health_count = sum(1 for alert in unread_alerts if alert.category == 'health')
-        medication_count = sum(1 for alert in unread_alerts if alert.category == 'medication')
-        
-        # Return early if no unread notifications
-        if total_updated == 0:
-            return jsonify({
-                'success': True,
-                'message': 'No unread notifications to mark',
-                'updated_count': 0,
-                'health_count': 0,
-                'medication_count': 0
-            })
-
-        # Bulk update all unread alerts for current user
-        Alert.query.filter_by(
-            user_id=current_user.user_id,
-            is_read=False
-        ).update({'is_read': True})
-
-        db.session.commit()
-
-        return jsonify({
-            'success': True,
-            'message': f'{total_updated} notification{"s" if total_updated != 1 else ""} marked as read',
-            'updated_count': total_updated,
-            'health_count': health_count,
-            'medication_count': medication_count
-        })
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({
-            'success': False,
-            'message': 'Error marking all notifications as read',
-            'error': str(e)
-        }), 500
+    result = mark_every_notification_read(current_user.user_id)
+    return _json_response_from_service(result)
 
 
 @login_required
 def get_notification_count():
-    """
-    Get the count of unread notifications for the current user
-    
-    Returns the total number of unread Alert records for displaying in UI badge.
-    Lightweight query useful for quick updates of notification badge counts.
-    
-    Returns:
-        JSON with success status and unread notification count
-    """
-    try:
-        # Count all unread alerts for current user
-        count = Alert.query.filter_by(
-            user_id=current_user.user_id,
-            is_read=False
-        ).count()
+    result = fetch_notification_count(current_user.user_id)
+    return _json_response_from_service(result)
 
-        return jsonify({
-            'success': True,
-            'count': count
-        })
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({
-            'success': False,
-            'message': 'Error fetching notification count',
-            'error': str(e)
-        }), 500
+__all__ = [
+    'notifications_page',
+    'get_notifications',
+    'mark_notification_read',
+    'mark_all_notifications_read',
+    'get_notification_count',
+]

@@ -34,3 +34,9 @@ Flask-APScheduler==1.13.1
 # Security & Rate Limiting
 Flask-Limiter==3.5.0
 redis==5.0.1  # Storage backend for Flask-Limiter (production-ready)
+
+# Schema-based request validation
+pydantic==2.9.2
+
+# Testing
+pytest==8.3.5
