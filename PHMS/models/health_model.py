@@ -55,6 +55,10 @@ class HealthData(db.Model):
         - All vital sign fields are optional to support partial data entry
     """
     __tablename__ = 'health_data'
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'data_source', 'source_record_id', name='uq_health_user_source_record'),
+        db.UniqueConstraint('user_id', 'ingestion_fingerprint', name='uq_health_user_fingerprint'),
+    )
 
     entry_id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(
@@ -85,6 +89,9 @@ class HealthData(db.Model):
     # Note: rule_based_risk_label removed (computed on-the-fly from health_score)
     ml_regression_health_score = db.Column(db.Float)  # Regression-based continuous prediction
     ml_classifier_risk_label = db.Column(db.String(20))  # Classifier-based categorical prediction
+    data_source = db.Column(db.String(30), nullable=False, default='manual')
+    source_record_id = db.Column(db.String(255), nullable=True)
+    ingestion_fingerprint = db.Column(db.String(64), nullable=True, index=True)
     
     # Relationship to User
     user = db.relationship(

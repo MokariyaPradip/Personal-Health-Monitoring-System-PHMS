@@ -83,7 +83,7 @@ def generate_report_pdf(report_data: dict) -> bytes:
         - KPI status badges (Excellent/Good/Monitor/Low)
     
     Example:
-        >>> from reports.services.report_service import build_report_for_range
+        >>> from services.report_service import build_report_for_range
         >>> report_data = build_report_for_range(user_id=1, ...)
         >>> pdf_bytes = generate_report_pdf(report_data)
         >>> with open('health_report.pdf', 'wb') as f:

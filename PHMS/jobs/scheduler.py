@@ -14,6 +14,7 @@ from jobs.medication_tasks import (
     catch_up_overdue_pending_logs,
 )
 from jobs.notification_tasks import push_due_notifications
+from jobs.smartwatch_tasks import sync_all_connected_smartwatches
 
 logger = logging.getLogger(__name__)
 
@@ -88,6 +89,15 @@ class SchedulerSetup:
                 with app.app_context():
                     return check_grace_period_and_mark_missed()
 
+            def job_sync_smartwatches():
+                with app.app_context():
+                    return sync_all_connected_smartwatches()
+
+            smartwatch_sync_interval_hours = app.config.get('SMARTWATCH_SYNC_INTERVAL_HOURS', 6)
+            smartwatch_sync_max_instances = app.config.get('SMARTWATCH_SYNC_MAX_INSTANCES', 1)
+            smartwatch_sync_misfire_grace = app.config.get('SMARTWATCH_SYNC_MISFIRE_GRACE_SECONDS', 60)
+            smartwatch_sync_coalesce = app.config.get('SMARTWATCH_SYNC_COALESCE', True)
+
             scheduler.add_job(
                 func=job_create_daily_logs,
                 trigger='cron',
@@ -124,6 +134,25 @@ class SchedulerSetup:
                 coalesce=True,
             )
             logger.info("✓ Scheduled: Check grace period every minute")
+
+            scheduler.add_job(
+                func=job_sync_smartwatches,
+                trigger='interval',
+                hours=smartwatch_sync_interval_hours,
+                id='sync_all_smartwatches',
+                name='Sync all connected smartwatch accounts',
+                replace_existing=True,
+                max_instances=smartwatch_sync_max_instances,
+                misfire_grace_time=smartwatch_sync_misfire_grace,
+                coalesce=smartwatch_sync_coalesce,
+            )
+            logger.info(
+                "✓ Scheduled: Sync smartwatches every %s hour(s) (max_instances=%s, misfire_grace=%ss, coalesce=%s)",
+                smartwatch_sync_interval_hours,
+                smartwatch_sync_max_instances,
+                smartwatch_sync_misfire_grace,
+                smartwatch_sync_coalesce,
+            )
 
             scheduler.start()
             cls._scheduler = scheduler

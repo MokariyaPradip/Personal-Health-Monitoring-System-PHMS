@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block title %}Smartwatch Integration | PHMS{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='style/smartwatch.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="smartwatch-page" id="smartwatchPage" data-provider="{{ provider }}">
+    <section class="smartwatch-hero">
+        <div>
+            <h1>Smartwatch Integration</h1>
+            <p class="smartwatch-subtitle">Connect your wearable to sync metrics automatically while keeping Health Data focused on records and history.</p>
+        </div>
+    </section>
+
+    <section class="smartwatch-grid">
+        <article class="smartwatch-card provider-card">
+            <div class="provider-head">
+                <div class="provider-mark">⌚</div>
+                <div>
+                    <h2>{{ provider_label }}</h2>
+                    <p>Provider ID: <span id="providerName">{{ provider }}</span></p>
+                </div>
+            </div>
+
+            <div class="provider-status-row">
+                <span class="status-label">Connection</span>
+                <span class="status-pill {{ 'connected' if is_connected else 'disconnected' }}" id="connectionStatusPill">
+                    {{ 'Connected' if is_connected else 'Disconnected' }}
+                </span>
+            </div>
+
+            <div class="provider-actions">
+                <button id="connectBtn" class="btn-primary" {% if is_connected %}style="display:none;"{% endif %}>Connect</button>
+                <button id="syncBtn" class="btn-secondary" {% if not is_connected %}disabled{% endif %}>Sync Now</button>
+                <button id="disconnectBtn" class="btn-danger" {% if not is_connected %}disabled{% endif %}>Disconnect</button>
+            </div>
+
+            <p class="provider-note">OAuth authorization opens in the same tab and returns to this page automatically.</p>
+        </article>
+
+        <article class="smartwatch-card status-card" id="statusRegion">
+            <h3>Sync Status</h3>
+            <div class="status-grid">
+                <div class="status-item">
+                    <span class="k">Last Successful Sync</span>
+                    <span class="v" id="lastSyncedAt">{{ account.last_synced_at if account else 'Never synced' }}</span>
+                </div>
+                <div class="status-item">
+                    <span class="k">Last Sync Attempt</span>
+                    <span class="v" id="lastAttemptAt">{{ sync_state.last_synced_at if sync_state else 'No attempts yet' }}</span>
+                </div>
+                <div class="status-item">
+                    <span class="k">Incremental Cursor</span>
+                    <span class="v" id="incrementalCursor">{{ sync_state.incremental_cursor if sync_state and sync_state.incremental_cursor else 'N/A' }}</span>
+                </div>
+                <div class="status-item">
+                    <span class="k">Incremental Since</span>
+                    <span class="v" id="incrementalSince">{{ sync_state.incremental_since if sync_state and sync_state.incremental_since else 'N/A' }}</span>
+                </div>
+            </div>
+        </article>
+    </section>
+
+    <section class="smartwatch-card errors-card">
+        <div class="errors-head">
+            <h3>Recent Sync Errors</h3>
+            <button class="btn-tertiary" id="refreshStatusBtn">Refresh Status</button>
+        </div>
+
+        <div id="errorsContainer">
+            {% if recent_errors %}
+            <ul class="error-list">
+                {% for error in recent_errors %}
+                <li>
+                    <span class="error-source">{{ error.source|capitalize }}</span>
+                    <span class="error-message">{{ error.message }}</span>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="no-errors">No sync errors recorded recently.</p>
+            {% endif %}
+        </div>
+    </section>
+</div>
+
+<script src="{{ url_for('static', filename='js/smartwatch.js') }}"></script>
+{% endblock %}

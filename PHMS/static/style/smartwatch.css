@@ -1,0 +1,284 @@
+:root {
+    --sw-primary: #0f766e;
+    --sw-primary-dark: #115e59;
+    --sw-surface: #ffffff;
+    --sw-bg: #f0f4f8;
+    --sw-text: #0f172a;
+    --sw-muted: #475569;
+    --sw-border: #dbe2ea;
+    --sw-success-bg: #dcfce7;
+    --sw-success-text: #166534;
+    --sw-danger-bg: #fee2e2;
+    --sw-danger-text: #991b1b;
+    --sw-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+}
+
+.smartwatch-page {
+    padding: 1rem;
+}
+
+.smartwatch-hero {
+    background: linear-gradient(135deg, #d7f3ed 0%, #ecfeff 45%, #eef6ff 100%);
+    border: 1px solid #c7e7e2;
+    border-radius: 16px;
+    padding: 1.25rem 1.5rem;
+    box-shadow: var(--sw-shadow);
+    margin-bottom: 1.2rem;
+}
+
+.smartwatch-hero h1 {
+    margin: 0;
+    font-size: 1.8rem;
+    color: var(--sw-text);
+}
+
+.smartwatch-subtitle {
+    margin: 0.5rem 0 0;
+    color: var(--sw-muted);
+    line-height: 1.45;
+}
+
+.smartwatch-grid {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: 1fr 1fr;
+    margin-bottom: 1rem;
+}
+
+.smartwatch-card {
+    background: var(--sw-surface);
+    border: 1px solid var(--sw-border);
+    border-radius: 14px;
+    padding: 1rem;
+    box-shadow: var(--sw-shadow);
+}
+
+.provider-head {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+    margin-bottom: 1rem;
+}
+
+.provider-mark {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #e6fffb;
+    border: 1px solid #b5ebe4;
+    font-size: 1.3rem;
+}
+
+.provider-head h2 {
+    margin: 0;
+    color: var(--sw-text);
+}
+
+.provider-head p {
+    margin: 0.15rem 0 0;
+    color: var(--sw-muted);
+    font-size: 0.92rem;
+}
+
+.provider-status-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 0.2rem 0 1rem;
+}
+
+.status-label {
+    color: var(--sw-muted);
+    font-size: 0.9rem;
+}
+
+.status-pill {
+    padding: 0.3rem 0.7rem;
+    border-radius: 999px;
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+.status-pill.connected {
+    background: var(--sw-success-bg);
+    color: var(--sw-success-text);
+}
+
+.status-pill.disconnected {
+    background: var(--sw-danger-bg);
+    color: var(--sw-danger-text);
+}
+
+.provider-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.btn-primary,
+.btn-secondary,
+.btn-danger,
+.btn-tertiary {
+    border: none;
+    border-radius: 8px;
+    padding: 0.6rem 0.95rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.btn-primary {
+    background: var(--sw-primary);
+    color: #fff;
+}
+
+.btn-primary:hover {
+    background: var(--sw-primary-dark);
+}
+
+.btn-secondary {
+    background: #1d4ed8;
+    color: #fff;
+}
+
+.btn-secondary:hover {
+    background: #1e40af;
+}
+
+.btn-danger {
+    background: #dc2626;
+    color: #fff;
+}
+
+.btn-danger:hover {
+    background: #b91c1c;
+}
+
+.btn-tertiary {
+    background: #e2e8f0;
+    color: #1e293b;
+}
+
+.btn-tertiary:hover {
+    background: #cbd5e1;
+}
+
+button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.provider-note {
+    color: var(--sw-muted);
+    font-size: 0.84rem;
+    margin-top: 0.7rem;
+}
+
+.status-card h3,
+.errors-card h3 {
+    margin: 0 0 0.85rem;
+    color: var(--sw-text);
+}
+
+.status-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.7rem;
+}
+
+.status-item {
+    background: var(--sw-bg);
+    border: 1px solid var(--sw-border);
+    border-radius: 10px;
+    padding: 0.65rem;
+}
+
+.status-item .k {
+    display: block;
+    color: var(--sw-muted);
+    font-size: 0.8rem;
+    margin-bottom: 0.25rem;
+}
+
+.status-item .v {
+    color: var(--sw-text);
+    font-size: 0.9rem;
+    font-weight: 600;
+    word-break: break-word;
+}
+
+.errors-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.4rem;
+}
+
+.error-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: 0.55rem;
+}
+
+.error-list li {
+    background: #fff8f8;
+    border: 1px solid #fecaca;
+    border-radius: 8px;
+    padding: 0.65rem;
+}
+
+.error-source {
+    display: inline-block;
+    font-size: 0.76rem;
+    font-weight: 700;
+    color: var(--sw-danger-text);
+    margin-right: 0.4rem;
+}
+
+.error-message {
+    color: #7f1d1d;
+    font-size: 0.88rem;
+}
+
+.no-errors {
+    color: var(--sw-muted);
+    margin: 0.35rem 0 0;
+}
+
+@media (max-width: 980px) {
+    .smartwatch-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 640px) {
+    .smartwatch-page {
+        padding: 0.5rem;
+    }
+
+    .smartwatch-hero {
+        padding: 1rem;
+    }
+
+    .smartwatch-hero h1 {
+        font-size: 1.45rem;
+    }
+
+    .status-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .provider-actions {
+        flex-direction: column;
+    }
+
+    .provider-actions button {
+        width: 100%;
+    }
+}

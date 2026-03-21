@@ -4,6 +4,8 @@ from .medication_repository import MedicationRepository
 from .auth_repository import AuthRepository
 from .alert_repository import AlertRepository
 from .dashboard_repository import DashboardRepository
+from .report_repository import ReportRepository
+from .smartwatch_repository import SmartwatchRepository
 
 __all__ = [
     'MedicationLogRepository',
@@ -12,4 +14,6 @@ __all__ = [
     'AuthRepository',
     'AlertRepository',
     'DashboardRepository',
+    'ReportRepository',
+    'SmartwatchRepository',
 ]

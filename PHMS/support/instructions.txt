@@ -4,6 +4,55 @@
                            Updated: March 2026
 ================================================================================
 
+SMARTWATCH INTEGRATION (P2 CONFIG + DOCS)
+================================================================================
+This project now includes smartwatch OAuth integration and periodic background sync.
+Use these environment values in .env (copy from .env.example):
+
+OAuth provider settings:
+   PHMS_BASE_URL=http://127.0.0.1:5000
+   SMARTWATCH_OAUTH_CALLBACK_PATH=/smartwatch/callback
+   GOOGLE_FIT_CLIENT_ID=<google-oauth-client-id>
+   GOOGLE_FIT_CLIENT_SECRET=<google-oauth-client-secret>
+
+Smartwatch scheduler settings:
+   ENABLE_SCHEDULER=0                          # set 1 in dedicated scheduler process
+   SMARTWATCH_SYNC_INTERVAL_HOURS=6
+   SMARTWATCH_SYNC_MAX_INSTANCES=1
+   SMARTWATCH_SYNC_MISFIRE_GRACE_SECONDS=60
+   SMARTWATCH_SYNC_COALESCE=1
+
+Smartwatch rate limits:
+   RATELIMIT_SMARTWATCH_AUTH=5 per minute
+   RATELIMIT_SMARTWATCH_MODIFY=10 per hour
+   RATELIMIT_SMARTWATCH_SYNC=10 per hour
+   RATELIMIT_SMARTWATCH_STATUS=30 per minute
+
+Google OAuth console callback URL:
+   <PHMS_BASE_URL><SMARTWATCH_OAUTH_CALLBACK_PATH>
+   Example: http://127.0.0.1:5000/smartwatch/callback
+
+Database migrations (required when pulling schema updates):
+   cd PHMS
+   .\venv\Scripts\Activate.ps1
+   flask db upgrade
+
+Runtime startup flow (aligned with app.py):
+   - Importing app does NOT auto-start scheduler.
+   - `python app.py` runs bootstrap_background_services() once.
+   - Scheduler starts when should_start_scheduler() allows it.
+   - In multi-worker production, run a dedicated scheduler process with:
+         ENABLE_SCHEDULER=1 python app.py
+
+Local verification checklist:
+   1) Start app: python start.py
+   2) Open /smartwatch and click Connect
+   3) Complete provider consent, confirm callback returns to Smartwatch page
+   4) Trigger Sync Now, then confirm /smartwatch/status/google_fit returns 200
+   5) Verify scheduler logs include smartwatch periodic job registration
+   6) Run smartwatch test suite:
+         python -m pytest tests/smartwatch -q
+
 PRE-REQUISITES
 ================================================================================
 1. Python Version
@@ -18,6 +67,60 @@ PRE-REQUISITES
    - SQLite (built-in with Python - no separate installation needed)
    - Database file created automatically at: PHMS/instance/phms.db
 
+flask shell
+🔒 SECURITY CONFIGURATION (CRITICAL FOR PRODUCTION)
+================================================================================
+
+Development Setup (Local Testing):
+--------
+No special security configuration needed for local development.
+Default settings include:
+  - Debug mode enabled (auto-reload on code changes)
+  - Dev-safe secrets (clearly marked as development-only)
+  - HTTP allowed (no HTTPS required)
+  - Rate limiting enabled (5/minute login, 5/hour registration)
+
+Production Deployment (CRITICAL):
+--------
+Before deploying to production, you MUST configure security settings:
+
+1. Create .env file from template
+   cp .env.example .env
+   cp .env.production.example .env  (for production)
+
+2. Generate strong secrets (CRITICAL)
+   python -c "import secrets; print(secrets.token_urlsafe(32))"
+   - Generate 2 values: SECRET_KEY and SECURITY_PASSWORD_SALT
+   - Update both values in .env
+   - DO NOT use default "dev-*" values in production
+
+3. Set environment to production
+   FLASK_ENV=production
+   FLASK_DEBUG=0
+
+4. Configure HTTPS/TLS
+   FORCE_HTTPS=1  (requires SSL certificate on server)
+   SESSION_COOKIE_SECURE=1
+
+5. Configure email (SMTP)
+   MAIL_SERVER, MAIL_PORT, MAIL_USERNAME, MAIL_PASSWORD
+   (Use app-specific password for Gmail)
+
+6. Review full security guide
+   Read: PHMS/SECURITY.md (comprehensive security documentation)
+
+Security Features Implemented:
+  ✓ Rate limiting (5 login attempts/min, 3 password resets/hour)
+  ✓ CSRF protection (Flask-WTF with 1-hour token validity)
+  ✓ Secure cookies (HttpOnly, SameSite, Secure flags in production)
+  ✓ Password hashing (Werkzeug security)
+  ✓ HTTPS enforcement (HTTP → HTTPS redirect in production)
+  ✓ HSTS headers (1-year browser HTTPS enforcement)
+  ✓ Security headers (CSP, X-Frame-Options, X-XSS-Protection)
+  ✓ OTP-based password reset (6-digit code, 10-minute expiry)
+
+For detailed security configuration, see: PHMS/SECURITY.md
+
 
 AUTOMATED SETUP (RECOMMENDED - ONE COMMAND)
 ================================================================================
@@ -31,12 +134,19 @@ python start.py                 # ⭐ Automated setup and launch
 
 What start.py does automatically:
 ✓ Initializes SQLite database (PHMS/instance/phms.db)
-✓ Applies all database migrations (Alembic)
+✓ Validates environment and launches app.py
 ✓ Creates initial medication logs for existing users
-✓ Starts APScheduler for automated tasks (4 background jobs)
+✓ Starts APScheduler for automated tasks (3 background jobs)
 ✓ Launches Flask development server on http://127.0.0.1:5000
 
+Migration note:
+- start.py does not execute Alembic migrations automatically.
+- Run migrations manually when schema changes are pulled:
+   flask db upgrade
+
 The application will be ready at: http://127.0.0.1:5000
+
+SECURITY NOTE: For production, configure PHMS/SECURITY.md settings before running start.py
 
 
 MANUAL SETUP (STEP-BY-STEP)
@@ -85,7 +195,7 @@ roject Root/
     ├── start.py                # ⭐ AUTOMATED SETUP & LAUNCH SCRIPT
     ├── config.py               # App factory, database, security config
     ├── routes.py               # Route registration
-    ├── scheduler_config.py     # APScheduler setup (4 automated jobs)
+    ├── scheduler_config.py     # APScheduler setup (3 automated jobs)
     ├── models.py               # Model aggregator
     ├── requirements.txt        # Python dependencies
     │
@@ -149,9 +259,9 @@ PHMS/
 ├── controllers/                # Business logic (MVC pattern)
 AUTOMATED SCHEDULER JOBS (via start.py)
 ================================================================================
-When you run start.py, APScheduler automatically starts 4 background jobs:
+When you run start.py, APScheduler automatically starts 3 background jobs:
 
-Job 1: Daily Medication Log Creation (00:00 UTC)
+Job 1: Daily Medication Log Creation (00:00 local time)
 - Creates pending medication logs for all active prescriptions
 - Runs every midnight automatically
 
@@ -163,11 +273,6 @@ Job 2: Medication Reminders (Every 60 seconds)
 Job 3: Grace Period Management (Every 60 seconds)
 - Marks pending logs as 'missed' after 30-minute grace period
 - Sends email alerts for missed critical medications
-
-Job 4: Consecutive Missed Detection (23:59 UTC)
-- Detects 3+ consecutive missed days
-- Sends critical warning emails to users
-- Runs daily at 11:59 PM
 
 To manually control scheduler:
     from scheduler_config import SchedulerSetup
@@ -287,7 +392,7 @@ Reports & Analytics:
 ✓ PDF generation with ReportLab
 
 Automation:
-✓ APScheduler integration (4 background jobs)
+✓ APScheduler integration (3 background jobs)
 ✓ Automated medication log creation
 ✓ Scheduled notifications and reminders
 ✓ Automated grace period management
@@ -342,6 +447,35 @@ Solution:
 Issue 8: Permission denied on venv activation (PowerShell)
 Solution:
 - Run PowerShell as Administrator
+- Or use Command Prompt instead: venv\Scripts\activate
+
+Issue 9: "CRITICAL SECURITY ERROR: Production Secret Key Not Configured"
+Solution:
+- Generate SECRET_KEY: python -c "import secrets; print(secrets.token_urlsafe(32))"
+- Generate SECURITY_PASSWORD_SALT: python -c "import secrets; print(secrets.token_urlsafe(32))"
+- Add both to .env file in project root
+- Only occurs when FLASK_ENV=production
+- See PHMS/SECURITY.md for detailed instructions
+
+Issue 10: Rate limiting blocking legitimate requests
+Solution:
+- Increase limits in .env: RATELIMIT_AUTH_ATTEMPTS=10 per minute
+- Switch from memory to redis for distributed rate limiting
+- Use whitelist IP addresses if behind proxy
+- See PHMS/SECURITY.md for rate limit configuration
+
+Issue 11: "Secure cookies enforced" error in development
+Solution:
+- Set SESSION_COOKIE_SECURE=0 in .env (development only)
+- Or enable HTTPS and set SESSION_COOKIE_SECURE=1
+- Only enforced in production (FLASK_ENV=production)
+
+Issue 12: CSRF token errors on forms
+Solution:
+- Verify csrf_token() macro is in HTML templates: {{ csrf_token() }}
+- Check X-CSRFToken header in JavaScript requests
+- Increase WTF_CSRF_TIME_LIMIT if needed: 3600 (1 hour)
+- Clear browser cookies and try again
 - Or: Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 
 Issue 9: start.py fails to initialize

@@ -9,6 +9,7 @@ from .medication_routes import register_medication_routes
 from .notification_routes import register_notification_routes
 from .profile_routes import register_profile_routes
 from .reports_routes import register_reports_routes
+from .smartwatch_routes import register_smartwatch_routes
 
 
 def register_feature_routes(app):
@@ -22,3 +23,4 @@ def register_feature_routes(app):
     register_medication_routes(app)
     register_notification_routes(app)
     register_medication_log_routes(app)
+    register_smartwatch_routes(app)

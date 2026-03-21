@@ -21,13 +21,34 @@ def test_medication_tasks_remain_thin_service_delegates():
     assert 'from config import db' not in source
 
 
-def test_reports_routes_delegate_to_report_service():
-    import reports.routes.report_routes as report_routes
+def test_reports_routes_delegate_to_reports_controller():
+    import feature_routes.reports_routes as reports_routes
 
-    source = inspect.getsource(report_routes)
+    source = inspect.getsource(reports_routes)
 
-    assert 'from reports.services.report_service import ReportDateRange, build_report_for_range' in source
+    assert 'from controllers import reports_controller' in source
     assert 'from models import' not in source
+
+
+def test_reports_controller_delegate_to_services_layer():
+    import controllers.reports_controller as reports_controller
+
+    source = inspect.getsource(reports_controller)
+
+    assert 'from services.report_service import ReportDateRange, build_report_for_range' in source
+    assert 'from services.report_pdf_service import generate_report_pdf' in source
+    assert 'from models import' not in source
+
+
+def test_report_service_uses_report_repository_for_queries():
+    import services.report_service as report_service
+
+    source = inspect.getsource(report_service)
+
+    assert 'from repositories.report_repository import ReportRepository' in source
+    assert 'HealthData.query.filter(' not in source
+    assert 'MedicationLog.query.filter(' not in source
+    assert 'Alert.query.filter(' not in source
 
 
 def test_medication_log_service_keeps_compatibility_facade_exports():

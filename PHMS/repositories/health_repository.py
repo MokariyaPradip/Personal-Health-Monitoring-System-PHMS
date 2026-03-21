@@ -6,10 +6,12 @@ class HealthRepository:
     """Repository for health-data query blocks used by health workflows."""
 
     @staticmethod
-    def get_paginated_user_entries(user_id, page, per_page):
-        return HealthData.query.filter_by(
-            user_id=user_id
-        ).order_by(
+    def get_paginated_user_entries(user_id, page, per_page, data_source=None):
+        query = HealthData.query.filter_by(user_id=user_id)
+        if data_source:
+            query = query.filter(HealthData.data_source == data_source)
+
+        return query.order_by(
             HealthData.recorded_at.desc()
         ).paginate(
             page=page,
@@ -30,6 +32,13 @@ class HealthRepository:
         return HealthData.query.filter_by(user_id=user_id).count()
 
     @staticmethod
+    def count_user_entries_by_source(user_id, data_source=None):
+        query = HealthData.query.filter_by(user_id=user_id)
+        if data_source:
+            query = query.filter(HealthData.data_source == data_source)
+        return query.count()
+
+    @staticmethod
     def count_user_entries_since(user_id, start_datetime):
         return HealthData.query.filter_by(
             user_id=user_id
@@ -38,10 +47,12 @@ class HealthRepository:
         ).count()
 
     @staticmethod
-    def get_all_user_entries(user_id):
-        return HealthData.query.filter_by(
-            user_id=user_id
-        ).order_by(
+    def get_all_user_entries(user_id, data_source=None):
+        query = HealthData.query.filter_by(user_id=user_id)
+        if data_source:
+            query = query.filter(HealthData.data_source == data_source)
+
+        return query.order_by(
             HealthData.recorded_at.desc()
         ).all()
 
@@ -55,3 +66,22 @@ class HealthRepository:
     @staticmethod
     def get_user_by_id(user_id):
         return db.session.get(User, user_id)
+
+    @staticmethod
+    def get_by_source_record(user_id, data_source, source_record_id):
+        if not source_record_id:
+            return None
+        return HealthData.query.filter_by(
+            user_id=user_id,
+            data_source=data_source,
+            source_record_id=source_record_id,
+        ).first()
+
+    @staticmethod
+    def get_by_ingestion_fingerprint(user_id, ingestion_fingerprint):
+        if not ingestion_fingerprint:
+            return None
+        return HealthData.query.filter_by(
+            user_id=user_id,
+            ingestion_fingerprint=ingestion_fingerprint,
+        ).first()

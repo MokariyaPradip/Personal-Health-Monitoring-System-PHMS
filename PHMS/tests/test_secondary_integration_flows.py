@@ -8,7 +8,7 @@ from config import db
 from ml import ml_model
 from models import Alert, HealthData, Medication, MedicationLog, Medicine
 from repositories.auth_repository import AuthRepository
-from reports.services.report_service import ReportDateRange, build_report_for_range
+from services.report_service import ReportDateRange, build_report_for_range
 from services import auth_service
 
 

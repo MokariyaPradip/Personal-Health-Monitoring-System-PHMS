@@ -161,15 +161,31 @@
 
     <!-- ===== ALL HEALTH ENTRIES ===== -->
     <div class="all-entries-section">
-        <h3>Health History{% if pagination.total > 0 %} ({{ pagination.total }} total){% endif %}</h3>
+        <div class="history-header-row">
+            <h3>Health History{% if filtered_total_entries > 0 %} ({{ filtered_total_entries }} total){% endif %}</h3>
+            <form method="GET" action="/health" class="source-filter-form">
+                {% if selected_page and selected_page != 1 %}
+                <input type="hidden" name="page" value="1">
+                {% endif %}
+                <label for="history-source-filter">Source</label>
+                <select id="history-source-filter" name="source" onchange="this.form.submit()">
+                    {% for option in source_options %}
+                    <option value="{{ option.value }}" {{ 'selected' if source_filter == option.value else '' }}>{{ option.label }}</option>
+                    {% endfor %}
+                </select>
+            </form>
+        </div>
         {% if entries %}
         <div class="entries-list">
             {% for entry in entries %}
             <div class="entry-card">
                 <div class="entry-header">
-                    <span class="entry-date">
-                        📅 {{ entry.recorded_at.strftime('%d %b %Y, %I:%M %p') }}
-                    </span>
+                    <div class="entry-header-meta">
+                        <span class="entry-date">
+                            📅 {{ entry.recorded_at.strftime('%d %b %Y, %I:%M %p') }}
+                        </span>
+                        <span class="source-badge source-{{ (entry.data_source or 'manual')|lower|replace('_', '-') }}">{{ entry.source_label or 'Manual' }}</span>
+                    </div>
 
                     <button class="delete-btn"
                         title="Delete entry"
@@ -234,8 +250,8 @@
             </div>
             <div class="pagination-buttons">
                 {% if pagination.has_prev %}
-                <a href="?page=1" class="btn-pagination" title="First page">«« First</a>
-                <a href="?page={{ pagination.prev_num }}" class="btn-pagination" title="Previous page">‹ Previous</a>
+                <a href="?page=1&source={{ source_filter }}" class="btn-pagination" title="First page">«« First</a>
+                <a href="?page={{ pagination.prev_num }}&source={{ source_filter }}" class="btn-pagination" title="Previous page">‹ Previous</a>
                 {% else %}
                 <span class="btn-pagination disabled">«« First</span>
                 <span class="btn-pagination disabled">‹ Previous</span>
@@ -246,8 +262,8 @@
                 </span>
                 
                 {% if pagination.has_next %}
-                <a href="?page={{ pagination.next_num }}" class="btn-pagination" title="Next page">Next ›</a>
-                <a href="?page={{ pagination.pages }}" class="btn-pagination" title="Last page">Last »»</a>
+                <a href="?page={{ pagination.next_num }}&source={{ source_filter }}" class="btn-pagination" title="Next page">Next ›</a>
+                <a href="?page={{ pagination.pages }}&source={{ source_filter }}" class="btn-pagination" title="Last page">Last »»</a>
                 {% else %}
                 <span class="btn-pagination disabled">Next ›</span>
                 <span class="btn-pagination disabled">Last »»</span>

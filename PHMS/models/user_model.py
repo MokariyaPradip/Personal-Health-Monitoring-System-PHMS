@@ -102,6 +102,18 @@ class User(UserMixin, db.Model):
         cascade="all, delete-orphan"
     )
 
+    smartwatch_accounts = db.relationship(
+        "SmartwatchAccount",
+        back_populates="user",
+        cascade="all, delete-orphan"
+    )
+
+    smartwatch_sync_states = db.relationship(
+        "SmartwatchSyncState",
+        back_populates="user",
+        cascade="all, delete-orphan"
+    )
+
     def __repr__(self):
         return f"<User {self.user_id} {self.username} BMI:{self.bmi}>"
 

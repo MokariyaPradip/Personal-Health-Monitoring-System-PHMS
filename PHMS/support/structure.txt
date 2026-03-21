@@ -3,557 +3,179 @@
                            (Updated: March 2026)
 ================================================================================
 
+This document reflects the current codebase architecture after:
+- Feature-route composition adoption
+- Reports module migration into controller/service/repository layers
+- Smartwatch integration addition
+
+ROOT WORKSPACE
+================================================================================
+project/
+|-- instructions.txt                     # Main setup and run instructions
+|-- Database/                            # ER diagrams and DB reference assets
+`-- PHMS/                                # Main application package/workspace
+
+PHMS TOP LEVEL
+================================================================================
 PHMS/
-│
-├── app.py                          # Main Flask application entry point with scheduler
-├── config.py                       # App factory, database, security, email configuration
-├── models.py                       # Model aggregator (imports from models/)
-├── routes.py                       # Route registration (all endpoints)
-├── scheduler_config.py             # APScheduler setup for medication automation
-├── start.py                        # Automated setup and launch script
-├── requirements.txt                # Python dependencies
-│
-├── ml/                             # Machine Learning Module (Dual Prediction System)
-│   ├── ml_model.py                 # Prediction interface (regression + classifier)
-│   ├── README.md                   # ML architecture documentation
-│   ├── trained_models/             # Model artifacts (.pkl files)
-│   │   ├── phms_regression_v6.pkl  # RandomForest Regressor v6 (CURRENT)
-│   │   ├── phms_classifier_v6.pkl  # RandomForest Classifier v6 (CURRENT - 96.8%)
-│   │   ├── label_encoder_v6.pkl    # Label encoder for v6 classifier
-│   │   ├── feature_importance_v6.csv # Feature weights analysis
-│   │   └── [legacy models v1-v5]   # Previous model versions
-│   └── training_scripts/           # Model training scripts
-│       ├── train_model_v6.py       # V6 classifier (4 datasets, 96.8% accuracy)
-│       ├── regression_train_model_v*.py # Regression models (v1-v4)
-│       ├── [v1-v5 scripts]         # Legacy training scripts
-│       └── rebuild_health_score_from_label.py # Data preprocessing
-│
-├── datasets/                       # Training CSV datasets (25,884 total records)
-│   ├── health_data.csv             # 2,999 records
-│   ├── health_data_885.csv         # 885 records
-│   ├── health_data_10000.csv       # 10,000 records
-│   └── health_data_12000_fuzzy.csv # 12,000 records (synthetic fuzzy data)
-│
-├── controllers/                    # Business Logic Layer (MVC Pattern)
-│   ├── __init__.py                 # Controller exports
-│   ├── auth_controller.py          # Register, Login, Logout, OTP-based Password Reset
-│   ├── dashboard_controller.py     # Dashboard analytics and metrics
-│   ├── profile_controller.py       # User profile view & update (BMI calculation)
-│   ├── health_controller.py        # Health data CRUD, ML prediction, email alerts
-│   ├── medication_controller.py    # Medication CRUD, medicine master management
-│   ├── medication_log_controller.py # Medication tracking, scheduler integration
-│   ├── notifications_controller.py # Alert management (health + medication)
-│   └── reports_controller.py       # Health reports redirect (uses reports blueprint)
-│
-├── models/                         # Database Models (SQLAlchemy ORM)
-│   ├── __init__.py                 # Model exports
-│   ├── user_model.py               # User (auth, profile, BMI calculation)
-│   ├── health_model.py             # HealthData (vitals, ML scores, timestamps)
-│   ├── medicine_model.py           # Medicine (master catalog)
-│   ├── medication_model.py         # Medication (user prescriptions, is_critical flag)
-│   ├── medication_log_model.py     # MedicationLog (daily tracking, status)
-│   ├── alert_model.py              # Alert (health + medication notifications)
-│   └── otp_model.py                # PasswordResetOTP (time-limited codes)
-│
-├── reports/                        # Health Reports Module (Blueprint)
-│   ├── __init__.py                 # Blueprint registration
-│   ├── routes/                     # Report HTTP endpoints
-│   │   ├── __init__.py
-│   │   └── report_routes.py        # Weekly, monthly, yearly, custom, PDF routes
-│   ├── services/                   # Report business logic
-│   │   ├── __init__.py
-│   │   └── report_service.py       # Data aggregation, statistics, trends
-│   ├── utils/                      # Report utilities
-│   │   ├── __init__.py
-│   │   └── risk_utils.py           # Risk classification, percentage calculations
-│   └── pdf/                        # PDF generation
-│       ├── __init__.py
-│       └── pdf_generator.py        # ReportLab-based PDF creation
-│
-├── templates/                      # Jinja2 HTML Templates
-│   ├── base.html                   # Base layout (nav, CSRF, footer)
-│   ├── login.html                  # Login page
-│   ├── register.html               # Registration page
-│   ├── forgot_password.html        # OTP request page
-│   ├── reset_password.html         # Password reset with OTP verification
-│   ├── dashboard.html              # Main dashboard (analytics, charts)
-│   ├── profile.html                # User profile management
-│   ├── health.html                 # Health data entry and history
-│   ├── medication.html             # Medication management
-│   ├── notifications.html          # Alerts + medication logs (2 tabs)
-│   ├── reports.html                # Health reports (multiple formats)
-│   └── email-templates/            # Email notification templates
-│       ├── otp_email.html          # OTP verification email
-│       ├── registration_success_email.html
-│       ├── password_reset_success_email.html
-│       ├── password_reset_failure_email.html
-│       ├── health_alert_email.html # High-risk health alert
-│       ├── critical_medication_reminder_email.html
-│       ├── critical_medication_missed_email.html
-│       └── consecutive_missed_alert_email.html
-│
-├── static/                         # Static Assets
-│   ├── js/                         # JavaScript files
-│   └── style/                      # CSS stylesheets
-│       ├── base.css                # Base styles (navigation, layout)
-│       ├── login.css               # Login page styles
-│       ├── register.css            # Registration page styles
-│       ├── profile.css             # Profile page styles
-│       ├── dashboard.css           # Dashboard styles (charts, cards)
-│       ├── health.css              # Health tracking page styles
-│       └── medication.css          # Medication page styles
-│
-├── migrations/                     # Alembic Database Migrations
-│   ├── alembic.ini                 # Alembic configuration
-│   ├── env.py                      # Migration environment
-│   ├── README                      # Migration instructions
-│   ├── script.py.mako              # Migration template
-│   └── versions/                   # Migration history (15+ migrations)
-│       ├── 383b97d8277f_add_passwordresetotp_model.py
-│       ├── 393e4c73d73e_change_blood_pressure_from_string_to_.py
-│       ├── 4af451598bbe_drop_medication_id_collumn_in_alert.py
-│       ├── 510931190d74_change_frequency_of_medication_to_.py
-│       ├── 52c26be4e468_add_ml_predicted_health_score_to_health_.py
-│       ├── 66433565aa81_remove_unique_constraint_from_.py
-│       ├── 7cbf1d5f606b_add_title_category_to_alert_and_updates_.py
-│       ├── 8ef2f2b4fa1d_added_is_critical_to_medication_model.py
-│       ├── 9de5942fba0d_add_bmi_to_user.py
-│       ├── d7e8f9a0b1c2_remove_rule_based_risk_label_from_health_data.py
-│       ├── e4e5f6a7b8c9_rename_ml_columns_to_distinguish_regression_vs_classifier.py
-│       └── f496b9e8af03_add_health_score_and_risk_columns_to_.py
-│
-├── utils/                          # Utility Functions
-│   ├── health_score.py             # Rule-based health scoring algorithm
-│   └── medication_schedule.py      # Medication frequency scheduling
-│
-├── instance/                       # Instance-specific Data (auto-generated)
-│   └── phms.db                     # SQLite database file
-│
-├── __pycache__/                    # Python bytecode cache (auto-generated)
-│
-└── support/                        # Documentation & Support Files
-    ├── structure.txt               # This file - project structure
-    ├── instructions.txt            # Setup and run instructions
-    ├── databaseAccess.txt          # Database access commands
-    ├── ER.txt                      # Entity-Relationship diagram
-    ├── ML_Architecture.txt         # ML pipeline documentation
-    └── notification and medication log scheduler.txt # Scheduler documentation
-│   ├── ER.txt                      # Entity relationship documentation
-│   ├── instructions.txt            # Setup & development instructions
-│   └── ML_Architecture.txt         # ML architecture overview
-│
-└── venv/                           # Virtual environment (not in version control)
+|-- app.py                               # Runtime entrypoint and background bootstrap
+|-- start.py                             # Local launch helper
+|-- config.py                            # App factory and extension configuration
+|-- routes.py                            # Thin route composition entrypoint
+|-- scheduler_config.py                  # APScheduler configuration helpers
+|-- requirements.txt                     # Python dependencies
+|
+|-- controllers/                         # HTTP-facing orchestration layer
+|-- feature_routes/                      # Route registration by feature
+|-- services/                            # Business logic layer
+|-- repositories/                        # Data-access abstraction layer
+|-- models/                              # SQLAlchemy models
+|-- schemas/                             # Validation schemas (pydantic)
+|-- jobs/                                # Scheduled task entrypoints
+|-- ml/                                  # ML inference and training scripts
+|-- datasets/                            # ML datasets
+|-- migrations/                          # Alembic migration history
+|-- templates/                           # Jinja templates
+|-- static/                              # Frontend assets
+|-- utils/                               # Shared utility code
+|-- tests/                               # Test suites
+|-- support/                             # Project documentation
+|-- instance/                            # SQLite runtime data (generated)
+`-- __pycache__/                         # Python bytecode cache
 
-
+ROUTING AND REQUEST FLOW
 ================================================================================
-                            FILE DESCRIPTIONS
+1) app.py creates app via create_app()
+2) routes.py calls register_feature_routes(app)
+3) feature_routes/*.py defines URL rules and delegates to controllers
+4) controllers/*.py handles request/response shape and delegates to services
+5) services/*.py implements domain logic and delegates persistence to repositories
+6) repositories/*.py encapsulates ORM query blocks
+
+FEATURE ROUTES
 ================================================================================
+feature_routes/
+|-- __init__.py
+|-- home_routes.py
+|-- auth_routes.py
+|-- dashboard_routes.py
+|-- health_routes.py
+|-- medication_routes.py
+|-- medication_log_routes.py
+|-- notification_routes.py
+|-- reports_routes.py                    # Canonical reports blueprint + endpoints
+`-- smartwatch_routes.py
 
-ROOT LEVEL FILES:
-─────────────────
-app.py
-  - Creates Flask app instance
-  - App factory pattern (create_app function)
-  - SQLite database configuration
-  - Flask extensions initialization (SQLAlchemy, Flask-Login, Flask-Migrate, CSRF, Flask-Mail)
-  - Security settings (session cookies, CSRF, password salt)
-  - Email configuration (Flask-Mail SMTP).py
-
-config.py
-  - Database connection settings
-  - Flask configuration
-  - App secrets & constants
-
-models.py
-  - Imports all models from models/ folder
-  - Single import point for all database models
-  - Example: from models import User, HealthData, Medicine
-
-routes.py
-  - Route declarations with HTTP methods
-  - Calls controller functions
-  - No business logic here
-  - Clean & minimal design
-
-ml/ (folder)
-  - Machine learning module with organized structure
-  - ml_model.py: prediction interface for health 5)
-    * phms_model_v5.pkl: RandomForest classifier (96.0% accuracy - CURRENT)
-    * label_encoder_v5.pkl: label encoder for risk levels (Low/Medium/High)
-    * phms_model_v4.pkl: RandomForest v4 (91% accuracy on smaller dataset)
-    * phms_model_v3.pkl: DecisionTree v3 (94.2% accuracy)
-    * legacy/: archived previous model versions (v0, v1)
-  - training_scripts/: scripts for training and retraining models
-    * train_model_v1.py: trains model on single dataset
-SECURITY_ENHANCEMENTS.md
-  - Comprehensive security documentation
-  - Details Flask-Login integration
-  - Token-based password reset flow
-  - CSRF protection implementation
-  - Password requirements (8+ characters)
-  - Session security configurationLL 4 datasets (25,884 records - CURRENT
-    * train_model_v1.py: trains model on single dataset
-    * train_model_v2.py: trains model on combined datasets (12,999 records)
-
-reports.py
-  - Report generation utilities
-  - Data aggregation functions
-  - Export/PDF generation (if implemented)
-
-requirements.txt with strong password validation
-  ✓ login()             - Handle user authentication via Flask-Login
-  ✓ logout()            - Clear user session via Flask-Login
-  ✓ forgot_password()   - Send password reset token via email
-  ✓ reset_password()    - Token-based password reset (30-min expiry)
-  ✓ change_password()   - Change password for logged-in users
-
-CONTROLLERS FOLDER:
-───────────────────
-auth_controller.py
-  ✓ register()          - Handle user registration
-  ✓ login()             - Handle user authentication
-  ✓ logout()            - Clear user session
-  ✓ forgot_password()   - Password reset functionality
-
-dashboard_controller.py
-  ✓ dashboard()         - Display main dashboard
-
-profile_controller.py
-  ✓ profile()           - Display user prowith ML prediction & health score calculation
-  ✓ get_health_data()   - Retrieve health data with pagination
-  ✓ delete_health()     - Delete health entry (cascade alerts)
-health_controller.py
-  ✓ health_page()       - Display health tracking page
-  ✓ add_health()            - Display user medications with pagination
-  ✓ add_medication()        - Add new medication from medicine catalog
-  ✓ update_medication()     - Update medication details
-  ✓ delete_medication()     - Remove medication
-  ✓ add_medicine_master()   - Add new medicine to catalog (admin)
-medication_controller.py
-  ✓ medication_page()   - Display user medications
-  ✓ add_medication()    - Add new medication
-  ✓ update_medication() - Update medication details
-  ✓ delete_medication() - Remove medication
-
-reports_controller.py
-  ✓ reports()           - Display analytics & reports
-
-
-MODELS FOuser_id, username, user_email, password, age, gender, height, weight, bmi)
-  - Authentication & profile data
-  - Flask-Login UserMixin integration
-  - Auto BMI calculation via SQLAlchemy event listeners
-  - created_at, updated_at timestampssugar)
-  - Vital signs & activity tracking
-  - health_score (computed via utils/health_score.py)
-  - rule_based_risk_label (threshold-based classification)
-  - ml_predicted_risk_label (ML model prediction - 96% accuracy)
-  - recorded_at timestamp
-  - User(id, medicine_id, medicine_name, medicine_type, purpose, remark)
-  - Master catalog for available medicines
-  - Unique medicine_name constraint
-
-health_model.pymedication_id, user_id, medicine_id, dosage, frequency, start_date, end_date)
-  - User's prescribed medications
-  - Unique constraint: (user_id, medicine_id)
-  - Cascade delete on user deletion
-  - Restrict delete if medicine referencedaken_at, status)
-  - Medication adherence tracking
-  - Status: taken/missed
-  - Cascade delete with medicationacking
-alert_id, user_id, health_id, medication_id, medication_log_id, message, severity, is_read, created_at)
-  - Health alerts & notifications
-  - Links to health_data, medication, or medication_log
-  - Severity levels: info/warning/critical
-  - is_read flag for notification management
-  - Medicine(id, name, purpose, remark)
-  - Master data for available medicines
-
-medication_model.py
-  - Medication(id, medicine_id, user_id, dosage, frequency)
-  - CSRF token meta tag for all forms
-  - JavaScript CSRF helper function
-  - User's prescribed medications
- with CSRF protection
-  - Email & password fields
-  - Links to register & forgot password pages, time_taken, status)
-  - Medication intake history
-
-alert_model.py
-  - Alert(id, user_id, health_id, message, date, severity)
-  - Health alerts & notifications
- with CSRF protection
-  - Personal info fields (name, email, password, age, gender, height, weight)
-  - Password strength validation (8+ characters)
-  - Auto BMI calculation on backend
-  - Validation & error messages
-
-forgot_password.html
-  - Password reset request form
-  - Email entry for token generation
-  - Links back to login
-
-reset_password.html
-  - Token-based password reset form
-  - New password entry (8+ characters)
-  - Token validation (30-minute expiry)
-
-reset_password_email.html
-  - HTML email template for password reset
-  - Contains reset link with token
-  - Professional email for with CSRF protection
-  - Fields: heart rate, temperature, steps, sleep hours, blood pressure, sugar
-  - Real-time health score calculation (0-100)
-  - Dual risk assessment display (rule-based + ML prediction)
-  - Health history with pagination
-  - Color-coded risk indicators (Low/Medium/High)
-  - Delete functionality with confirmationwith navigation
-  - Common header & footer with pagination
-  - Add medication from medicine catalog
-  - Medicine selection dropdown
-  - Dosage, frequency, start/end date fields
-  - Edit & delete options with CSRF protection
-  - Add new medicine to catalog (admin feature)
-  - Medication adherence dashboard
-  - Health trend visualizations
-  - Risk assessment history
-  - Medication adherence reports
-  - Exportable data views
-  - Links to register & forgot password
-
-register.html
-  - User registration form
-  - Personal info fields (name, email, password, age, gender, height, weight)
-  - Validation & error messages
-
-dashboard.html
-  - Main dashboard view
-  - Quick stats & recent data
-  - Navigation to other sections
-
-profile.html
-  - User profile information
-  - Editable fields
-  - Update profile button
-
-health.html
-  - Health data entry form
-  - Heart rate, temperature, steps, sleep, blood pressure, calories
-  - Display health h
-  - BMI display formatting
-
-register.css
-  - Registration page specific styles
-  - Misk indicator color coding
-  - Rulti-field form styling
-  - Password strength indicatorsistory
-  - Alert indicators
-
-medication.html
-  - List of user medications
-  - Health score visualization (0-100)
-  - Risk label color coding (Low=green, Medium=yellow, High=red)
-  - Add new medication button
-  - Edit & delete options
-  - Medication reminders
-
-reports.html
-  - Analytics & insights
-  - Charts & visualizations
-  - Health trends & reports
-
-
-STATIC/STYLE FOLDER:
-────────────────────
-base.css
-  - Common styles
-  - Responsive layout
-  - Navigation styling
-
-login.css
-  - Login page specific styles
-  - Form styling & animations
-
-register.css
-  - Registration page specific styles
-  - Multi-field form styling
-
-profile.css
-  - Profile page layout
-  - Edit form styles
-
-dashboard.css
-  - Dashboard page styling
-  - Stats & widget layouts
-  - Responsive grid system
-
-health.css
-  - Health tracking page styles
-  - Form & data display
-  - Chart & alert styling
-
-medication.css
-  - Medication list  (Protected Route)
-├── routes.py: @app.route('/health')
-├── Flask-Login: checks @login_required decorator
-├── Calls: health_controller.health_page()
-├── Controller: queries HealthData from models for current_user
-├── Database: fetches user's health entries with pagination
-├── Returns: render_template('health.html', entries=all_entries)
-└── Browser: displays health tracking page
-
-EXAMPLE: POST /add_health (Protected + CSRF Protected)
-├── routes.py: @app.route('/add_health', methods=['POST'])
-├── Flask-Login: verifies authentication
-├── CSRF Protection: validates X-CSRFToken header
-├── Calls: health_controller.add_health()
-├── Controller: extracts JSON data from request
-├── Controller: gets user BMI from User model
-├── ML Model: predicts health risk (ml_model.predict_health_risk)
-├── Utils: calculates health score (utils/health_score.py)
-├── Controller: creates new HealthData object with predictions
-├── Database: saves entry with health_score + risk labels
-├── Logic: generates Alert if High Risk detected
-├── Returns: JSON response with status, score, and risk
-└── Browser: updates UI with new entry and risk indicatorormat
-  - Database schema documentation
- [cascade delete]
-User (1) ──→ (many) Medication [cascade delete] ←─ (many) Medicine (master) [restrict delete]
-User (1) ──→ (many) Alert [cascade delete]
-Medication (1) ──→ (many) MedicationLog [cascade delete]
-HealthData (1) ──→ (many) Alert [backref]
-Medication (1) ──→ (many) Alert [backref]
-MedicationLog (1) ──→ (many) Alert [backref]
-
-CASCADE RULES:
-- Delete User → deletes all HealthData, Medications, Alerts
-- Delete Medication → deletes all Medication, migrations/versions/
-✓ Do edit:     Source files in root, controllers/, models/, templates/, static/, utils/
-✓ Keep clean:  No hardcoded values, use config.py and environment variables
-✓ Security:    Always use @login_required for protected routes
-✓ CSRF:        Include CSRF tokens in all POST/PUT/DELETE requests
-✓ DRY:         Reuse functions from controllers and utils
-✓ Comments:    Add docstrings to functions (especially ML-related)
-✓ Structure:   One model per file, one controller per feature
-✓ Testing:     Test ML predictions before deploying new models
-
-NEW FEATURE CHECKLIST:
-1. Add model in models/ folder
-2. Add export in models/__init__.py
-3. Create database migration: flask db migrate -m "description"
-4. Apply migration: flask db upgrade
-5. Add controller in controllers/ folder
-6. Add route in routes.py with @login_required decorator
-7. Add template in templates/ folder with CSRF token
-8. Add styles in static/style/ folder
-9. Test authentication and authorization
-10. Test CSRF protectionn
-4. controller imports models & config
-5. controller queries database via models
-6. controller returns response/renders template
-7. Browser receives & displays response
-
-  - Protect all routes with @login_required (except login/register/forgot_password)
-  - Include CSRF tokens in all state-changing requests
-
-MACHINE LEARNING WORKFLOW:
-  1. Collect health data from user input
-  2. Retrieve user's BMI from User model
-  3. Call ml_model.predict_health_risk() with 7 features:
-     [bmi, heart_rate, temperature, steps, sleep_hours, blood_pressure, sugar]
-  4. Call utils.health_score.calculate_health_score() for rule-based score
-  5. Store both predictions in HealthData table
-  6. Generate alerts for High Risk predictions
-  7. Display results to user with color-coded indicators
-
-MODEL RETRAINING:
-  - Navigate to ml/training_scripts/
-  - Run: python train_model_v5.py (or next version)
-  - New model artifacts saved to ml/trained_models/
-  - Update ml/ml_model.py to load new version
-  - Update ml/README.md with new performance metrics
-  - Test predictions before deploying to production
-
-SECURITY FEATURES:
-  ✓ Flask-Login: Session-based authentication
-  ✓ CSRF Protection: All POST/PUT/DELETE routes protected
-  ✓ Password Reset: Token-based with 30-minute expiry
-  ✓ Strong Passwords: Minimum 8 characters enforced
-  ✓ Secure Cookies: HttpOnly, SameSite, Secure flags
-  ✓ SQL Injection: Prevented by SQLAlchemy ORM
-  ✓ Environment Variables: Secrets stored in .env file
-  ✓ Token Signing: URLSafeTimedSerializer for password reset
-
-DATABASE OPERATIONS:
-  - Database type: SQLite (phms.db)
-  - Location: instance/ folder (auto-created)
-  - Migrations: Alembic/Flask-Migrate for schema changes
-  - Commands:
-    * flask db init (one-time setup)
-    * flask db migrate -m "description" (create migration)
-    * flask db upgrade (apply migrations)
-    * flask db downgrade (rollback)
-
-PERFORMANCE CONSIDERATIONS:
-  - ML model loads once on startup (37MB RandomForest v5)
-  - Predictions are fast (<10ms per request)
-  - Database indexes on foreign keys and email fields
-  - Pagination for health data and medication lists
-  - Health score calculation is lightweight (pure Python)
-EXAMPLE: GET /health
-├── routes.py: @app.route('/health')
-├── Calls: health_controller.health_page()
-├── Controller: queries HealthData from models
-├── Database: fetches user's health entries
-├── Controller: checks for alerts based on data
-├── Returns: render_template('health.html', entries=all_entries)
-└── Browser: displays health tracking page
-
-EXAMPLE: POST /add_health
-├── routes.py: @app.route('/add_health', methods=['POST'])
-├── Calls: health_controller.add_health()
-├── Controller: extracts JSON data from request
-├── Controller: creates new HealthData object
-├── Database: saves entry and checks alert conditions
-├── Logic: generates Alert if thresholds exceeded
-├── Returns: JSON response with status
-└── Browser: updates UI with new entry
-
-
-DATABASE RELATIONSHIPS:
-User (1) ──→ (many) HealthData
-User (1) ──→ (many) Medication ←─ (many) Medicine (master)
-User (1) ──→ (many) Alert
-Medication (1) ──→ (many) MedicationLog
-
-
+CONTROLLERS
 ================================================================================
-                         DEVELOPMENT GUIDELINES
+controllers/
+|-- auth_controller.py
+|-- dashboard_controller.py
+|-- profile_controller.py
+|-- health_controller.py
+|-- medication_controller.py
+|-- medication_log_controller.py
+|-- notifications_controller.py
+|-- reports_controller.py                # Report HTTP orchestration (json/csv/pdf/html)
+`-- smartwatch_controller.py
+
+SERVICES
 ================================================================================
+services/
+|-- auth_service.py
+|-- dashboard_service.py
+|-- profile_service.py
+|-- health_service.py
+|-- medication_service.py
+|-- notification_service.py
+|-- medication_log_service.py            # Compatibility facade for medication_log package
+|-- report_service.py                    # Report data aggregation logic
+|-- report_pdf_service.py                # Report PDF generation
+|-- smartwatch_service.py                # Compatibility facade for smartwatch package
+|
+|-- medication_log/                      # Medication log domain services
+|   |-- __init__.py
+|   |-- core_service.py
+|   |-- manual_operations.py
+|   |-- notification_workflows.py
+|   |-- reporting_workflows.py
+|   `-- status_endpoints.py
+|
+|-- report/                              # Report domain package extensions
+|   `-- ...
+|
+`-- smartwatch/                          # Smartwatch OAuth and sync workflows
+    `-- ...
 
-✓ Don't edit:  venv/, __pycache__, instance/
-✓ Do edit:     Source files in root, controllers/, models/, templates/, static/
-✓ Keep clean:  No hardcoded values, use config.py
-✓ DRY:         Reuse functions from controllers
-✓ Comments:    Add docstrings to functions
-✓ Structure:   One model per file, one controller per feature
+REPOSITORIES
+================================================================================
+repositories/
+|-- __init__.py
+|-- auth_repository.py
+|-- dashboard_repository.py
+|-- health_repository.py
+|-- medication_repository.py
+|-- medication_log_repository.py
+|-- alert_repository.py
+|-- report_repository.py                 # Report query access abstraction
+|-- smartwatch_repository.py
+`-- report/                              # Report repository package extensions
+    `-- ...
 
-NEW FEATURE CHECKLIST:
-1. Add model in models/ folder
-2. Add export in models/__init__.py
-3. Add controller in controllers/ folder
-4. Add route in routes.py
-5. Add template in templates/ folder
-6. Add styles in static/style/ folder
+MODELS
+================================================================================
+models/
+|-- __init__.py
+|-- user_model.py
+|-- health_model.py
+|-- medication_model.py
+|-- medication_log_model.py
+|-- medicine_model.py
+|-- alert_model.py
+|-- otp_model.py
+|-- smartwatch_account_model.py
+`-- smartwatch_sync_state_model.py
 
-ROUTE CONVENTIONS:
-  - GET routes: display pages or retrieve data
-  - POST routes: create or submit data
-  - PUT routes: update existing resources
-  - DELETE routes: remove resources
-  - Use snake_case for Python functions
-  - Use camelCase for HTML form fields
-  - Return JSON for AJAX requests
-  - Return HTML for page navigation
+NOTES ON REPORTS MODULE MIGRATION
+================================================================================
+- Legacy standalone reports package has been removed.
+- Canonical report flow now lives in:
+  - feature_routes/reports_routes.py
+  - controllers/reports_controller.py
+  - services/report_service.py
+  - services/report_pdf_service.py
+  - repositories/report_repository.py
+
+SMARTWATCH INTEGRATION
+================================================================================
+- Feature routes: feature_routes/smartwatch_routes.py
+- Controller: controllers/smartwatch_controller.py
+- Services: services/smartwatch/ and services/smartwatch_service.py
+- Repository: repositories/smartwatch_repository.py
+- Models: models/smartwatch_account_model.py and models/smartwatch_sync_state_model.py
+- Jobs: jobs/smartwatch_tasks.py
+
+DOCUMENTATION FILES
+================================================================================
+support/
+|-- instructions.txt
+|-- structure.txt
+|-- SMARTWATCH_SETUP.md
+|-- ML_Architecture.txt
+|-- databaseAccess.txt
+|-- ER.txt
+|-- notification and medication log scheduler.txt
+|-- ARCHITECTURE_INCREMENTAL_MIGRATION_PLAYBOOK.md
+|-- NOTIFICATION_AND_MEDICATION_LOG_MANAGEMENT.md
+`-- NOTIFICATION_AND_MEDICATION_LOG_MANAGEMENT_SUMMARY.md
+
+DEVELOPMENT GUIDELINES
+================================================================================
+- Do not edit generated/runtime folders: venv/, instance/, __pycache__/
+- Add new HTTP endpoints in feature_routes first, not in routes.py directly
+- Keep controllers thin; business logic belongs in services
+- Keep direct ORM queries inside repositories
+- Keep setup and runtime instructions in root instructions.txt
+  and mirror that file into support/instructions.txt when updated
 
 ================================================================================

@@ -19,6 +19,11 @@ def _parse_page_arg():
     return page if page > 0 else 1
 
 
+def _parse_source_filter_arg():
+    """Parse optional source filter from query string."""
+    return request.args.get('source', 'all')
+
+
 def _parse_json_object_payload():
     """Parse request body as a JSON object and return transport errors if invalid."""
     if not request.is_json:
@@ -46,7 +51,8 @@ def _json_response_from_service(result):
 @login_required
 def health_page():
     page = _parse_page_arg()
-    context = build_health_page_context(current_user.user_id, page=page)
+    source_filter = _parse_source_filter_arg()
+    context = build_health_page_context(current_user.user_id, page=page, source_filter=source_filter)
     context['selected_page'] = page
     return render_template('health.html', **context)
 
@@ -63,7 +69,8 @@ def add_health():
 
 @login_required
 def get_health_data():
-    health_list = list_health_entries(current_user.user_id)
+    source_filter = _parse_source_filter_arg()
+    health_list = list_health_entries(current_user.user_id, source_filter=source_filter)
     return jsonify(health_list)
 
 

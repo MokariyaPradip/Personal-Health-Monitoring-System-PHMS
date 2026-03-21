@@ -4,11 +4,10 @@ from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 
 import pandas as pd
-from sqlalchemy import and_
 
-from config import db
-from models import Alert, HealthData, MedicationLog, User
-from reports.utils.risk_utils import classify_metric_risk, to_pct_change
+from models import HealthData
+from repositories.report_repository import ReportRepository
+from utils.report_risk_utils import classify_metric_risk, to_pct_change
 
 
 METRIC_COLUMNS = [
@@ -312,11 +311,7 @@ def _medication_adherence(user_id: int, dr: ReportDateRange) -> dict:
         - Only counts status='taken' logs as taken
         - Inclusive date range (log_date >= start AND log_date <= end)
     """
-    logs = MedicationLog.query.filter(
-        MedicationLog.user_id == user_id,
-        MedicationLog.log_date >= dr.start_date,
-        MedicationLog.log_date <= dr.end_date,
-    ).all()
+    logs = ReportRepository.get_medication_logs_for_range(user_id, dr.start_date, dr.end_date)
 
     total_scheduled = len(logs)
     total_taken = sum(1 for item in logs if item.status == "taken")
@@ -352,11 +347,7 @@ def _alert_summary(user_id: int, dr: ReportDateRange) -> dict:
         - Critical alerts include severities 'High' and 'Critical' (case-insensitive)
         - Uses datetime range (start_dt to end_dt) for timestamp comparison
     """
-    alerts = Alert.query.filter(
-        Alert.user_id == user_id,
-        Alert.created_at >= dr.start_dt,
-        Alert.created_at <= dr.end_dt,
-    ).all()
+    alerts = ReportRepository.get_alerts_for_range(user_id, dr.start_dt, dr.end_dt)
 
     def _normalize_alert_severity(value):
         severity_map = {
@@ -498,15 +489,7 @@ def _fetch_health_records(user_id: int, dr: ReportDateRange) -> list[HealthData]
         - Uses inclusive datetime range (start_dt to end_dt)
         - Results ordered chronologically (oldest first)
     """
-    return (
-        HealthData.query.filter(
-            HealthData.user_id == user_id,
-            HealthData.recorded_at >= dr.start_dt,
-            HealthData.recorded_at <= dr.end_dt,
-        )
-        .order_by(HealthData.recorded_at.asc())
-        .all()
-    )
+    return ReportRepository.get_health_records_for_range(user_id, dr.start_dt, dr.end_dt)
 
 
 def build_report_for_range(
@@ -600,7 +583,7 @@ def build_report_for_range(
         - All timestamps in ISO format for JSON serialization
         - Records per day rounded to 1 decimal place
     """
-    user = db.session.get(User, user_id)
+    user = ReportRepository.get_user_by_id(user_id)
     if not user:
         raise ValueError("User not found")
 

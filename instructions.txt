@@ -4,6 +4,55 @@
                            Updated: March 2026
 ================================================================================
 
+SMARTWATCH INTEGRATION (P2 CONFIG + DOCS)
+================================================================================
+This project now includes smartwatch OAuth integration and periodic background sync.
+Use these environment values in .env (copy from .env.example):
+
+OAuth provider settings:
+   PHMS_BASE_URL=http://127.0.0.1:5000
+   SMARTWATCH_OAUTH_CALLBACK_PATH=/smartwatch/callback
+   GOOGLE_FIT_CLIENT_ID=<google-oauth-client-id>
+   GOOGLE_FIT_CLIENT_SECRET=<google-oauth-client-secret>
+
+Smartwatch scheduler settings:
+   ENABLE_SCHEDULER=0                          # set 1 in dedicated scheduler process
+   SMARTWATCH_SYNC_INTERVAL_HOURS=6
+   SMARTWATCH_SYNC_MAX_INSTANCES=1
+   SMARTWATCH_SYNC_MISFIRE_GRACE_SECONDS=60
+   SMARTWATCH_SYNC_COALESCE=1
+
+Smartwatch rate limits:
+   RATELIMIT_SMARTWATCH_AUTH=5 per minute
+   RATELIMIT_SMARTWATCH_MODIFY=10 per hour
+   RATELIMIT_SMARTWATCH_SYNC=10 per hour
+   RATELIMIT_SMARTWATCH_STATUS=30 per minute
+
+Google OAuth console callback URL:
+   <PHMS_BASE_URL><SMARTWATCH_OAUTH_CALLBACK_PATH>
+   Example: http://127.0.0.1:5000/smartwatch/callback
+
+Database migrations (required when pulling schema updates):
+   cd PHMS
+   .\venv\Scripts\Activate.ps1
+   flask db upgrade
+
+Runtime startup flow (aligned with app.py):
+   - Importing app does NOT auto-start scheduler.
+   - `python app.py` runs bootstrap_background_services() once.
+   - Scheduler starts when should_start_scheduler() allows it.
+   - In multi-worker production, run a dedicated scheduler process with:
+         ENABLE_SCHEDULER=1 python app.py
+
+Local verification checklist:
+   1) Start app: python start.py
+   2) Open /smartwatch and click Connect
+   3) Complete provider consent, confirm callback returns to Smartwatch page
+   4) Trigger Sync Now, then confirm /smartwatch/status/google_fit returns 200
+   5) Verify scheduler logs include smartwatch periodic job registration
+   6) Run smartwatch test suite:
+         python -m pytest tests/smartwatch -q
+
 PRE-REQUISITES
 ================================================================================
 1. Python Version

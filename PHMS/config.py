@@ -401,6 +401,34 @@ def create_app():
     app.config['RATELIMIT_PASSWORD_RESET'] = os.environ.get('RATELIMIT_PASSWORD_RESET', '3 per hour')
     app.config['RATELIMIT_REGISTRATION'] = os.environ.get('RATELIMIT_REGISTRATION', '5 per hour')
     app.config['RATELIMIT_CHANGE_PASSWORD'] = os.environ.get('RATELIMIT_CHANGE_PASSWORD', '10 per hour')
+    app.config['RATELIMIT_SMARTWATCH_AUTH'] = os.environ.get('RATELIMIT_SMARTWATCH_AUTH', '5 per minute')
+    app.config['RATELIMIT_SMARTWATCH_MODIFY'] = os.environ.get('RATELIMIT_SMARTWATCH_MODIFY', '10 per hour')
+    app.config['RATELIMIT_SMARTWATCH_SYNC'] = os.environ.get('RATELIMIT_SMARTWATCH_SYNC', '10 per hour')
+    app.config['RATELIMIT_SMARTWATCH_STATUS'] = os.environ.get('RATELIMIT_SMARTWATCH_STATUS', '30 per minute')
+
+    # ================== SMARTWATCH / OAUTH CONFIGURATION ==================
+    app.config['GOOGLE_FIT_CLIENT_ID'] = os.environ.get('GOOGLE_FIT_CLIENT_ID', '')
+    app.config['GOOGLE_FIT_CLIENT_SECRET'] = os.environ.get('GOOGLE_FIT_CLIENT_SECRET', '')
+    app.config['PHMS_BASE_URL'] = os.environ.get('PHMS_BASE_URL', 'http://127.0.0.1:5000')
+    app.config['SMARTWATCH_OAUTH_CALLBACK_PATH'] = os.environ.get(
+        'SMARTWATCH_OAUTH_CALLBACK_PATH',
+        '/smartwatch/callback',
+    )
+
+    # ================== SMARTWATCH SCHEDULER CONFIGURATION ==================
+    app.config['SMARTWATCH_SYNC_INTERVAL_HOURS'] = int(
+        os.environ.get('SMARTWATCH_SYNC_INTERVAL_HOURS', '6')
+    )
+    app.config['SMARTWATCH_SYNC_MAX_INSTANCES'] = int(
+        os.environ.get('SMARTWATCH_SYNC_MAX_INSTANCES', '1')
+    )
+    app.config['SMARTWATCH_SYNC_MISFIRE_GRACE_SECONDS'] = int(
+        os.environ.get('SMARTWATCH_SYNC_MISFIRE_GRACE_SECONDS', '60')
+    )
+    app.config['SMARTWATCH_SYNC_COALESCE'] = os.environ.get(
+        'SMARTWATCH_SYNC_COALESCE',
+        '1',
+    ) == '1'
 
     # ================== SECURITY: HTTPS & TLS ==================
     app.config['FORCE_HTTPS'] = os.environ.get('FORCE_HTTPS', '1' if IS_PRODUCTION else '0') == '1'
