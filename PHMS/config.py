@@ -123,10 +123,11 @@ SQLALCHEMY_TRACK_MODIFICATIONS = False
 # RATE LIMITER STORAGE CONFIGURATION
 # ============================================================================
 def _get_limiter_storage_uri():
-    """Get rate limiter storage URI with fallback to in-memory.
+    """Resolve rate limiter storage backend.
     
     Attempts to connect to Redis for production-grade rate limiting.
-    Falls back to in-memory storage for development if Redis unavailable.
+    Falls back to in-memory storage only in development.
+    In production, startup fails if Redis is unavailable.
     
     Returns:
         str: Storage URI (redis:// or memory://)
@@ -138,6 +139,7 @@ def _get_limiter_storage_uri():
         REDIS_DB: Redis database number (default: 0)
     """
     # Try full Redis URL first
+    last_redis_error = None
     redis_url = os.environ.get('REDIS_URL')
     if redis_url:
         try:
@@ -146,8 +148,8 @@ def _get_limiter_storage_uri():
             client.ping()
             client.close()
             return redis_url
-        except Exception:
-            pass
+        except Exception as exc:
+            last_redis_error = exc
     
     # Try component-based Redis configuration
     redis_host = os.environ.get('REDIS_HOST', 'localhost')
@@ -161,13 +163,20 @@ def _get_limiter_storage_uri():
         client.ping()
         client.close()
         return redis_uri
-    except Exception:
-        # Redis not available - use in-memory for development
+    except Exception as exc:
+        # Redis not available - only allow in-memory storage in development.
         if IS_PRODUCTION:
-            logging.warning(
-                "⚠️  Redis not available for rate limiting in PRODUCTION mode. "
-                "Configure REDIS_URL environment variable for production deployments."
+            raise RuntimeError(
+                "CRITICAL SECURITY ERROR: Redis is unavailable for rate limiting in PRODUCTION mode. "
+                "Configure REDIS_URL (or REDIS_HOST/REDIS_PORT/REDIS_DB) to a reachable Redis instance."
             )
+        logging.warning(
+            "⚠️ Redis not available for rate limiting in development mode. "
+            "Using in-memory storage (not suitable for distributed deployments)."
+        )
+        if last_redis_error:
+            logging.debug("Rate limit Redis URL check failed: %s", last_redis_error)
+        logging.debug("Rate limit Redis host/port check failed: %s", exc)
         return "memory://"
 
 # Extensions

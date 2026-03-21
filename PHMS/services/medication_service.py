@@ -16,6 +16,48 @@ from utils.medication_schedule import get_scheduled_time_for_frequency
 logger = logging.getLogger(__name__)
 
 
+def _create_initial_schedule_logs(user_id, medication, frequency, today):
+    """Create upcoming logs for a newly-added medication that starts today.
+
+    This helper intentionally raises on any unexpected DB/runtime error so the
+    caller can roll back the full medication+schedule transaction.
+    """
+    logger.info("Creating initial logs for medication %s, frequency=%s", medication.medication_id, frequency)
+    scheduled_times = get_scheduled_time_for_frequency(frequency)
+    logger.info("get_scheduled_time_for_frequency(%s) returned: %s", frequency, scheduled_times)
+
+    if not scheduled_times:
+        raise ValueError("Invalid frequency. No schedule is configured for this frequency.")
+
+    current_time = datetime.now().time()
+    logs_created = 0
+
+    for scheduled_time in scheduled_times:
+        if scheduled_time <= current_time:
+            logger.info("Skipping past scheduled time %s for medication %s", scheduled_time, medication.medication_id)
+            continue
+
+        _, created = MedicationLogRepository.create_schedule_log_if_absent(
+            user_id=user_id,
+            medication_id=medication.medication_id,
+            log_date=today,
+            scheduled_time=scheduled_time,
+            status='pending',
+        )
+        if created:
+            logs_created += 1
+            logger.info("Created log for %s at %s", medication.medication_id, scheduled_time)
+        else:
+            logger.info("Skipped duplicate log for %s at %s", medication.medication_id, scheduled_time)
+
+    logger.info(
+        "Initial schedule creation completed for medication %s (created=%s)",
+        medication.medication_id,
+        logs_created,
+    )
+    return logs_created
+
+
 def medication_page(user_id, search_query=None, view_all=None):
     """Build context payload for the medication page."""
     meds = MedicationRepository.get_user_medications(user_id)
@@ -154,45 +196,12 @@ def add_medication(user_id, data):
 
         logs_created = 0
         if start_date == today:
-            try:
-                logger.info("Creating logs for medication %s, frequency=%s", medication.medication_id, frequency)
-                scheduled_times = get_scheduled_time_for_frequency(frequency)
-                logger.info("get_scheduled_time_for_frequency(%s) returned: %s", frequency, scheduled_times)
-
-                if scheduled_times and len(scheduled_times) > 0:
-                    current_time = datetime.now().time()
-
-                    for scheduled_time in scheduled_times:
-                        if scheduled_time > current_time:
-                            try:
-                                _, created = MedicationLogRepository.create_schedule_log_if_absent(
-                                    user_id=user_id,
-                                    medication_id=medication.medication_id,
-                                    log_date=today,
-                                    scheduled_time=scheduled_time,
-                                    status='pending',
-                                )
-                                if created:
-                                    logs_created += 1
-                                    logger.info("Created log for %s at %s", medication.medication_id, scheduled_time)
-                                else:
-                                    logger.info("Skipped duplicate log for %s at %s", medication.medication_id, scheduled_time)
-                            except Exception as time_error:
-                                logger.error("Error creating individual log: %s", str(time_error), exc_info=True)
-                                continue
-                        else:
-                            logger.info("Skipping past scheduled time %s for medication %s", scheduled_time, medication.medication_id)
-
-                    logger.info(
-                        "Successfully created %s medication logs for medication %s",
-                        logs_created,
-                        medication.medication_id,
-                    )
-                else:
-                    logger.warning("No scheduled times found for frequency: %s", frequency)
-
-            except Exception as log_error:
-                logger.error("Error in medication log creation: %s", str(log_error), exc_info=True)
+            logs_created = _create_initial_schedule_logs(
+                user_id=user_id,
+                medication=medication,
+                frequency=frequency,
+                today=today,
+            )
 
         db.session.commit()
 
@@ -207,12 +216,21 @@ def add_medication(user_id, data):
             "status_code": 200,
         }
 
+    except ValueError as exc:
+        db.session.rollback()
+        logger.warning("Medication creation aborted for user_id=%s: %s", user_id, str(exc))
+        return {
+            "success": False,
+            "message": str(exc),
+            "status_code": 400,
+        }
+
     except Exception:
         db.session.rollback()
         logger.exception("Error adding medication for user_id=%s", user_id)
         return {
             "success": False,
-            "message": "Error adding medication",
+            "message": "Error adding medication. No changes were saved.",
             "status_code": 500,
         }
 

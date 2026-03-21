@@ -1,7 +1,10 @@
 from datetime import date
 
 from config import db
-from models import Alert, HealthData, Medication, User
+from models import User
+from repositories.alert_repository import AlertRepository
+from repositories.health_repository import HealthRepository
+from repositories.medication_repository import MedicationRepository
 from utils.health_score import score_to_label
 
 
@@ -23,24 +26,19 @@ def profile(user_id):
     """Build profile template context for a user."""
     user = db.session.get(User, user_id)
 
-    total_health_entries = HealthData.query.filter_by(user_id=user.user_id).count()
-    latest_health = HealthData.query.filter_by(
-        user_id=user.user_id
-    ).order_by(HealthData.recorded_at.desc()).first()
+    total_health_entries = HealthRepository.count_user_entries(user.user_id)
+    latest_health = HealthRepository.get_latest_user_entry(user.user_id)
     latest_health_risk = (
         score_to_label(latest_health.health_score)
         if latest_health and latest_health.health_score is not None
         else None
     )
 
-    medications = Medication.query.filter_by(user_id=user.user_id).all()
+    medications = MedicationRepository.get_user_medications(user.user_id)
     active_medications = [med for med in medications if med.is_active()]
     critical_medications_count = sum(1 for med in medications if med.is_critical)
 
-    unread_alerts_count = Alert.query.filter_by(
-        user_id=user.user_id,
-        is_read=False,
-    ).count()
+    unread_alerts_count = AlertRepository.count_unread_user_alerts(user.user_id)
 
     profile_fields = [
         user.username,

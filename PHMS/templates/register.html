@@ -55,6 +55,13 @@
 
 <script>
 function register(event) {
+    const usernameInput = document.getElementById('username');
+    const emailInput = document.getElementById('email');
+    const passwordInput = document.getElementById('password');
+    const ageInput = document.getElementById('age');
+    const genderInput = document.getElementById('gender');
+    const heightInput = document.getElementById('height');
+    const weightInput = document.getElementById('weight');
     const registerBtn = event ? event.target : null;
     if (registerBtn) {
         if (window.PHMSLoading) {
@@ -72,13 +79,13 @@ function register(event) {
             'X-CSRFToken': getCsrfToken()
         },
         body: JSON.stringify({
-            username: username.value,
-            email: email.value,
-            password: password.value,
-            age: age.value,
-            gender: gender.value,
-            height: height.value,
-            weight: weight.value
+            username: usernameInput ? usernameInput.value : '',
+            email: emailInput ? emailInput.value : '',
+            password: passwordInput ? passwordInput.value : '',
+            age: ageInput ? ageInput.value : '',
+            gender: genderInput ? genderInput.value : '',
+            height: heightInput ? heightInput.value : '',
+            weight: weightInput ? weightInput.value : ''
         })
     })
     .then(res => res.json())

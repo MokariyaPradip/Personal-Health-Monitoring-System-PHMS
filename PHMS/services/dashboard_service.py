@@ -11,6 +11,7 @@ def dashboard(user_id):
     if not user:
         return {
             'user': None,
+            'user_name': 'User',
             'last_health': None,
             'medications': [],
             'alerts': [],
@@ -56,6 +57,7 @@ def dashboard(user_id):
 
     return {
         'user': user,
+        'user_name': user.username,
         'last_health': last_health,
         'medications': medications,
         'alerts': alerts,

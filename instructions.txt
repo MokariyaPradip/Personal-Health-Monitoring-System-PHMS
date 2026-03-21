@@ -85,10 +85,15 @@ python start.py                 # ⭐ Automated setup and launch
 
 What start.py does automatically:
 ✓ Initializes SQLite database (PHMS/instance/phms.db)
-✓ Applies all database migrations (Alembic)
+✓ Validates environment and launches app.py
 ✓ Creates initial medication logs for existing users
-✓ Starts APScheduler for automated tasks (4 background jobs)
+✓ Starts APScheduler for automated tasks (3 background jobs)
 ✓ Launches Flask development server on http://127.0.0.1:5000
+
+Migration note:
+- start.py does not execute Alembic migrations automatically.
+- Run migrations manually when schema changes are pulled:
+   flask db upgrade
 
 The application will be ready at: http://127.0.0.1:5000
 
@@ -141,7 +146,7 @@ roject Root/
     ├── start.py                # ⭐ AUTOMATED SETUP & LAUNCH SCRIPT
     ├── config.py               # App factory, database, security config
     ├── routes.py               # Route registration
-    ├── scheduler_config.py     # APScheduler setup (4 automated jobs)
+    ├── scheduler_config.py     # APScheduler setup (3 automated jobs)
     ├── models.py               # Model aggregator
     ├── requirements.txt        # Python dependencies
     │
@@ -205,9 +210,9 @@ PHMS/
 ├── controllers/                # Business logic (MVC pattern)
 AUTOMATED SCHEDULER JOBS (via start.py)
 ================================================================================
-When you run start.py, APScheduler automatically starts 4 background jobs:
+When you run start.py, APScheduler automatically starts 3 background jobs:
 
-Job 1: Daily Medication Log Creation (00:00 UTC)
+Job 1: Daily Medication Log Creation (00:00 local time)
 - Creates pending medication logs for all active prescriptions
 - Runs every midnight automatically
 
@@ -219,11 +224,6 @@ Job 2: Medication Reminders (Every 60 seconds)
 Job 3: Grace Period Management (Every 60 seconds)
 - Marks pending logs as 'missed' after 30-minute grace period
 - Sends email alerts for missed critical medications
-
-Job 4: Consecutive Missed Detection (23:59 UTC)
-- Detects 3+ consecutive missed days
-- Sends critical warning emails to users
-- Runs daily at 11:59 PM
 
 To manually control scheduler:
     from scheduler_config import SchedulerSetup
@@ -343,7 +343,7 @@ Reports & Analytics:
 ✓ PDF generation with ReportLab
 
 Automation:
-✓ APScheduler integration (4 background jobs)
+✓ APScheduler integration (3 background jobs)
 ✓ Automated medication log creation
 ✓ Scheduled notifications and reminders
 ✓ Automated grace period management

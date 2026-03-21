@@ -390,7 +390,9 @@
     display: flex;
     gap: 0.5rem;
     flex-direction: column;
-    min-width: fit-content;
+    min-width: auto;
+    min-width: -webkit-fill-available;
+    min-width: max-content;
 }
 
 .alert-category-badge {

@@ -240,7 +240,8 @@ def run_app(venv_python):
         - This is a blocking call (doesn't return until app stops)
         - Press Ctrl+C to stop the server
         - Server configuration defined in app.py
-        - Database migrations run automatically on startup
+        - Database migrations are not executed by start.py
+        - Apply migrations manually with: flask db upgrade
         - Scheduler starts automatically
     """
     print("\n🚀 Starting PHMS Application...\n")

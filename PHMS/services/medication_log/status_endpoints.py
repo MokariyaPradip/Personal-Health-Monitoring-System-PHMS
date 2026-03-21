@@ -2,7 +2,7 @@ import logging
 from datetime import date, datetime, timedelta
 
 from config import db
-from models import Medication, MedicationLog
+from repositories.medication_log_repository import MedicationLogRepository
 
 from .manager import MedicationLogManager
 
@@ -26,10 +26,7 @@ def update_medication_log_status(user_id, log_id, status, user=None):
         if status == 'missed':
             return mark_medication_missed(user_id, log_id, user=user)
 
-        log = MedicationLog.query.filter_by(
-            log_id=log_id,
-            user_id=user_id,
-        ).first()
+        log = MedicationLogRepository.get_user_log_by_id(user_id=user_id, log_id=log_id)
 
         if not log:
             return {
@@ -154,10 +151,7 @@ def manually_check_consecutive_missed():
 def mark_medication_taken(user_id, log_id):
     """Mark a medication log as taken after time and grace validations."""
     try:
-        log = MedicationLog.query.filter_by(
-            log_id=log_id,
-            user_id=user_id,
-        ).first()
+        log = MedicationLogRepository.get_user_log_by_id(user_id=user_id, log_id=log_id)
 
         if not log:
             return {
@@ -225,10 +219,7 @@ def mark_medication_taken(user_id, log_id):
 def mark_medication_missed(user_id, log_id, user=None):
     """Mark a medication log as missed, including alert/email side effects."""
     try:
-        log = MedicationLog.query.filter_by(
-            log_id=log_id,
-            user_id=user_id,
-        ).first()
+        log = MedicationLogRepository.get_user_log_by_id(user_id=user_id, log_id=log_id)
 
         if not log:
             return {
@@ -360,18 +351,11 @@ def get_medication_logs(user_id, days=7, status_filter=None):
         today = date.today()
         start_date = today - timedelta(days=days)
 
-        query = MedicationLog.query.join(Medication).filter(
-            MedicationLog.user_id == user_id,
-            MedicationLog.log_date >= start_date,
+        logs = MedicationLogRepository.get_user_logs_since(
+            user_id=user_id,
+            from_date=start_date,
+            status_filter=status_filter,
         )
-
-        if status_filter:
-            query = query.filter(MedicationLog.status == status_filter)
-
-        logs = query.order_by(
-            MedicationLog.log_date.desc(),
-            MedicationLog.scheduled_time.desc(),
-        ).all()
 
         logs_data = []
         for log in logs:

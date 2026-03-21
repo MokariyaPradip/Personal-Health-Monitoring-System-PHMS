@@ -91,68 +91,92 @@ class MedicationLogSchedulerMixin:
         """
         today = date.today()
         created_count = 0
-        error_count = 0
-        
+        skipped_count = 0
+        failed_count = 0
+
         try:
-            # Find all medications and filter by is_active() method
-            # This properly handles None values for start_date and end_date
             all_medications = Medication.query.all()
             active_medications = [med for med in all_medications if med.is_active()]
-            
-            logger.info(f"Found {len(active_medications)} active medications")
-            
-            for medication in active_medications:
-                try:
-                    # Get scheduled times based on frequency
-                    scheduled_times = get_scheduled_time_for_frequency(medication.frequency)
-                    
-                    if not scheduled_times:
-                        logger.warning(f"No scheduled times found for frequency {medication.frequency}")
-                        continue
-                    
-                    # Create logs for each scheduled time, skipping duplicates by schedule key
-                    created_for_medication = 0
-                    for scheduled_time in scheduled_times:
-                        _, created = MedicationLogRepository.create_schedule_log_if_absent(
-                            user_id=medication.user_id,
-                            medication_id=medication.medication_id,
-                            log_date=today,
-                            scheduled_time=scheduled_time,
-                            status='pending'
-                        )
-                        if created:
-                            created_count += 1
-                            created_for_medication += 1
-
-                    if created_for_medication > 0:
-                        logger.info(
-                            f"Created {created_for_medication} logs for medication {medication.medication_id}"
-                        )
-                    else:
-                        logger.info(f"Logs already exist for medication {medication.medication_id} on {today}")
-                    
-                except Exception as e:
-                    error_count += 1
-                    logger.error(f"Error creating logs for medication {medication.medication_id}: {str(e)}")
-            
-            db.session.commit()
-            
-            stats = {
-                'date': str(today),
-                'created': created_count,
-                'errors': error_count,
-                'status': 'success'
-            }
-            logger.info(f"Daily logs creation completed: {stats}")
-            return stats
-            
-        except Exception as e:
+        except Exception as exc:
             db.session.rollback()
-            logger.error(f"Error in create_daily_logs: {str(e)}")
+            logger.error("Error loading medications for daily log creation: %s", str(exc))
             return {
                 'status': 'error',
-                'message': str(e)
+                'message': str(exc),
+                'date': str(today),
+                'created': 0,
+                'skipped': 0,
+                'failed': 0,
+                'errors': 1,
+                'total_medications': 0,
             }
+
+        logger.info("Found %s active medications", len(active_medications))
+
+        for medication in active_medications:
+            scheduled_times = get_scheduled_time_for_frequency(medication.frequency)
+            if not scheduled_times:
+                failed_count += 1
+                logger.warning(
+                    "No scheduled times found for medication %s (frequency=%s)",
+                    medication.medication_id,
+                    medication.frequency,
+                )
+                continue
+
+            for scheduled_time in scheduled_times:
+                savepoint = db.session.begin_nested()
+                try:
+                    _, created = MedicationLogRepository.create_schedule_log_if_absent(
+                        user_id=medication.user_id,
+                        medication_id=medication.medication_id,
+                        log_date=today,
+                        scheduled_time=scheduled_time,
+                        status='pending'
+                    )
+                    savepoint.commit()
+                    if created:
+                        created_count += 1
+                    else:
+                        skipped_count += 1
+                except Exception as exc:
+                    savepoint.rollback()
+                    failed_count += 1
+                    logger.error(
+                        "Failed creating log for medication %s at %s: %s",
+                        medication.medication_id,
+                        scheduled_time,
+                        str(exc),
+                    )
+
+        try:
+            db.session.commit()
+        except Exception as exc:
+            db.session.rollback()
+            logger.error("Error committing daily log batch: %s", str(exc))
+            return {
+                'status': 'error',
+                'message': str(exc),
+                'date': str(today),
+                'created': 0,
+                'skipped': 0,
+                'failed': 0,
+                'errors': 1,
+                'total_medications': len(active_medications),
+            }
+
+        status = 'success' if failed_count == 0 else 'partial_success'
+        stats = {
+            'date': str(today),
+            'created': created_count,
+            'skipped': skipped_count,
+            'failed': failed_count,
+            'errors': failed_count,
+            'total_medications': len(active_medications),
+            'status': status,
+        }
+        logger.info("Daily logs creation completed: %s", stats)
+        return stats
     
     @staticmethod
     def initialize_medication_logs():
@@ -173,100 +197,124 @@ class MedicationLogSchedulerMixin:
         current_time = now.time()
         
         created_count = 0
+        creation_skipped_count = 0
+        creation_failed_count = 0
         verified_count = 0
         skipped_count = 0
-        error_count = 0
-        
+        catch_up_errors = 0
+
+        logger.info("Initializing medication logs on startup")
+
         try:
-            logger.info("🔄 Initializing medication logs on startup...")
-            
-            # Find all active medications
             all_medications = Medication.query.all()
             active_medications = [med for med in all_medications if med.is_active()]
-            
-            logger.info(f"Found {len(active_medications)} active medications")
-            
-            # ============ PART 1: CREATE LOGS FOR UPCOMING SCHEDULED TIMES ============
-            for medication in active_medications:
-                try:
-                    # Get scheduled times based on frequency
-                    scheduled_times = get_scheduled_time_for_frequency(medication.frequency)
-                    
-                    if not scheduled_times:
-                        logger.warning(f"No scheduled times found for frequency {medication.frequency}")
-                        continue
-                    
-                    # Create logs only for upcoming times (scheduled_time > current_time)
-                    for scheduled_time in scheduled_times:
-                        # Only create if scheduled time is in the future
-                        scheduled_dt = datetime.combine(today, scheduled_time)
-                        if scheduled_dt > now:
-                            _, created = MedicationLogRepository.create_schedule_log_if_absent(
-                                user_id=medication.user_id,
-                                medication_id=medication.medication_id,
-                                log_date=today,
-                                scheduled_time=scheduled_time,
-                                status='pending'
-                            )
-                            if created:
-                                created_count += 1
-                                logger.info(f"Created log for medication {medication.medication_id} at {scheduled_time}")
-                        
-                except Exception as e:
-                    error_count += 1
-                    logger.error(f"Error creating logs for medication {medication.medication_id}: {str(e)}")
-            
-            # Commit new logs
-            if created_count > 0:
-                db.session.commit()
-                logger.info(f"✓ Created {created_count} new medication logs")
-            
-            # ============ PART 2: MARK OVERDUE PENDING LOGS AS SKIPPED ============
-            skip_result = MedicationLogManager.mark_past_pending_logs_as_skipped(now)
-            if skip_result.get('status') == 'success':
-                verified_count = skip_result.get('evaluated', 0)
-                skipped_count = skip_result.get('skipped', 0)
-            else:
-                error_count += 1
-                logger.error(
-                    "Error during startup catch-up skip routine: %s",
-                    skip_result.get('message', 'Unknown error')
-                )
-            
-            stats = {
-                'date': str(today),
-                'time': str(current_time),
-                'created': created_count,
-                'verified': verified_count,
-                'marked_missed': 0,
-                'marked_skipped': skipped_count,
-                'errors': error_count,
-                'status': 'success'
-            }
-            
-            logger.info("━" * 50)
-            logger.info(f"✅ Medication log initialization completed:")
-            logger.info(f"   📝 Created: {created_count} new logs")
-            logger.info(f"   🔍 Verified: {verified_count} existing logs")
-            logger.info("   ❌ Marked missed: 0 logs")
-            logger.info(f"   ⏭️  Marked skipped: {skipped_count} overdue logs")
-            logger.info(f"   ⚠️ Errors: {error_count}")
-            logger.info("━" * 50)
-            
-            return stats
-            
-        except Exception as e:
+        except Exception as exc:
             db.session.rollback()
-            logger.error(f"Error in initialize_medication_logs: {str(e)}")
+            logger.error("Error loading medications for startup initialization: %s", str(exc))
             return {
                 'status': 'error',
-                'message': str(e),
-                'created': created_count,
-                'verified': verified_count,
+                'message': str(exc),
+                'date': str(today),
+                'time': str(current_time),
+                'created': 0,
+                'skipped_creation': 0,
+                'failed_creation': 0,
+                'verified': 0,
                 'marked_missed': 0,
-                'marked_skipped': skipped_count,
-                'errors': error_count
+                'marked_skipped': 0,
+                'errors': 1,
             }
+
+        logger.info("Found %s active medications", len(active_medications))
+
+        for medication in active_medications:
+            scheduled_times = get_scheduled_time_for_frequency(medication.frequency)
+            if not scheduled_times:
+                creation_failed_count += 1
+                logger.warning(
+                    "No scheduled times found for medication %s (frequency=%s)",
+                    medication.medication_id,
+                    medication.frequency,
+                )
+                continue
+
+            for scheduled_time in scheduled_times:
+                scheduled_dt = datetime.combine(today, scheduled_time)
+                if scheduled_dt <= now:
+                    creation_skipped_count += 1
+                    continue
+
+                savepoint = db.session.begin_nested()
+                try:
+                    _, created = MedicationLogRepository.create_schedule_log_if_absent(
+                        user_id=medication.user_id,
+                        medication_id=medication.medication_id,
+                        log_date=today,
+                        scheduled_time=scheduled_time,
+                        status='pending'
+                    )
+                    savepoint.commit()
+                    if created:
+                        created_count += 1
+                    else:
+                        creation_skipped_count += 1
+                except Exception as exc:
+                    savepoint.rollback()
+                    creation_failed_count += 1
+                    logger.error(
+                        "Failed creating startup log for medication %s at %s: %s",
+                        medication.medication_id,
+                        scheduled_time,
+                        str(exc),
+                    )
+
+        try:
+            db.session.commit()
+        except Exception as exc:
+            db.session.rollback()
+            logger.error("Error committing startup log creation batch: %s", str(exc))
+            return {
+                'status': 'error',
+                'message': str(exc),
+                'date': str(today),
+                'time': str(current_time),
+                'created': 0,
+                'skipped_creation': 0,
+                'failed_creation': 0,
+                'verified': 0,
+                'marked_missed': 0,
+                'marked_skipped': 0,
+                'errors': 1,
+            }
+
+        skip_result = MedicationLogManager.mark_past_pending_logs_as_skipped(now)
+        if skip_result.get('status') == 'success':
+            verified_count = skip_result.get('evaluated', 0)
+            skipped_count = skip_result.get('skipped', 0)
+        else:
+            catch_up_errors = 1
+            logger.error(
+                "Error during startup catch-up skip routine: %s",
+                skip_result.get('message', 'Unknown error')
+            )
+
+        error_count = creation_failed_count + catch_up_errors
+        status = 'success' if error_count == 0 else 'partial_success'
+        stats = {
+            'date': str(today),
+            'time': str(current_time),
+            'created': created_count,
+            'skipped_creation': creation_skipped_count,
+            'failed_creation': creation_failed_count,
+            'verified': verified_count,
+            'marked_missed': 0,
+            'marked_skipped': skipped_count,
+            'errors': error_count,
+            'status': status,
+        }
+
+        logger.info("Medication log initialization completed: %s", stats)
+        return stats
 
     @staticmethod
     def mark_past_pending_logs_as_skipped(reference_datetime=None):
@@ -292,37 +340,50 @@ class MedicationLogSchedulerMixin:
                 today=today,
                 current_time=current_time
             )
-
-            skipped_count = 0
-            for pending_log in overdue_pending_logs:
-                pending_log.status = 'skipped'
-                skipped_count += 1
-
-            if skipped_count > 0:
-                db.session.commit()
-                logger.info(
-                    "✓ Startup catch-up: marked %s overdue pending logs as skipped",
-                    skipped_count
-                )
-            else:
-                logger.info("✓ Startup catch-up: no overdue pending logs to skip")
-
-            return {
-                'status': 'success',
-                'evaluated': len(overdue_pending_logs),
-                'skipped': skipped_count,
-                'timestamp': str(now)
-            }
-
-        except Exception as e:
+        except Exception as exc:
             db.session.rollback()
-            logger.error(f"Error marking overdue pending logs as skipped: {str(e)}")
+            logger.error("Error loading overdue pending logs: %s", str(exc))
             return {
                 'status': 'error',
-                'message': str(e),
+                'message': str(exc),
                 'evaluated': 0,
-                'skipped': 0
+                'skipped': 0,
+                'failed': 0,
             }
+
+        skipped_count = 0
+        for pending_log in overdue_pending_logs:
+            pending_log.status = 'skipped'
+            skipped_count += 1
+
+        try:
+            db.session.commit()
+        except Exception as exc:
+            db.session.rollback()
+            logger.error("Error committing overdue-pending skip updates: %s", str(exc))
+            return {
+                'status': 'error',
+                'message': str(exc),
+                'evaluated': len(overdue_pending_logs),
+                'skipped': 0,
+                'failed': len(overdue_pending_logs),
+            }
+
+        if skipped_count > 0:
+            logger.info(
+                "Startup catch-up marked %s overdue pending logs as skipped",
+                skipped_count
+            )
+        else:
+            logger.info("Startup catch-up found no overdue pending logs")
+
+        return {
+            'status': 'success',
+            'evaluated': len(overdue_pending_logs),
+            'skipped': skipped_count,
+            'failed': 0,
+            'timestamp': str(now)
+        }
     
     @staticmethod
     def send_medication_notification(log_id):
@@ -419,45 +480,75 @@ class MedicationLogSchedulerMixin:
         Returns:
             dict: Statistics of sent notifications
         """
-        try:
-            now = datetime.now()
-            current_time = now.time()
-            today = date.today()
-            
-            # Find pending logs for today where scheduled_time is within the window
-            # Check for times within ±1 minute (to catch if cron runs late)
-            # Only get logs for medications that are still active
-            pending_logs = MedicationLogRepository.get_pending_logs_for_today_with_active_medication(today)
-            
-            notified_count = 0
-            
-            for log in pending_logs:
-                existing_alert = MedicationLogRepository.get_existing_alert_for_log(log.log_id)
-                if existing_alert:
-                    continue
+        now = datetime.now()
+        current_time = now.time()
+        today = date.today()
 
-                scheduled_dt = datetime.combine(today, log.scheduled_time)
-                now_dt = datetime.combine(today, current_time)
-                
-                # Calculate difference
-                time_diff = (scheduled_dt - now_dt).total_seconds() / 60  # in minutes
-                
-                # Send notification if within window (±1 minute buffer)
-                if -1 <= time_diff <= 1:
-                    result = MedicationLogManager.send_medication_notification(log.log_id)
-                    if result['status'] == 'success':
-                        notified_count += 1
-            
-            logger.info(f"Notifications scheduled: {notified_count} sent")
+        try:
+            pending_logs = MedicationLogRepository.get_pending_logs_for_today_with_active_medication(today)
+        except Exception as exc:
+            logger.error("Error loading pending logs for notification scheduling: %s", str(exc))
             return {
-                'status': 'success',
-                'notified': notified_count,
-                'timestamp': str(now)
+                'status': 'error',
+                'message': str(exc),
+                'evaluated': 0,
+                'notified': 0,
+                'skipped_existing': 0,
+                'skipped_outside_window': 0,
+                'failed': 0,
+                'timestamp': str(now),
             }
-            
-        except Exception as e:
-            logger.error(f"Error in schedule_notifications: {str(e)}")
-            return {'status': 'error', 'message': str(e)}
+
+        notified_count = 0
+        skipped_existing_count = 0
+        skipped_outside_window_count = 0
+        failed_count = 0
+
+        for log in pending_logs:
+            existing_alert = MedicationLogRepository.get_existing_alert_for_log(log.log_id)
+            if existing_alert:
+                skipped_existing_count += 1
+                continue
+
+            scheduled_dt = datetime.combine(today, log.scheduled_time)
+            now_dt = datetime.combine(today, current_time)
+            time_diff = (scheduled_dt - now_dt).total_seconds() / 60
+
+            if not (-1 <= time_diff <= 1):
+                skipped_outside_window_count += 1
+                continue
+
+            try:
+                result = MedicationLogManager.send_medication_notification(log.log_id)
+            except Exception as exc:
+                failed_count += 1
+                logger.error("Unexpected error sending notification for log %s: %s", log.log_id, str(exc))
+                continue
+
+            if result.get('status') == 'success':
+                notified_count += 1
+            elif result.get('status') == 'skipped':
+                skipped_existing_count += 1
+            else:
+                failed_count += 1
+                logger.warning(
+                    "Notification send failed for log %s: %s",
+                    log.log_id,
+                    result.get('message', 'Unknown error')
+                )
+
+        status = 'success' if failed_count == 0 else 'partial_success'
+        summary = {
+            'status': status,
+            'evaluated': len(pending_logs),
+            'notified': notified_count,
+            'skipped_existing': skipped_existing_count,
+            'skipped_outside_window': skipped_outside_window_count,
+            'failed': failed_count,
+            'timestamp': str(now)
+        }
+        logger.info("Notification scheduling summary: %s", summary)
+        return summary
     
     @staticmethod
     def check_grace_period_and_mark_missed():
@@ -471,129 +562,174 @@ class MedicationLogSchedulerMixin:
         Returns:
             dict: Statistics of marked missed medications
         """
-        try:
-            now = datetime.now()
-            current_time = now.time()
-            today = date.today()
-            yesterday = today - timedelta(days=1)
-            
-            # Find pending logs for today for active medications only
-            pending_logs = MedicationLogRepository.get_pending_logs_for_today_with_active_medication(today)
-            
-            marked_missed = 0
-            emails_to_send = []  # Collect email tasks to execute after commit
-            
-            for log in pending_logs:
-                # Get dynamic grace period based on medication frequency
-                medication = log.medication
-                grace_period_minutes = MedicationLogManager.get_grace_period_for_medication(medication)
-                
-                scheduled_dt = datetime.combine(today, log.scheduled_time)
-                grace_period_end = scheduled_dt + timedelta(minutes=grace_period_minutes)
-                now_dt = datetime.combine(today, current_time)
-                
-                # If current time is past grace period, mark as missed
-                if now_dt > grace_period_end:
-                    log.status = 'missed'
-                    marked_missed += 1
-                    logger.info(f"Log {log.log_id} marked as missed (grace period={grace_period_minutes}min expired)")
-                    
-                    # If medication is critical, send critical email and skip consecutive check
-                    if medication and medication.is_critical:
-                        try:
-                            user = medication.user
-                            emails_to_send.append({
-                                'type': 'critical',
-                                'user': user,
-                                'medication': medication,
-                                'log': log,
-                                'log_id': log.log_id
-                            })
-                        except Exception as email_error:
-                            logger.error(f"Error preparing critical medication email for log {log.log_id}: {str(email_error)}")
-                    else:
-                        # Check for consecutive missed logs of the SAME medication based on time gap
-                        try:
-                            consecutive_missed_count, gap_minutes = MedicationLogManager.get_consecutive_missed_count(
-                                log,
-                                medication
-                            )
-                                
-                            if consecutive_missed_count >= 2:
-                                user = medication.user
-                                emails_to_send.append({
-                                    'type': 'consecutive_missed',
-                                    'user': user,
-                                    'medication': medication,
-                                    'log': log,
-                                    'log_id': log.log_id,
-                                    'consecutive_count': consecutive_missed_count
-                                })
-                                if gap_minutes is not None:
-                                    logger.info(
-                                        f"Flagged {consecutive_missed_count} consecutive missed logs for medication {log.medication_id} (gap_minutes={gap_minutes:.1f})"
-                                    )
-                                else:
-                                    logger.info(
-                                        f"Flagged {consecutive_missed_count} consecutive missed logs for medication {log.medication_id}"
-                                    )
-                        except Exception as consecutive_error:
-                            logger.error(f"Error checking consecutive missed logs: {str(consecutive_error)}")
-            
-            # Commit all database changes first
-            if marked_missed > 0:
-                db.session.commit()
-                logger.info(f"Marked {marked_missed} medications as missed")
-            
-            # Now send emails after database is committed (avoids locking issues)
-            emails_sent = 0
-            email_failures = 0
-            for email_task in emails_to_send:
-                try:
-                    send_result = {'success': False}
-                    if email_task['type'] == 'consecutive_missed':
-                        send_result = MedicationLogManager.send_consecutive_missed_email(
-                            email_task['user'],
-                            email_task['medication'],
-                            email_task['log'],
-                            email_task['consecutive_count']
-                        )
-                    elif email_task['type'] == 'critical':
-                        send_result = MedicationLogManager.send_critical_medication_missed_email(
-                            email_task['user'],
-                            email_task['medication'],
-                            email_task['log']
-                        )
+        now = datetime.now()
+        current_time = now.time()
+        today = date.today()
 
-                    if send_result.get('success', False):
-                        emails_sent += 1
-                    else:
-                        email_failures += 1
-                        logger.warning(
-                            "Email notification failed for task=%s, log_id=%s",
-                            email_task['type'],
-                            email_task['log_id'],
-                        )
-                except Exception as email_send_error:
-                    email_failures += 1
-                    logger.error(f"Error sending email: {str(email_send_error)}")
-            
+        try:
+            pending_logs = MedicationLogRepository.get_pending_logs_for_today_with_active_medication(today)
+        except Exception as exc:
+            logger.error("Error loading pending logs for grace-period check: %s", str(exc))
             return {
-                'status': 'success',
-                'marked_missed': marked_missed,
-                'emails_attempted': len(emails_to_send),
-                'emails_sent': emails_sent,
-                'email_failures': email_failures,
-                'timestamp': str(now)
+                'status': 'error',
+                'message': str(exc),
+                'evaluated': 0,
+                'marked_missed': 0,
+                'skipped_within_grace': 0,
+                'emails_attempted': 0,
+                'emails_sent': 0,
+                'email_preparation_failures': 0,
+                'email_failures': 0,
+                'timestamp': str(now),
             }
-            
-        except Exception as e:
+
+        marked_missed = 0
+        skipped_within_grace = 0
+        email_preparation_failures = 0
+        emails_to_send = []
+
+        for log in pending_logs:
+            medication = log.medication
+            grace_period_minutes = MedicationLogManager.get_grace_period_for_medication(medication)
+
+            scheduled_dt = datetime.combine(today, log.scheduled_time)
+            grace_period_end = scheduled_dt + timedelta(minutes=grace_period_minutes)
+            now_dt = datetime.combine(today, current_time)
+
+            if now_dt <= grace_period_end:
+                skipped_within_grace += 1
+                continue
+
+            log.status = 'missed'
+            marked_missed += 1
+            logger.info(
+                "Log %s marked as missed (grace period=%s min expired)",
+                log.log_id,
+                grace_period_minutes,
+            )
+
+            if medication and medication.is_critical:
+                user = medication.user
+                if not user:
+                    email_preparation_failures += 1
+                    logger.warning("Unable to queue critical email for log %s: user missing", log.log_id)
+                    continue
+
+                emails_to_send.append({
+                    'type': 'critical',
+                    'user': user,
+                    'medication': medication,
+                    'log': log,
+                    'log_id': log.log_id,
+                })
+                continue
+
             try:
+                consecutive_missed_count, gap_minutes = MedicationLogManager.get_consecutive_missed_count(
+                    log,
+                    medication,
+                )
+            except Exception as exc:
+                email_preparation_failures += 1
+                logger.error("Error checking consecutive missed logs for log %s: %s", log.log_id, str(exc))
+                continue
+
+            if consecutive_missed_count < 2:
+                continue
+
+            user = medication.user if medication else None
+            if not user:
+                email_preparation_failures += 1
+                logger.warning("Unable to queue consecutive-missed email for log %s: user missing", log.log_id)
+                continue
+
+            emails_to_send.append({
+                'type': 'consecutive_missed',
+                'user': user,
+                'medication': medication,
+                'log': log,
+                'log_id': log.log_id,
+                'consecutive_count': consecutive_missed_count,
+            })
+
+            if gap_minutes is not None:
+                logger.info(
+                    "Flagged %s consecutive missed logs for medication %s (gap_minutes=%.1f)",
+                    consecutive_missed_count,
+                    log.medication_id,
+                    gap_minutes,
+                )
+            else:
+                logger.info(
+                    "Flagged %s consecutive missed logs for medication %s",
+                    consecutive_missed_count,
+                    log.medication_id,
+                )
+
+        if marked_missed > 0:
+            try:
+                db.session.commit()
+                logger.info("Marked %s medications as missed", marked_missed)
+            except Exception as exc:
                 db.session.rollback()
-            except Exception as rollback_error:
-                logger.error(f"Error rolling back session: {str(rollback_error)}")
-            logger.error(f"Error in check_grace_period_and_mark_missed: {str(e)}")
-            return {'status': 'error', 'message': str(e)}
+                logger.error("Error committing grace-period status updates: %s", str(exc))
+                return {
+                    'status': 'error',
+                    'message': str(exc),
+                    'evaluated': len(pending_logs),
+                    'marked_missed': 0,
+                    'skipped_within_grace': skipped_within_grace,
+                    'emails_attempted': 0,
+                    'emails_sent': 0,
+                    'email_preparation_failures': email_preparation_failures,
+                    'email_failures': 0,
+                    'timestamp': str(now),
+                }
+
+        emails_sent = 0
+        email_send_failures = 0
+        for email_task in emails_to_send:
+            try:
+                if email_task['type'] == 'consecutive_missed':
+                    send_result = MedicationLogManager.send_consecutive_missed_email(
+                        email_task['user'],
+                        email_task['medication'],
+                        email_task['log'],
+                        email_task['consecutive_count']
+                    )
+                else:
+                    send_result = MedicationLogManager.send_critical_medication_missed_email(
+                        email_task['user'],
+                        email_task['medication'],
+                        email_task['log']
+                    )
+
+                if send_result.get('success', False):
+                    emails_sent += 1
+                else:
+                    email_send_failures += 1
+                    logger.warning(
+                        "Email notification failed for task=%s, log_id=%s",
+                        email_task['type'],
+                        email_task['log_id'],
+                    )
+            except Exception as exc:
+                email_send_failures += 1
+                logger.error("Error sending email for log %s: %s", email_task['log_id'], str(exc))
+
+        total_email_failures = email_preparation_failures + email_send_failures
+        status = 'success' if total_email_failures == 0 else 'partial_success'
+        return {
+            'status': status,
+            'evaluated': len(pending_logs),
+            'marked_missed': marked_missed,
+            'skipped_within_grace': skipped_within_grace,
+            'emails_attempted': len(emails_to_send),
+            'emails_sent': emails_sent,
+            'email_preparation_failures': email_preparation_failures,
+            'email_failures': total_email_failures,
+            'timestamp': str(now)
+        }
     
     @staticmethod
     def check_consecutive_missed_and_email():

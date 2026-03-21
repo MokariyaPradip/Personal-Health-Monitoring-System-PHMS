@@ -10,7 +10,7 @@
 <div class="dashboard-container">
     <!-- ===== Welcome Header ===== -->
     <div class="welcome-header">
-        <h1>Welcome, <span class="username">{{ user.username }}</span></h1>
+        <h1>Welcome, <span class="username">{{ user_name }}</span></h1>
         <p class="subtitle">Your Health Management Dashboard</p>
     </div>
 
@@ -59,9 +59,9 @@
             {% set rb_label = (last_health.rule_based_risk_label or 'N/A') %}
             {% set classifier_label = (last_health.ml_classifier_risk_label or 'N/A') %}
             {% set regression_label = (last_health.regression_based_risk_label or 'N/A') %}
-            {% set rb_label_display = rb_label.replace('Risk', ' Risk') if rb_label != 'N/A' else rb_label %}
-            {% set classifier_label_display = classifier_label.replace('Risk', ' Risk') if classifier_label != 'N/A' else classifier_label %}
-            {% set regression_label_display = regression_label.replace('Risk', ' Risk') if regression_label != 'N/A' else regression_label %}
+            {% set rb_label_display = rb_label.replace('Risk', ' Risk') if rb_label != 'N/A' and 'Risk' in rb_label and ' ' not in rb_label else rb_label %}
+            {% set classifier_label_display = classifier_label.replace('Risk', ' Risk') if classifier_label != 'N/A' and 'Risk' in classifier_label and ' ' not in classifier_label else classifier_label %}
+            {% set regression_label_display = regression_label.replace('Risk', ' Risk') if regression_label != 'N/A' and 'Risk' in regression_label and ' ' not in regression_label else regression_label %}
 
             <div class="risk-summary">
                 <div class="score-chip">
@@ -224,7 +224,7 @@
                 {% if medications %}
                 <div class="recent-activity-item">
                     <div class="activity-info">
-                        <div class="activity-title">{{ active_medications_count or medications|length }} Active Medications</div>
+                        <div class="activity-title">{% if active_medications_count %}{{ active_medications_count }}{% else %}0{% endif %} Active Medications</div>
                         <div class="activity-time">Currently managed</div>
                     </div>
                     <span class="activity-badge">💊 Medication</span>
@@ -255,11 +255,11 @@
             </div>
             {% if last_health %}
             <div class="health-insights">
-                {% if last_health.rule_based_risk_label == "LowRisk" %}
+                {% if last_health.rule_based_risk_label == "Low Risk" %}
                 <div class="insight-item positive">
                     <strong>✓ Great Health Status</strong><br>Your health metrics are within normal ranges. Keep up the good work!
                 </div>
-                {% elif last_health.rule_based_risk_label == "MediumRisk" %}
+                {% elif last_health.rule_based_risk_label == "Medium Risk" %}
                 <div class="insight-item warning">
                     <strong>⚠ Monitor Your Health</strong><br>Some metrics need attention. Consider consulting your healthcare provider.
                 </div>
@@ -270,12 +270,12 @@
                 {% endif %}
                 
                 <div class="insight-item">
-                    <strong>📈 Health Score</strong><br>Current: {{ last_health.health_score }} | {{ last_health.rule_based_risk_label|replace('Risk', ' Risk')|trim }}
+                    <strong>📈 Health Score</strong><br>Current: {{ last_health.health_score }} | {{ rb_label_display }}
                 </div>
                 
                 {% if medications %}
                 <div class="insight-item positive">
-                    <strong>💊 Medication Tracking</strong><br>{{ active_medications_count or medications|length }} active medications being monitored
+                    <strong>💊 Medication Tracking</strong><br>{{ active_medications_count or medications|length }} medications being monitored
                 </div>
                 {% endif %}
                 

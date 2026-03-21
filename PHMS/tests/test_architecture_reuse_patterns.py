@@ -48,3 +48,26 @@ def test_medication_log_service_keeps_compatibility_facade_exports():
 
     missing = sorted(name for name in expected_exports if not hasattr(facade, name))
     assert not missing, f'Missing facade exports: {missing}'
+
+
+def test_medication_log_status_endpoints_use_repository_queries():
+    import services.medication_log.status_endpoints as status_endpoints
+
+    source = inspect.getsource(status_endpoints)
+
+    assert 'MedicationLog.query' not in source
+    assert 'from models import' not in source
+    assert 'from repositories.medication_log_repository import MedicationLogRepository' in source
+
+
+def test_profile_service_uses_repositories_for_cross_domain_queries():
+    import services.profile_service as profile_service
+
+    source = inspect.getsource(profile_service)
+
+    assert 'HealthData.query' not in source
+    assert 'Medication.query' not in source
+    assert 'Alert.query' not in source
+    assert 'HealthRepository' in source
+    assert 'MedicationRepository' in source
+    assert 'AlertRepository' in source

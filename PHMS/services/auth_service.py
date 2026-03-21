@@ -1,5 +1,6 @@
 import secrets
 from datetime import datetime, timedelta
+import hmac
 
 from flask import current_app, render_template, url_for
 from flask_mail import Message
@@ -35,14 +36,26 @@ def _generate_otp_code():
 
 def _create_for_email(email):
     """Create a fresh OTP row for an email, replacing prior OTP rows."""
+    otp_code = _generate_otp_code()
     AuthRepository.delete_otps_for_email(email)
     otp = AuthRepository.create_otp(
         email=email,
-        otp_code=_generate_otp_code(),
+        otp_code=generate_password_hash(otp_code),
         expires_at=datetime.now() + timedelta(minutes=10),
     )
     db.session.commit()
-    return otp
+    return otp, otp_code
+
+
+def _otp_matches(stored_otp, provided_code):
+    """Validate provided OTP against stored hash.
+
+    Fallback supports legacy plaintext rows created before OTP hashing rollout.
+    """
+    try:
+        return check_password_hash(stored_otp, provided_code)
+    except ValueError:
+        return hmac.compare_digest(stored_otp or '', provided_code or '')
 
 
 def _verify_otp(otp_record, code):
@@ -58,7 +71,7 @@ def _verify_otp(otp_record, code):
     if otp_record.attempts > 5:
         return False, "Too many attempts"
 
-    if otp_record.otp_code != code:
+    if not _otp_matches(otp_record.otp_code, code):
         db.session.commit()
         return False, "Invalid OTP"
 
@@ -75,7 +88,7 @@ def _send_otp_email(email, otp_code):
     default_sender = current_app.config.get('MAIL_DEFAULT_SENDER')
 
     if not mail_server or not mail_username or not mail_password or not default_sender:
-        current_app.logger.info("OTP for %s: %s", email, otp_code)
+        current_app.logger.info("OTP created for %s (mail config missing)", email)
         current_app.logger.warning(
             "Email not sent. Configure MAIL_SERVER, MAIL_USERNAME, MAIL_PASSWORD, MAIL_DEFAULT_SENDER."
         )
@@ -263,8 +276,8 @@ def forgot_password(data):
     user = AuthRepository.get_user_by_email(email)
 
     if user:
-        otp = _create_for_email(email)
-        email_sent = _send_otp_email(email, otp.otp_code)
+        _, otp_code = _create_for_email(email)
+        email_sent = _send_otp_email(email, otp_code)
 
         if email_sent:
             return {
@@ -302,8 +315,8 @@ def reset_password(data):
         user = AuthRepository.get_user_by_email(email)
 
         if user:
-            otp = _create_for_email(email)
-            email_sent = _send_otp_email(email, otp.otp_code)
+            _, otp_code = _create_for_email(email)
+            email_sent = _send_otp_email(email, otp_code)
 
             if email_sent:
                 return {

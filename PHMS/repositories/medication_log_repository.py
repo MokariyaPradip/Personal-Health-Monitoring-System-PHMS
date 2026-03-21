@@ -8,6 +8,28 @@ class MedicationLogRepository:
     """Repository for non-trivial medication log query blocks."""
 
     @staticmethod
+    def get_user_log_by_id(user_id, log_id):
+        return MedicationLog.query.filter_by(
+            log_id=log_id,
+            user_id=user_id,
+        ).first()
+
+    @staticmethod
+    def get_user_logs_since(user_id, from_date, status_filter=None):
+        query = MedicationLog.query.join(Medication).filter(
+            MedicationLog.user_id == user_id,
+            MedicationLog.log_date >= from_date,
+        )
+
+        if status_filter:
+            query = query.filter(MedicationLog.status == status_filter)
+
+        return query.order_by(
+            MedicationLog.log_date.desc(),
+            MedicationLog.scheduled_time.desc(),
+        ).all()
+
+    @staticmethod
     def get_overdue_pending_logs(today, current_time):
         return MedicationLog.query.filter(
             MedicationLog.status == 'pending',
