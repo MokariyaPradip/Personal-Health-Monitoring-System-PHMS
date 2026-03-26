@@ -1,11 +1,12 @@
 import logging
 import hashlib
 from datetime import datetime
+from smtplib import SMTPException
 
 from flask import current_app, render_template
 from flask_mail import Message
 from pydantic import ValidationError
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from config import db, mail
 from ml.ml_model import predict_health_assessment
@@ -104,7 +105,7 @@ def _send_health_alert_email(user_email, user_name, user_bmi, health_data):
     try:
         mail.send(msg)
         current_app.logger.info("Health alert email sent to %s", user_email)
-    except Exception as exc:
+    except (SMTPException, ConnectionError, TimeoutError, OSError, RuntimeError, ValueError) as exc:
         current_app.logger.exception("Failed to send health alert email: %s", exc)
 
 
@@ -278,6 +279,39 @@ def ingest_health_entry(user_id, data, source='manual', ingestion_metadata=None)
     blood_pressure = payload.blood_pressure
     sugar = payload.sugar
 
+    # Smartwatch ingestion requires a complete vitals snapshot.
+    # Insert only when every required metric is present and validated.
+    if source == 'smartwatch':
+        missing_fields = [
+            field_name
+            for field_name, value in (
+                ('heart_rate', heart_rate),
+                ('temperature', temperature),
+                ('steps', steps),
+                ('sleep_hours', sleep_hours),
+                ('blood_pressure', blood_pressure),
+                ('sugar', sugar),
+            )
+            if value is None
+        ]
+
+        if missing_fields:
+            available_vitals_count_temp = 6 - len(missing_fields)
+            current_app.logger.warning(
+                'Smartwatch payload rejected for user %s due to insufficient metrics (only %d/6): %s',
+                user_id,
+                available_vitals_count_temp,
+                ', '.join(missing_fields),
+            )
+            return {
+                'success': False,
+                'message': (
+                    'Smartwatch sync skipped: incomplete metrics from provider '
+                    f"(missing: {', '.join(missing_fields)})."
+                ),
+                'status_code': 422,
+            }
+
     ingestion_metadata = ingestion_metadata or {}
     data_source = ingestion_metadata.get('data_source') or source
     source_record_id = ingestion_metadata.get('source_record_id')
@@ -322,21 +356,59 @@ def ingest_health_entry(user_id, data, source='manual', ingestion_metadata=None)
             sleep_hours=sleep_hours,
             blood_pressure=blood_pressure,
             sugar=sugar,
+            penalize_missing=(source == 'manual'),
         )
 
         rule_based_risk_label = score_to_label(health_score)
 
-        ml_assessment = predict_health_assessment(
-            bmi=user.bmi,
-            heart_rate=heart_rate,
-            temperature=temperature,
-            steps=steps,
-            sleep_hours=sleep_hours,
-            blood_pressure=blood_pressure,
-            sugar=sugar,
+        ml_regression_health_score = None
+        ml_classifier_risk_label = None
+        ml_model_version = None
+
+        # Smartwatch and other integrations may submit partial vitals. In that case,
+        # skip ML inference (models require complete feature vectors).
+        can_run_ml = all(
+            value is not None
+            for value in (
+                user.bmi,
+                heart_rate,
+                temperature,
+                steps,
+                sleep_hours,
+                blood_pressure,
+                sugar,
+            )
         )
-        ml_regression_health_score = ml_assessment["ml_regression_health_score"]
-        ml_classifier_risk_label = ml_assessment["ml_classifier_risk_label"]
+
+        if can_run_ml:
+            try:
+                ml_assessment = predict_health_assessment(
+                    bmi=user.bmi,
+                    heart_rate=heart_rate,
+                    temperature=temperature,
+                    steps=steps,
+                    sleep_hours=sleep_hours,
+                    blood_pressure=blood_pressure,
+                    sugar=sugar,
+                )
+                ml_regression_health_score = ml_assessment["ml_regression_health_score"]
+                ml_classifier_risk_label = ml_assessment["ml_classifier_risk_label"]
+                ml_model_version = ml_assessment.get("ml_model_version")
+            except (RuntimeError, ValueError, TypeError, KeyError) as ml_exc:
+                # Do not fail ingestion if ML is unavailable or prediction errors occur.
+                current_app.logger.warning(
+                    "ML assessment unavailable for user %s via source=%s: %s",
+                    user_id,
+                    source,
+                    str(ml_exc),
+                )
+        else:
+            current_app.logger.info(
+                "Skipping ML assessment for user %s via source=%s due to incomplete vitals",
+                user_id,
+                source,
+            )
+
         regression_based_risk_label = (
             score_to_label(ml_regression_health_score)
             if ml_regression_health_score is not None
@@ -373,6 +445,7 @@ def ingest_health_entry(user_id, data, source='manual', ingestion_metadata=None)
             or ml_classifier_risk_label == "Medium Risk"
             or regression_based_risk_label == "Medium Risk"
         )
+
         severity = "High" if is_high_risk else "Medium" if has_medium_risk else "Low"
 
         alert_title = (
@@ -419,7 +492,7 @@ def ingest_health_entry(user_id, data, source='manual', ingestion_metadata=None)
 
         current_app.logger.exception("Integrity error adding health data for user %s via source=%s", user_id, source)
         return {"success": False, "message": "Error adding health data", "status_code": 500}
-    except Exception:
+    except (SQLAlchemyError, ValueError, TypeError):
         db.session.rollback()
         current_app.logger.exception("Error adding health data for user %s via source=%s", user_id, source)
         return {"success": False, "message": "Error adding health data", "status_code": 500}
@@ -446,7 +519,7 @@ def ingest_health_entry(user_id, data, source='manual', ingestion_metadata=None)
         "rule_based_risk_label": rule_based_risk_label,
         "ml_regression_health_score": ml_regression_health_score,
         "ml_classifier_risk_label": ml_classifier_risk_label,
-        "ml_model_version": ml_assessment["ml_model_version"],
+        "ml_model_version": ml_model_version,
         "deduplicated": False,
         "alert_created": True,
         "alert_email_sent": is_high_risk,
@@ -504,7 +577,7 @@ def delete_health(user_id, entry_id):
     try:
         db.session.delete(entry)
         db.session.commit()
-    except Exception:
+    except SQLAlchemyError:
         db.session.rollback()
         logger.exception("Failed deleting health entry_id=%s for user_id=%s", entry_id, user_id)
         return {"success": False, "message": "Error deleting health entry", "status_code": 500}

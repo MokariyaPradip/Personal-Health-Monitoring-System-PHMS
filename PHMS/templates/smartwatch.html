@@ -12,6 +12,14 @@
         <div>
             <h1>Smartwatch Integration</h1>
             <p class="smartwatch-subtitle">Connect your wearable to sync metrics automatically while keeping Health Data focused on records and history.</p>
+            <form method="get" action="{{ url_for('smartwatch_page') }}" class="provider-switch-form" id="providerSwitchForm">
+                <label for="providerSelect" class="provider-select-label">Provider</label>
+                <select id="providerSelect" name="provider" class="provider-select">
+                    {% for p in supported_providers %}
+                    <option value="{{ p.id }}" {% if p.id == provider %}selected{% endif %}>{{ p.label }}</option>
+                    {% endfor %}
+                </select>
+            </form>
         </div>
     </section>
 
@@ -20,7 +28,7 @@
             <div class="provider-head">
                 <div class="provider-mark">⌚</div>
                 <div>
-                    <h2>{{ provider_label }}</h2>
+                    <h2 id="providerLabel">{{ provider_label }}</h2>
                     <p>Provider ID: <span id="providerName">{{ provider }}</span></p>
                 </div>
             </div>
@@ -53,11 +61,11 @@
                     <span class="v" id="lastAttemptAt">{{ sync_state.last_synced_at if sync_state else 'No attempts yet' }}</span>
                 </div>
                 <div class="status-item">
-                    <span class="k">Incremental Cursor</span>
+                    <span class="k">Incremental Cursor <span class="sync-boundary-hint">(next sync boundary)</span></span>
                     <span class="v" id="incrementalCursor">{{ sync_state.incremental_cursor if sync_state and sync_state.incremental_cursor else 'N/A' }}</span>
                 </div>
                 <div class="status-item">
-                    <span class="k">Incremental Since</span>
+                    <span class="k">Incremental Since <span class="sync-boundary-hint">(next sync boundary)</span></span>
                     <span class="v" id="incrementalSince">{{ sync_state.incremental_since if sync_state and sync_state.incremental_since else 'N/A' }}</span>
                 </div>
             </div>
@@ -67,7 +75,14 @@
     <section class="smartwatch-card errors-card">
         <div class="errors-head">
             <h3>Recent Sync Errors</h3>
-            <button class="btn-tertiary" id="refreshStatusBtn">Refresh Status</button>
+            <div class="diagnostics-actions">
+                <button class="btn-tertiary" id="preSyncDiagnosticsBtn">Pre-sync Diagnostics</button>
+                <button class="btn-tertiary" id="refreshStatusBtn">Refresh Status</button>
+            </div>
+        </div>
+
+        <div id="diagnosticsSummary" class="diagnostics-summary" aria-live="polite">
+            Run pre-sync diagnostics to preview provider metric availability.
         </div>
 
         <div id="errorsContainer">

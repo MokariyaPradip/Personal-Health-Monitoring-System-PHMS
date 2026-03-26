@@ -1,4 +1,14 @@
-def calculate_health_score(bmi, heart_rate, temperature, steps, sleep_hours, blood_pressure, sugar, weights=None):
+def calculate_health_score(
+    bmi,
+    heart_rate,
+    temperature,
+    steps,
+    sleep_hours,
+    blood_pressure,
+    sugar,
+    weights=None,
+    penalize_missing=True,
+):
     """Compute a health score from inputs using scaled penalties.
 
     The score starts at 100 and subtracts feature-specific penalties that scale
@@ -35,7 +45,9 @@ def calculate_health_score(bmi, heart_rate, temperature, steps, sleep_hours, blo
 
     def _scaled_penalty_over(value, threshold, max_penalty, severity):
         if value is None or value <= threshold:
-            return 0 if value is not None else max_penalty
+            if value is not None:
+                return 0
+            return max_penalty if penalize_missing else 0
         deviation = value - threshold
         ratio = deviation / severity
         ratio = 1.0 if ratio > 1.0 else ratio
@@ -43,7 +55,9 @@ def calculate_health_score(bmi, heart_rate, temperature, steps, sleep_hours, blo
 
     def _scaled_penalty_under(value, threshold, max_penalty, severity):
         if value is None or value >= threshold:
-            return 0 if value is not None else max_penalty
+            if value is not None:
+                return 0
+            return max_penalty if penalize_missing else 0
         deviation = threshold - value
         ratio = deviation / severity
         ratio = 1.0 if ratio > 1.0 else ratio
@@ -51,7 +65,9 @@ def calculate_health_score(bmi, heart_rate, temperature, steps, sleep_hours, blo
 
     def _scaled_penalty_outside(value, lower, upper, max_penalty, severity):
         if value is None or (lower <= value <= upper):
-            return 0 if value is not None else max_penalty
+            if value is not None:
+                return 0
+            return max_penalty if penalize_missing else 0
         deviation = lower - value if value < lower else value - upper
         ratio = abs(deviation) / severity
         ratio = 1.0 if ratio > 1.0 else ratio

@@ -16,11 +16,22 @@ class TokenBundle:
     provider_user_id: str | None = None
 
     def is_expired(self, now: datetime | None = None) -> bool:
-        """Return True when access token is known to be expired."""
+        """Return True when access token is known to be expired.
+        
+        Handles both naive and aware datetimes safely by normalizing to local naive.
+        """
         if self.expires_at is None:
             return False
-        now = now or datetime.utcnow()
-        return now >= self.expires_at
+
+        now = now or datetime.now()
+        expires_at = self.expires_at
+
+        if now.tzinfo is not None:
+            now = now.astimezone().replace(tzinfo=None)
+        if expires_at.tzinfo is not None:
+            expires_at = expires_at.astimezone().replace(tzinfo=None)
+
+        return now >= expires_at
 
 
 @dataclass(slots=True)
@@ -82,6 +93,9 @@ class SyncResult:
     fetched_count: int = 0
     ingested_count: int = 0
     deduplicated_count: int = 0
+    incomplete_count: int = 0
     failed_count: int = 0
+    next_cursor: str | None = None
+    next_since: datetime | None = None
     errors: list[str] = field(default_factory=list)
     status_message: str = ''

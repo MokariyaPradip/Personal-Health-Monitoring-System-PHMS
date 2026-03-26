@@ -72,7 +72,7 @@ def sync_all_connected_smartwatches():
                 # Determine if sync succeeded
                 # trigger_sync returns dict with 'success' key (bool) or 'status' key ('success'/'error')
                 sync_success = (
-                    sync_result.get('success') or 
+                    sync_result.get('success') or
                     sync_result.get('status') == 'success'
                 )
                 

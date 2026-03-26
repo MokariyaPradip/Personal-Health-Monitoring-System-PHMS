@@ -53,6 +53,19 @@ Local verification checklist:
    6) Run smartwatch test suite:
          python -m pytest tests/smartwatch -q
 
+CONFIG LOCATION POLICY
+================================================================================
+To keep configuration predictable and avoid duplicate sources of truth:
+
+- Project root owns environment and test configuration files:
+   .env, .env.example, .env.production.example, pytest.ini
+
+- PHMS/ owns application source code and runtime modules:
+   app.py, config.py, routes.py, controllers/, services/, repositories/, models/
+
+- Do not duplicate config files inside PHMS/ unless you intentionally change
+   startup paths, test execution paths, and environment-loading logic.
+
 PRE-REQUISITES
 ================================================================================
 1. Python Version

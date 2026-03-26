@@ -1,6 +1,0 @@
-test_header
-    @staticmethod
-    def _create_email_failure_alert(user, medication, log, email_context, error_message):
-        """Create an in-app fallback alert when SMTP delivery fails."""
-        try:
-            if not user:

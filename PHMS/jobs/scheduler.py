@@ -23,7 +23,7 @@ def _get_local_timezone():
     """Resolve local timezone for scheduler execution."""
     try:
         return datetime.now().astimezone().tzinfo
-    except Exception:
+    except (OSError, ValueError):
         return None
 
 
@@ -179,7 +179,7 @@ class SchedulerSetup:
             logger.error("APScheduler not installed: %s", str(exc))
             logger.info("Install with: pip install APScheduler")
             return None
-        except Exception as exc:
+        except (RuntimeError, ValueError, TypeError, OSError) as exc:
             logger.error("Error setting up scheduler: %s", str(exc))
             return None
 
@@ -251,7 +251,7 @@ class SchedulerSetup:
             logger.error("Flask-APScheduler not installed")
             logger.info("Install with: pip install Flask-APScheduler")
             return None
-        except Exception as exc:
+        except (RuntimeError, ValueError, TypeError, OSError) as exc:
             logger.error("Error setting up Flask-APScheduler: %s", str(exc))
             return None
 

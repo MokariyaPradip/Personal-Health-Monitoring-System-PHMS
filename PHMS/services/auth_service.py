@@ -1,10 +1,12 @@
 import secrets
 from datetime import datetime, timedelta
 import hmac
+from smtplib import SMTPException
 
 from flask import current_app, render_template, url_for
 from flask_mail import Message
 from pydantic import ValidationError
+from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from config import db, mail
@@ -102,7 +104,7 @@ def _send_otp_email(email, otp_code):
         mail.send(msg)
         current_app.logger.info("OTP email sent to %s", email)
         return True
-    except Exception as exc:
+    except (SMTPException, ConnectionError, TimeoutError, OSError, RuntimeError, ValueError) as exc:
         current_app.logger.exception("Failed to send OTP email: %s", exc)
         return False
 
@@ -126,7 +128,7 @@ def _send_password_reset_success_email(email):
         mail.send(msg)
         current_app.logger.info("Reset success email sent to %s", email)
         return True
-    except Exception as exc:
+    except (SMTPException, ConnectionError, TimeoutError, OSError, RuntimeError, ValueError) as exc:
         current_app.logger.exception("Failed to send reset success email: %s", exc)
         return False
 
@@ -150,7 +152,7 @@ def _send_password_reset_failure_email(email, reason=""):
         mail.send(msg)
         current_app.logger.info("Reset failure email sent to %s", email)
         return True
-    except Exception as exc:
+    except (SMTPException, ConnectionError, TimeoutError, OSError, RuntimeError, ValueError) as exc:
         current_app.logger.exception("Failed to send reset failure email: %s", exc)
         return False
 
@@ -182,7 +184,7 @@ def _send_registration_success_email(email, username):
         mail.send(msg)
         current_app.logger.info("Registration success email sent to %s", email)
         return True
-    except Exception as exc:
+    except (SMTPException, ConnectionError, TimeoutError, OSError, RuntimeError, ValueError) as exc:
         current_app.logger.exception("Failed to send registration success email: %s", exc)
         return False
 
@@ -227,7 +229,7 @@ def register(data):
             "status_code": 200,
         }
 
-    except Exception:
+    except SQLAlchemyError:
         db.session.rollback()
         return {
             "success": False,
@@ -443,7 +445,7 @@ def reset_password(data):
                 "status_code": 200,
             }
 
-        except Exception as exc:
+        except SQLAlchemyError as exc:
             db.session.rollback()
             _send_password_reset_failure_email(email, str(exc))
             return {

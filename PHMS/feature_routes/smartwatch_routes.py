@@ -149,7 +149,8 @@ def register_smartwatch_routes(app):
             JSON response with sync_result containing:
                 - fetched_count: Payloads fetched from provider
                 - ingested_count: New entries created
-                - deduplicated_count: Duplicates skipped
+                - deduplicated_count: True duplicates skipped
+                - incomplete_count: Incomplete smartwatch snapshots skipped
                 - failed_count: Validation/scoring errors
                 - errors: List of error messages from failed payloads
         
@@ -170,6 +171,7 @@ def register_smartwatch_routes(app):
                     "fetched_count": 50,
                     "ingested_count": 42,
                     "deduplicated_count": 8,
+                    "incomplete_count": 0,
                     "failed_count": 0,
                     "errors": [],
                     "status_message": "Sync completed successfully"
@@ -177,6 +179,16 @@ def register_smartwatch_routes(app):
             }
         """
         return smartwatch_controller.sync_now(provider)
+
+
+    @app.route('/smartwatch/pre-sync-diagnostics/<provider>', methods=['GET'])
+    @limiter.limit(app.config.get('RATELIMIT_SMARTWATCH_SYNC', '10 per hour'))
+    def pre_sync_diagnostics(provider):
+        """Run fetch-only diagnostics before sync ingestion.
+
+        Response includes metric families with non-zero Google Fit points.
+        """
+        return smartwatch_controller.pre_sync_diagnostics(provider)
     
     
     @app.route('/smartwatch/status/<provider>', methods=['GET'])

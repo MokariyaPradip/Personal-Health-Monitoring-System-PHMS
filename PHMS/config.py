@@ -334,6 +334,14 @@ def create_app():
     urllib_logger.propagate = False
     urllib_logger.addHandler(logging.NullHandler())
 
+    # Ensure smartwatch integration diagnostics are visible in runtime logs.
+    for logger_name in (
+        'services.smartwatch_service',
+        'services.smartwatch.orchestrator',
+        'services.smartwatch.providers.google_fit_adapter',
+    ):
+        logging.getLogger(logger_name).setLevel(logging.INFO)
+
     # ================== CORE CONFIGURATION ==================
     app.config['SQLALCHEMY_DATABASE_URI'] = SQLALCHEMY_DATABASE_URI
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = SQLALCHEMY_TRACK_MODIFICATIONS

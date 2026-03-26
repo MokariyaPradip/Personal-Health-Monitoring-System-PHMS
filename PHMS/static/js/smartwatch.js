@@ -4,12 +4,16 @@
         return;
     }
 
-    const provider = page.dataset.provider || 'google_fit';
+    let currentProvider = page.dataset.provider || 'google_fit';
+    const providerSelect = document.getElementById('providerSelect');
+    const providerNameEl = document.getElementById('providerName');
+    const providerLabelEl = document.getElementById('providerLabel');
 
     const connectBtn = document.getElementById('connectBtn');
     const syncBtn = document.getElementById('syncBtn');
     const disconnectBtn = document.getElementById('disconnectBtn');
     const refreshBtn = document.getElementById('refreshStatusBtn');
+    const diagnosticsBtn = document.getElementById('preSyncDiagnosticsBtn');
 
     const statusPill = document.getElementById('connectionStatusPill');
     const lastSyncedAtEl = document.getElementById('lastSyncedAt');
@@ -18,6 +22,7 @@
     const incrementalSinceEl = document.getElementById('incrementalSince');
     const errorsContainer = document.getElementById('errorsContainer');
     const statusRegion = document.getElementById('statusRegion');
+    const diagnosticsSummary = document.getElementById('diagnosticsSummary');
 
     function fmt(value, fallback) {
         if (!value) {
@@ -70,11 +75,26 @@
             return;
         }
 
-        const html = messages.map((item) => (
-            `<li><span class="error-source">${item.source}</span><span class="error-message">${item.message}</span></li>`
-        )).join('');
+        const list = document.createElement('ul');
+        list.className = 'error-list';
 
-        errorsContainer.innerHTML = `<ul class="error-list">${html}</ul>`;
+        messages.forEach((item) => {
+            const listItem = document.createElement('li');
+
+            const sourceEl = document.createElement('span');
+            sourceEl.className = 'error-source';
+            sourceEl.textContent = item.source;
+
+            const messageEl = document.createElement('span');
+            messageEl.className = 'error-message';
+            messageEl.textContent = String(item.message);
+
+            listItem.appendChild(sourceEl);
+            listItem.appendChild(messageEl);
+            list.appendChild(listItem);
+        });
+
+        errorsContainer.replaceChildren(list);
     }
 
     function applyStatusPayload(data) {
@@ -118,8 +138,63 @@
         renderErrors(account.last_error, syncState.last_error);
     }
 
+    function renderDiagnosticsSummary(data) {
+        if (!diagnosticsSummary) {
+            return;
+        }
+
+        if (!data || !data.success || !data.diagnostics) {
+            diagnosticsSummary.textContent = 'Diagnostics unavailable for this provider right now.';
+            return;
+        }
+
+        const diagnostics = data.diagnostics;
+        const nonZero = Array.isArray(diagnostics.non_zero_metric_families)
+            ? diagnostics.non_zero_metric_families
+            : [];
+        const totals = diagnostics.metric_point_totals || {};
+
+        const nonZeroText = nonZero.length ? nonZero.join(', ') : 'none';
+        const totalsText = Object.keys(totals).length
+            ? Object.entries(totals).map(([k, v]) => `${k}:${v}`).join(' | ')
+            : 'unavailable';
+
+        diagnosticsSummary.textContent = `Available metric families: ${nonZeroText}. Point totals: ${totalsText}.`;
+    }
+
+    function runPreSyncDiagnostics() {
+        const request = () => fetch(`/smartwatch/pre-sync-diagnostics/${currentProvider}`, {
+            method: 'GET',
+            headers: {
+                'X-CSRFToken': window.getCsrfToken()
+            }
+        })
+            .then((res) => res.json())
+            .then((data) => {
+                if (!data.success) {
+                    throw new Error(data.message || 'Diagnostics failed');
+                }
+
+                renderDiagnosticsSummary(data);
+                showToast('Pre-sync diagnostics loaded', 'info');
+            })
+            .catch((err) => {
+                if (diagnosticsSummary) {
+                    diagnosticsSummary.textContent = err.message || 'Diagnostics failed. Please try again.';
+                }
+                showToast(err.message || 'Diagnostics failed. Please try again.', 'error');
+            });
+
+        if (window.PHMSLoading && diagnosticsBtn) {
+            window.PHMSLoading.withLoading({ button: diagnosticsBtn, buttonText: 'Running...' }, request);
+            return;
+        }
+
+        request();
+    }
+
     function fetchStatus(silent) {
-        const doFetch = () => fetch(`/smartwatch/status/${provider}`, {
+        const doFetch = () => fetch(`/smartwatch/status/${currentProvider}`, {
             method: 'GET',
             headers: {
                 'X-CSRFToken': window.getCsrfToken()
@@ -148,7 +223,7 @@
             return;
         }
 
-        const request = () => fetch(`/smartwatch/authorize/${provider}`, {
+        const request = () => fetch(`/smartwatch/authorize/${currentProvider}`, {
             method: 'GET',
             headers: {
                 'X-CSRFToken': window.getCsrfToken()
@@ -180,7 +255,7 @@
         }
 
         showConfirmModal('Disconnect this smartwatch provider?', function () {
-            const request = () => fetch(`/smartwatch/disconnect/${provider}`, {
+            const request = () => fetch(`/smartwatch/disconnect/${currentProvider}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -215,7 +290,7 @@
             return;
         }
 
-        const request = () => fetch(`/smartwatch/sync-now/${provider}`, {
+        const request = () => fetch(`/smartwatch/sync-now/${currentProvider}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -264,6 +339,37 @@
         }
     }
 
+    function updateProviderQueryParam(providerId) {
+        const url = new URL(window.location.href);
+        url.searchParams.set('provider', providerId);
+        window.history.replaceState({}, document.title, url.toString());
+    }
+
+    function switchProvider(providerId) {
+        if (!providerId || providerId === currentProvider) {
+            return;
+        }
+
+        currentProvider = providerId;
+        page.dataset.provider = providerId;
+
+        if (providerNameEl) {
+            providerNameEl.textContent = providerId;
+        }
+        if (providerLabelEl && providerSelect) {
+            const selectedOption = providerSelect.options[providerSelect.selectedIndex];
+            if (selectedOption) {
+                providerLabelEl.textContent = selectedOption.text;
+            }
+        }
+
+        updateProviderQueryParam(providerId);
+        if (diagnosticsSummary) {
+            diagnosticsSummary.textContent = 'Run pre-sync diagnostics to preview provider metric availability.';
+        }
+        fetchStatus(false);
+    }
+
     if (connectBtn) {
         connectBtn.addEventListener('click', connectSmartwatch);
     }
@@ -276,6 +382,16 @@
     if (refreshBtn) {
         refreshBtn.addEventListener('click', function () {
             fetchStatus(false);
+        });
+    }
+    if (diagnosticsBtn) {
+        diagnosticsBtn.addEventListener('click', function () {
+            runPreSyncDiagnostics();
+        });
+    }
+    if (providerSelect) {
+        providerSelect.addEventListener('change', function () {
+            switchProvider(providerSelect.value);
         });
     }
 

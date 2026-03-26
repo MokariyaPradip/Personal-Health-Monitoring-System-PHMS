@@ -31,13 +31,16 @@ from datetime import datetime
 
 from config import db
 from models.user_model import User
+from sqlalchemy.exc import SQLAlchemyError
 from repositories import SmartwatchRepository
 from services.smartwatch import (
+    FetchContext,
     GoogleFitAdapter,
     InMemoryTokenManager,
     SmartwatchSyncOrchestrator,
     ExistingHealthServiceGateway,
     SyncRequest,
+    TokenBundle,
 )
 
 logger = logging.getLogger(__name__)
@@ -112,7 +115,10 @@ def _parse_iso_datetime(value: str | None) -> datetime | None:
 
     try:
         normalized = value.replace('Z', '+00:00')
-        return datetime.fromisoformat(normalized)
+        parsed = datetime.fromisoformat(normalized)
+        if parsed.tzinfo is not None:
+            return parsed.astimezone().replace(tzinfo=None)
+        return parsed
     except (TypeError, ValueError):
         return None
 
@@ -165,7 +171,7 @@ def get_authorization_url(user_id: int, provider: str) -> dict:
                 redirect_uri=_get_oauth_redirect_uri(),
                 state=_get_oauth_state(user_id, provider),
             )
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, ConnectionError, TimeoutError, OSError) as e:
             logger.error(f"Error building auth URL for {provider}: {str(e)}")
             return {
                 'success': False,
@@ -182,7 +188,7 @@ def get_authorization_url(user_id: int, provider: str) -> dict:
             'status_code': 201,
         }
     
-    except Exception as e:
+    except (RuntimeError, ValueError, TypeError, AttributeError, SQLAlchemyError) as e:
         logger.error(f"Unexpected error in get_authorization_url: {str(e)}", exc_info=True)
         return {
             'success': False,
@@ -259,7 +265,7 @@ def handle_oauth_callback(user_id: int, provider: str, code: str) -> dict:
                 code,
                 _get_oauth_redirect_uri(),
             )
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, ConnectionError, TimeoutError, OSError) as e:
             logger.warning(f"OAuth exchange failed for {provider}: {str(e)}")
             return {
                 'success': False,
@@ -283,9 +289,28 @@ def handle_oauth_callback(user_id: int, provider: str, code: str) -> dict:
                 scopes=token_bundle.scope,
                 connection_status='connected',
             )
+            db.session.flush()
+            
+            # Also clear any stale sync_state errors from previous attempts
+            sync_state = SmartwatchRepository.get_sync_state(user_id, provider)
+            if sync_state:
+                sync_state.last_error = None
+            
             db.session.commit()
             
-            logger.info(f"Smartwatch account {provider} linked for user {user_id}")
+            # Verify the account was saved correctly
+            verified_account = SmartwatchRepository.get_account(user_id, provider)
+            if not verified_account or verified_account.connection_status != 'connected':
+                logger.error(f"Account verification failed after OAuth: user={user_id}, provider={provider}, "
+                            f"account_status={verified_account.connection_status if verified_account else 'NOT FOUND'}")
+                return {
+                    'success': False,
+                    'provider': provider,
+                    'message': 'Account was created but failed verification',
+                    'status_code': 500,
+                }
+            
+            logger.info(f"Smartwatch account {provider} linked for user {user_id} (verified: {verified_account.connection_status})")
             
             return {
                 'success': True,
@@ -301,7 +326,7 @@ def handle_oauth_callback(user_id: int, provider: str, code: str) -> dict:
                 'status_code': 200,
             }
         
-        except Exception as e:
+        except SQLAlchemyError as e:
             db.session.rollback()
             logger.error(f"Failed to save smartwatch account for user {user_id}: {str(e)}")
             return {
@@ -311,7 +336,7 @@ def handle_oauth_callback(user_id: int, provider: str, code: str) -> dict:
                 'status_code': 500,
             }
     
-    except Exception as e:
+    except (RuntimeError, ValueError, TypeError, AttributeError, SQLAlchemyError) as e:
         logger.error(f"Unexpected error in handle_oauth_callback: {str(e)}", exc_info=True)
         return {
             'success': False,
@@ -369,7 +394,7 @@ def disconnect_account(user_id: int, provider: str) -> dict:
                 # Some adapters may support revocation; call if available
                 if hasattr(adapter, 'revoke_token'):
                     adapter.revoke_token(account.access_token)
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, ConnectionError, TimeoutError, OSError, AttributeError) as e:
             logger.warning(f"Token revocation failed for {provider}: {str(e)}")
             # Continue anyway - mark as disconnected locally
         
@@ -391,7 +416,7 @@ def disconnect_account(user_id: int, provider: str) -> dict:
                 'status_code': 200,
             }
         
-        except Exception as e:
+        except SQLAlchemyError as e:
             db.session.rollback()
             logger.error(f"Failed to disconnect account: {str(e)}")
             return {
@@ -401,7 +426,7 @@ def disconnect_account(user_id: int, provider: str) -> dict:
                 'status_code': 500,
             }
     
-    except Exception as e:
+    except (RuntimeError, ValueError, TypeError, AttributeError, SQLAlchemyError) as e:
         logger.error(f"Unexpected error in disconnect_account: {str(e)}", exc_info=True)
         return {
             'success': False,
@@ -440,7 +465,8 @@ def trigger_sync(user_id: int, provider: str, cursor: str | None = None,
     Sync Result Details (if success):
         - fetched_count (int): Payloads fetched from provider
         - ingested_count (int): Payloads ingested (new health entries)
-        - deduplicated_count (int): Payloads skipped (already seen)
+        - deduplicated_count (int): Payloads skipped as true duplicates
+        - incomplete_count (int): Payloads skipped due to incomplete smartwatch metrics
         - failed_count (int): Payloads that failed validation/scoring
         - errors (list[str]): Error messages from failed payloads
         - status_message (str): Overall sync status
@@ -483,7 +509,9 @@ def trigger_sync(user_id: int, provider: str, cursor: str | None = None,
         
         # Use provided cursor/since if given, otherwise use stored state
         effective_cursor = cursor or (sync_state.incremental_cursor if sync_state else None)
-        effective_since = since or (sync_state.incremental_since.isoformat() if sync_state and sync_state.incremental_since else None)
+        effective_since_raw = since or (sync_state.incremental_since.isoformat() if sync_state and sync_state.incremental_since else None)
+        effective_since = _parse_iso_datetime(effective_since_raw)
+        user_supplied_boundary = bool(cursor or since)
         
         # Build sync request
         sync_request = SyncRequest(
@@ -494,12 +522,60 @@ def trigger_sync(user_id: int, provider: str, cursor: str | None = None,
             dry_run=False,
         )
         
-        # Execute sync via orchestrator (fetch + ingest + dedupe)
+        # Load tokens from database into token manager (critical for multi-instance deployments)
+        # The in-memory token manager may not have tokens if app restarted after OAuth callback
         orchestrator = _get_orchestrator()
-        sync_result = orchestrator.sync_user(sync_request)
+        token_bundle_in_memory = orchestrator._token_manager.get_token_bundle(user_id, provider)
+        if token_bundle_in_memory is None:
+            # Tokens not in memory, reconstruct from database
+            logger.debug(f"Loading tokens from database for user={user_id}, provider={provider}")
+            token_bundle_from_db = TokenBundle(
+                access_token=account.access_token,
+                refresh_token=account.refresh_token,
+                expires_at=account.token_expiry,
+                scope=account.scopes,
+                provider_user_id=account.provider_user_id,
+            )
+            orchestrator._token_manager.save_token_bundle(user_id, provider, token_bundle_from_db)
         
-        synced_at = datetime.utcnow()
-        parsed_since = _parse_iso_datetime(effective_since)
+        # Execute sync via orchestrator (fetch + ingest + dedupe)
+        sync_result = orchestrator.sync_user(sync_request)
+
+        # If incremental boundary was inherited from sync state and produced no data,
+        # retry once with a widened adaptive window (since=None/cursor=None).
+        if (
+            not user_supplied_boundary
+            and (effective_cursor is not None or effective_since is not None)
+            and sync_result.success
+            and sync_result.fetched_count == 0
+            and sync_result.ingested_count == 0
+            and sync_result.failed_count == 0
+        ):
+            logger.info(
+                'Empty incremental sync for user %s/%s with stored boundary (cursor=%s, since=%s); '
+                'retrying once with adaptive lookback window',
+                user_id,
+                provider,
+                bool(effective_cursor),
+                effective_since,
+            )
+            fallback_request = SyncRequest(
+                user_id=user_id,
+                provider=provider,
+                cursor=None,
+                since=None,
+                dry_run=False,
+            )
+            sync_result = orchestrator.sync_user(fallback_request)
+        
+        synced_at = datetime.now()
+        next_cursor = sync_result.next_cursor or effective_cursor
+        next_since = sync_result.next_since or effective_since
+
+        # Do not advance incremental boundary to "now" when provider returned no payloads.
+        # Keeping boundary unchanged prevents lock-in to repeatedly empty narrow windows.
+        if next_since is None and sync_result.fetched_count > 0:
+            next_since = synced_at
 
         # Update sync/account state in database
         if sync_result.success:
@@ -510,8 +586,8 @@ def trigger_sync(user_id: int, provider: str, cursor: str | None = None,
                 user_id=user_id,
                 provider=provider,
                 account_id=account.account_id,
-                incremental_cursor=effective_cursor,
-                incremental_since=parsed_since,
+                incremental_cursor=next_cursor,
+                incremental_since=next_since,
                 synced_at=synced_at,
             )
             db.session.commit()
@@ -521,6 +597,7 @@ def trigger_sync(user_id: int, provider: str, cursor: str | None = None,
                 f"fetched={sync_result.fetched_count}, "
                 f"ingested={sync_result.ingested_count}, "
                 f"deduplicated={sync_result.deduplicated_count}, "
+                f"incomplete={sync_result.incomplete_count}, "
                 f"failed={sync_result.failed_count}"
             )
         else:
@@ -531,8 +608,9 @@ def trigger_sync(user_id: int, provider: str, cursor: str | None = None,
                 provider=provider,
                 account_id=account.account_id,
                 message=sync_result.status_message,
+                attempted_at=synced_at,
                 incremental_cursor=effective_cursor,
-                incremental_since=parsed_since,
+                incremental_since=effective_since,
             )
             db.session.commit()
             
@@ -548,6 +626,7 @@ def trigger_sync(user_id: int, provider: str, cursor: str | None = None,
                 'fetched_count': sync_result.fetched_count,
                 'ingested_count': sync_result.ingested_count,
                 'deduplicated_count': sync_result.deduplicated_count,
+                'incomplete_count': sync_result.incomplete_count,
                 'failed_count': sync_result.failed_count,
                 'errors': sync_result.errors,
                 'status_message': sync_result.status_message,
@@ -555,12 +634,137 @@ def trigger_sync(user_id: int, provider: str, cursor: str | None = None,
             'status_code': 200,
         }
     
-    except Exception as e:
+    except (RuntimeError, ValueError, TypeError, AttributeError, SQLAlchemyError) as e:
         logger.error(f"Unexpected error in trigger_sync: {str(e)}", exc_info=True)
         return {
             'success': False,
             'provider': provider,
             'message': 'Internal error during sync',
+            'status_code': 500,
+        }
+
+
+def get_pre_sync_diagnostics(
+    user_id: int,
+    provider: str,
+    cursor: str | None = None,
+    since: str | None = None,
+) -> dict:
+    """Run provider diagnostics before ingestion and return metric availability.
+
+    This endpoint is fetch-only and does not write health entries.
+    """
+    try:
+        account = SmartwatchRepository.get_account(user_id, provider)
+        if not account:
+            logger.warning(f"Account not found: user={user_id}, provider={provider}")
+            return {
+                'success': False,
+                'provider': provider,
+                'message': 'Smartwatch account not found',
+                'status_code': 404,
+            }
+
+        if account.connection_status != 'connected':
+            logger.warning(f"Account not connected: user={user_id}, provider={provider}")
+            return {
+                'success': False,
+                'provider': provider,
+                'message': f'Account status is {account.connection_status}, not connected',
+                'status_code': 403,
+            }
+
+        sync_state = SmartwatchRepository.get_sync_state(user_id, provider)
+        effective_cursor = cursor or (sync_state.incremental_cursor if sync_state else None)
+        effective_since_raw = since or (
+            sync_state.incremental_since.isoformat()
+            if sync_state and sync_state.incremental_since
+            else None
+        )
+        effective_since = _parse_iso_datetime(effective_since_raw)
+
+        orchestrator = _get_orchestrator()
+        adapter = orchestrator.get_adapter(provider)
+        if adapter is None:
+            return {
+                'success': False,
+                'provider': provider,
+                'message': f'Unknown provider: {provider}',
+                'status_code': 404,
+            }
+
+        token_bundle = orchestrator._token_manager.get_token_bundle(user_id, provider)
+        if token_bundle is None:
+            token_bundle = TokenBundle(
+                access_token=account.access_token,
+                refresh_token=account.refresh_token,
+                expires_at=account.token_expiry,
+                scope=account.scopes,
+                provider_user_id=account.provider_user_id,
+            )
+            orchestrator._token_manager.save_token_bundle(user_id, provider, token_bundle)
+
+        if token_bundle.is_expired() and token_bundle.refresh_token:
+            token_bundle = adapter.refresh_access_token(token_bundle.refresh_token)
+            orchestrator._token_manager.save_token_bundle(user_id, provider, token_bundle)
+
+        context = FetchContext(
+            user_id=user_id,
+            provider=provider,
+            token=token_bundle,
+            cursor=effective_cursor,
+            since=effective_since,
+        )
+        diagnostics = adapter.get_pre_sync_diagnostics(context)
+
+        # If diagnostics were constrained by stored incremental boundary and came back empty,
+        # retry once with adaptive provider lookback for a more representative preview.
+        user_supplied_boundary = bool(cursor or since)
+        metric_point_totals = diagnostics.get('metric_point_totals', {}) if isinstance(diagnostics, dict) else {}
+        total_points = (
+            sum(metric_point_totals.values())
+            if isinstance(metric_point_totals, dict)
+            else 0
+        )
+        if (
+            not user_supplied_boundary
+            and (effective_cursor is not None or effective_since is not None)
+            and total_points == 0
+        ):
+            logger.info(
+                'Empty pre-sync diagnostics for user %s/%s with stored boundary (cursor=%s, since=%s); '
+                'retrying once with adaptive lookback window',
+                user_id,
+                provider,
+                bool(effective_cursor),
+                effective_since,
+            )
+            fallback_context = FetchContext(
+                user_id=user_id,
+                provider=provider,
+                token=token_bundle,
+                cursor=None,
+                since=None,
+            )
+            fallback_diagnostics = adapter.get_pre_sync_diagnostics(fallback_context)
+            if isinstance(fallback_diagnostics, dict):
+                fallback_diagnostics['used_fallback_window'] = True
+                diagnostics = fallback_diagnostics
+
+        return {
+            'success': True,
+            'provider': provider,
+            'message': 'Pre-sync diagnostics generated',
+            'diagnostics': diagnostics,
+            'status_code': 200,
+        }
+
+    except (RuntimeError, ValueError, TypeError, AttributeError, SQLAlchemyError) as e:
+        logger.error(f"Unexpected error in get_pre_sync_diagnostics: {str(e)}", exc_info=True)
+        return {
+            'success': False,
+            'provider': provider,
+            'message': 'Internal error generating pre-sync diagnostics',
             'status_code': 500,
         }
 
@@ -640,7 +844,7 @@ def get_account_status(user_id: int, provider: str) -> dict:
             'status_code': 200,
         }
     
-    except Exception as e:
+    except (RuntimeError, ValueError, TypeError, AttributeError, SQLAlchemyError) as e:
         logger.error(f"Unexpected error in get_account_status: {str(e)}", exc_info=True)
         return {
             'success': False,
@@ -652,10 +856,31 @@ def get_account_status(user_id: int, provider: str) -> dict:
         }
 
 
-def get_integration_page_context(user_id: int) -> dict:
+def _provider_label(provider: str) -> str:
+    label_map = {
+        'google_fit': 'Google Fit',
+    }
+    if provider in label_map:
+        return label_map[provider]
+    return provider.replace('_', ' ').title()
+
+
+def _supported_provider_ids() -> list[str]:
+    try:
+        orchestrator = _get_orchestrator()
+        providers = orchestrator.get_registered_provider_ids()
+        if providers:
+            return providers
+    except (RuntimeError, ValueError, TypeError, AttributeError):
+        logger.warning('Unable to load smartwatch provider list from orchestrator; falling back to defaults')
+    return ['google_fit']
+
+
+def get_integration_page_context(user_id: int, provider: str | None = None) -> dict:
     """Build render context for the Smartwatch Integration page."""
-    provider = 'google_fit'
-    status_payload = get_account_status(user_id, provider)
+    supported_provider_ids = _supported_provider_ids()
+    active_provider = provider if provider in supported_provider_ids else supported_provider_ids[0]
+    status_payload = get_account_status(user_id, active_provider)
 
     account = status_payload.get('account') if status_payload.get('success') else None
     sync_state = status_payload.get('sync_state') if status_payload.get('success') else None
@@ -666,9 +891,18 @@ def get_integration_page_context(user_id: int) -> dict:
     if sync_state and sync_state.get('last_error'):
         recent_errors.append({'source': 'sync', 'message': sync_state['last_error']})
 
+    supported_providers = [
+        {
+            'id': provider_id,
+            'label': _provider_label(provider_id),
+        }
+        for provider_id in supported_provider_ids
+    ]
+
     return {
-        'provider': provider,
-        'provider_label': 'Google Fit',
+        'provider': active_provider,
+        'provider_label': _provider_label(active_provider),
+        'supported_providers': supported_providers,
         'account': account,
         'sync_state': sync_state,
         'recent_errors': recent_errors,
@@ -681,6 +915,7 @@ __all__ = [
     'get_authorization_url',
     'handle_oauth_callback',
     'disconnect_account',
+    'get_pre_sync_diagnostics',
     'trigger_sync',
     'get_account_status',
 ]

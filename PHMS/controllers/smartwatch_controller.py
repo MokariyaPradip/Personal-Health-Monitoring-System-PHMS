@@ -26,7 +26,9 @@ Security:
     - Tokens stored securely in database
 """
 
-from flask import jsonify, render_template, request, redirect, url_for
+from urllib.parse import parse_qs, urlparse
+
+from flask import jsonify, render_template, request, redirect, session, url_for
 from flask_login import current_user, login_required
 
 from services import smartwatch_service
@@ -56,10 +58,37 @@ def _json_response_from_service(result):
     return jsonify(response_payload), status_code
 
 
+def _extract_state_from_authorization_url(authorization_url):
+    """Extract OAuth state query parameter from provider authorization URL."""
+    if not authorization_url:
+        return None
+
+    try:
+        parsed_url = urlparse(authorization_url)
+        state_values = parse_qs(parsed_url.query).get('state', [])
+        return state_values[0] if state_values else None
+    except Exception:
+        return None
+
+
+def _provider_from_state(state):
+    """Parse provider name from state prefix format used by smartwatch service."""
+    if not state or not state.startswith('phms-smartwatch-'):
+        return None
+
+    state_prefix = state.split(':', 1)[0]
+    parts = state_prefix.split('-')
+    if len(parts) >= 3:
+        return parts[2]
+
+    return None
+
+
 @login_required
 def integration_page():
     """Render the dedicated Smartwatch Integration page."""
-    context = smartwatch_service.get_integration_page_context(current_user.user_id)
+    requested_provider = request.args.get('provider')
+    context = smartwatch_service.get_integration_page_context(current_user.user_id, provider=requested_provider)
     return render_template('smartwatch.html', **context)
 
 
@@ -92,6 +121,15 @@ def authorize(provider):
         }
     """
     result = smartwatch_service.get_authorization_url(current_user.user_id, provider)
+
+    # Persist state in session to enforce CSRF validation in callback.
+    if isinstance(result, dict) and result.get('success'):
+        authorization_url = result.get('authorization_url')
+        oauth_state = _extract_state_from_authorization_url(authorization_url)
+        if oauth_state:
+            session['smartwatch_oauth_state'] = oauth_state
+            session['smartwatch_oauth_provider'] = provider
+
     return _json_response_from_service(result)
 
 
@@ -119,7 +157,7 @@ def callback():
         - Invalid code: JSON error with status_code=401
         - Missing code parameter: JSON error with status_code=400
     
-    State Validation (TODO - P1.10):
+    State Validation:
         - Extract state parameter from query
         - Compare with session['smartwatch_oauth_state']
         - Reject if mismatch (CSRF defense)
@@ -134,14 +172,28 @@ def callback():
         error_description = request.args.get('error_description', 'Unknown error')
         return redirect(url_for('smartwatch_page', status='error', message=f'Provider error: {error_description}'))
     
+    # Validate OAuth state for CSRF defense.
+    state = request.args.get('state', '')
+    expected_state = session.pop('smartwatch_oauth_state', None)
+    expected_provider = session.pop('smartwatch_oauth_provider', None)
+
+    if not state or not expected_state or state != expected_state:
+        return redirect(url_for('smartwatch_page', status='error', message='Invalid OAuth state. Please retry linking your account.'))
+
     # Extract authorization code
     code = request.args.get('code')
     if not code:
         return redirect(url_for('smartwatch_page', status='error', message='Missing authorization code in callback'))
     
-    # Extract provider from session state or query parameter
-    # TODO: Validate state parameter for CSRF defense
-    provider = request.args.get('provider', 'google_fit')  # Default to google_fit for now
+    # Resolve provider from validated state, with session fallback.
+    # Fail closed if provider cannot be determined to avoid wrong-provider binding.
+    provider = _provider_from_state(state) or expected_provider
+    if not provider:
+        return redirect(url_for(
+            'smartwatch_page',
+            status='error',
+            message='Unable to determine provider from callback state. Please retry linking your account.',
+        ))
     
     # Exchange code for tokens
     result = smartwatch_service.handle_oauth_callback(
@@ -213,6 +265,7 @@ def sync_now(provider):
         - fetched_count (int): Payloads fetched from provider
         - ingested_count (int): New health entries created
         - deduplicated_count (int): Duplicate entries skipped (idempotency)
+        - incomplete_count (int): Incomplete smartwatch snapshots skipped
         - failed_count (int): Payloads that failed validation
         - errors (list[str]): Error messages from failed payloads
         - status_message (str): Overall sync status
@@ -240,22 +293,46 @@ def sync_now(provider):
                 "fetched_count": 50,
                 "ingested_count": 42,
                 "deduplicated_count": 8,
+                "incomplete_count": 0,
                 "failed_count": 0,
                 "errors": [],
                 "status_message": "Sync completed successfully"
             }
         }
     """
-    # Parse optional sync parameters from request body
+    # Parse optional sync parameters from request body.
+    # Enforce strict JSON-object validation if a body is present.
     cursor = None
     since = None
-    
-    if request.is_json:
-        payload = request.get_json(silent=True) or {}
+
+    has_request_body = bool(request.content_length and request.content_length > 0)
+    if has_request_body:
+        payload, transport_error = _parse_json_object_payload()
+        if transport_error:
+            return transport_error
+
         cursor = payload.get('cursor')
         since = payload.get('since')
     
     result = smartwatch_service.trigger_sync(
+        current_user.user_id,
+        provider,
+        cursor=cursor,
+        since=since,
+    )
+    return _json_response_from_service(result)
+
+
+@login_required
+def pre_sync_diagnostics(provider):
+    """Get provider diagnostics before ingestion.
+
+    Returns per-metric family availability based on Google Fit source points.
+    """
+    cursor = request.args.get('cursor')
+    since = request.args.get('since')
+
+    result = smartwatch_service.get_pre_sync_diagnostics(
         current_user.user_id,
         provider,
         cursor=cursor,
@@ -328,6 +405,7 @@ __all__ = [
     'authorize',
     'callback',
     'disconnect',
+    'pre_sync_diagnostics',
     'sync_now',
     'status',
 ]

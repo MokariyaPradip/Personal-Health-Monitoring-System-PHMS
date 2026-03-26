@@ -38,6 +38,30 @@
     line-height: 1.45;
 }
 
+.provider-switch-form {
+    margin-top: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+}
+
+.provider-select-label {
+    color: var(--sw-muted);
+    font-size: 0.88rem;
+    font-weight: 600;
+}
+
+.provider-select {
+    min-width: 180px;
+    border: 1px solid var(--sw-border);
+    border-radius: 8px;
+    padding: 0.5rem 0.65rem;
+    background: #fff;
+    color: var(--sw-text);
+    font-size: 0.9rem;
+}
+
 .smartwatch-grid {
     display: grid;
     gap: 1rem;
@@ -203,6 +227,12 @@ button:disabled {
     margin-bottom: 0.25rem;
 }
 
+.sync-boundary-hint {
+    font-size: 0.73rem;
+    color: #64748b;
+    font-weight: 500;
+}
+
 .status-item .v {
     color: var(--sw-text);
     font-size: 0.9rem;
@@ -218,6 +248,32 @@ button:disabled {
     margin-bottom: 0.4rem;
 }
 
+.diagnostics-actions {
+    display: flex;
+    gap: 0.45rem;
+    flex-wrap: wrap;
+}
+
+.diagnostics-summary {
+    background: #f8fafc;
+    border: 1px solid var(--sw-border);
+    border-radius: 8px;
+    padding: 0.6rem 0.7rem;
+    color: var(--sw-muted);
+    font-size: 0.84rem;
+    margin-bottom: 0.7rem;
+    line-height: 1.35;
+}
+
+#errorsContainer {
+    background: #f8fafc;
+    border: 1px solid var(--sw-border);
+    border-radius: 8px;
+    padding: 0.65rem 0.75rem;
+    color: var(--sw-muted);
+    margin-bottom: 0.2rem;
+}
+
 .error-list {
     list-style: none;
     padding: 0;
@@ -231,24 +287,35 @@ button:disabled {
     border: 1px solid #fecaca;
     border-radius: 8px;
     padding: 0.65rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.45rem;
 }
 
 .error-source {
-    display: inline-block;
-    font-size: 0.76rem;
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.74rem;
     font-weight: 700;
-    color: var(--sw-danger-text);
-    margin-right: 0.4rem;
+    color: #7f1d1d;
+    background: #fee2e2;
+    border: 1px solid #fecaca;
+    border-radius: 999px;
+    padding: 0.12rem 0.5rem;
+    white-space: nowrap;
 }
 
 .error-message {
     color: #7f1d1d;
     font-size: 0.88rem;
+    line-height: 1.4;
+    flex: 1;
 }
 
 .no-errors {
     color: var(--sw-muted);
-    margin: 0.35rem 0 0;
+    margin: 0;
+    font-size: 0.84rem;
 }
 
 @media (max-width: 980px) {
@@ -279,6 +346,14 @@ button:disabled {
     }
 
     .provider-actions button {
+        width: 100%;
+    }
+
+    .diagnostics-actions {
+        width: 100%;
+    }
+
+    .diagnostics-actions button {
         width: 100%;
     }
 }

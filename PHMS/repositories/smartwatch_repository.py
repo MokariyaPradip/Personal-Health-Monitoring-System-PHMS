@@ -124,6 +124,7 @@ class SmartwatchRepository:
         provider: str,
         account_id: int,
         message: str,
+        attempted_at: datetime | None = None,
         incremental_cursor: str | None = None,
         incremental_since: datetime | None = None,
     ) -> SmartwatchSyncState:
@@ -133,6 +134,6 @@ class SmartwatchRepository:
             provider=provider,
             incremental_cursor=incremental_cursor,
             incremental_since=incremental_since,
-            last_synced_at=None,
+            last_synced_at=attempted_at,
             last_error=message,
         )

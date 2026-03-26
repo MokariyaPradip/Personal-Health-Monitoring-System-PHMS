@@ -11,6 +11,15 @@ from services.smartwatch.retry_utils import retry_with_backoff, SyncErrorContext
 logger = logging.getLogger(__name__)
 
 
+def _normalize_sync_boundary(ts):
+    """Normalize datetimes to naive local timestamps for DB compatibility."""
+    if ts is None:
+        return None
+    if ts.tzinfo is not None:
+        return ts.astimezone().replace(tzinfo=None)
+    return ts
+
+
 class SmartwatchSyncOrchestrator:
     """Coordinates provider fetch and ingestion through the existing health service."""
 
@@ -33,6 +42,10 @@ class SmartwatchSyncOrchestrator:
 
     def get_adapter(self, provider: str) -> SmartwatchProviderAdapter | None:
         return self._adapters.get(provider)
+
+    def get_registered_provider_ids(self) -> list[str]:
+        """Return stable provider IDs currently registered with the orchestrator."""
+        return sorted(self._adapters.keys())
 
     def sync_user(self, request: SyncRequest) -> SyncResult:
         """Sync health data for a user with retry and error recovery.
@@ -82,7 +95,7 @@ class SmartwatchSyncOrchestrator:
                     error_context.mark_token_refreshed()
                     logger.info(f'✓ Token refresh succeeded for user_id={request.user_id}')
                     break
-                except Exception as e:
+                except (RuntimeError, ValueError, TypeError, ConnectionError, TimeoutError, OSError) as e:
                     error_context.add_error(
                         'TokenRefreshFailed',
                         f'Failed to refresh token: {str(e)}',
@@ -122,12 +135,14 @@ class SmartwatchSyncOrchestrator:
         if payloads is None:
             # Fetch failed permanently
             error_summary = error_context.get_summary(success=False)
+            latest_error_message = error_context.errors[-1]['message'] if error_context.errors else ''
+            status_message = latest_error_message or 'Failed to fetch data from provider'
             return SyncResult(
                 success=False,
                 provider=request.provider,
                 user_id=request.user_id,
                 errors=[error_summary],
-                status_message='Failed to fetch data from provider',
+                status_message=status_message,
             )
 
         result = SyncResult(
@@ -137,6 +152,16 @@ class SmartwatchSyncOrchestrator:
             fetched_count=len(payloads),
             status_message='Sync completed',
         )
+
+        observed_timestamps = [
+            _normalize_sync_boundary(payload.observed_at)
+            for payload in payloads
+            if getattr(payload, 'observed_at', None) is not None
+        ]
+        latest_observed_at = max(observed_timestamps) if observed_timestamps else None
+        if latest_observed_at is not None:
+            result.next_since = latest_observed_at
+            result.next_cursor = latest_observed_at.isoformat()
 
         # Ingest payloads
         for payload in payloads:
@@ -151,13 +176,45 @@ class SmartwatchSyncOrchestrator:
                 else:
                     result.ingested_count += 1
             else:
-                result.failed_count += 1
                 error_message = service_result.get('message', 'Unknown ingestion error')
+                status_code = service_result.get('status_code')
+
+                # In strict smartwatch mode, incomplete provider snapshots are rejected
+                # before DB insert (422). Treat these as skipped, not sync failures.
+                if (
+                    status_code == 422
+                    and isinstance(error_message, str)
+                    and error_message.lower().startswith('smartwatch sync skipped:')
+                ):
+                    result.incomplete_count += 1
+                    logger.info(
+                        'Skipping incomplete/insufficient smartwatch payload for user_id=%s: %s',
+                        request.user_id,
+                        error_message,
+                    )
+                    continue
+
+                result.failed_count += 1
                 result.errors.append(error_message)
 
         if result.failed_count > 0:
             result.success = False
             result.status_message = 'Sync completed with ingestion failures'
+        elif result.incomplete_count > 0:
+            result.status_message = (
+                f'Sync completed; provider returned incomplete metrics '
+                f'(skipped={result.incomplete_count})'
+            )
+
+        # If provider did not include timestamped payloads but sync succeeded,
+        # advance cursor/since to sync invocation time for status observability.
+        if result.success and result.next_since is None:
+            fallback_boundary = _normalize_sync_boundary(request.since)
+            if fallback_boundary is None:
+                from datetime import datetime
+                fallback_boundary = datetime.now()
+            result.next_since = fallback_boundary
+            result.next_cursor = fallback_boundary.isoformat()
         
         # Update status message with retry history if applicable
         if error_context.retry_attempts > 0:
@@ -196,7 +253,7 @@ class SmartwatchSyncOrchestrator:
                 
                 return payloads
             
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, ConnectionError, TimeoutError, OSError) as e:
                 error_type = type(e).__name__
                 is_retryable = is_transient_error(e)
                 

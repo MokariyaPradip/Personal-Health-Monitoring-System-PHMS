@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from datetime import datetime
+from typing import Any
 
 from services.smartwatch.contracts import FetchContext, NormalizedHealthPayload, TokenBundle
 
@@ -33,3 +34,11 @@ class SmartwatchProviderAdapter(ABC):
     def normalize_timestamp(self, timestamp: datetime | None) -> datetime | None:
         """Hook for provider-specific timestamp normalization."""
         return timestamp
+
+    def get_pre_sync_diagnostics(self, context: FetchContext) -> dict[str, Any]:
+        """Return provider-specific diagnostics before ingestion.
+
+        Adapters may override this to expose data-availability snapshots
+        (for example metric families with non-zero source points).
+        """
+        return {}
