@@ -10,6 +10,28 @@ from services.medication_log_service import MedicationLogManager
 logger = logging.getLogger(__name__)
 
 
+SOURCE_LABELS = {
+    'manual': 'Manual',
+    'google_fit': 'Google Fit',
+}
+
+
+def _format_source_label(source):
+    normalized = (source or 'manual').strip().lower()
+    return SOURCE_LABELS.get(normalized, normalized.replace('_', ' ').title())
+
+
+def _health_alert_source(alert):
+    if not alert or alert.category != 'health':
+        return None
+
+    health_entry = getattr(alert, 'health', None)
+    if health_entry is None:
+        return None
+
+    return (getattr(health_entry, 'data_source', None) or 'manual').strip().lower()
+
+
 def _dedupe_logs_by_schedule(logs):
     """Return logs with duplicate schedule rows removed while preserving order."""
     seen = set()
@@ -61,6 +83,8 @@ def _empty_notifications_context():
         'taken_count': 0,
         'missed_count': 0,
         'skipped_count': 0,
+        'health_manual_unread': 0,
+        'health_smartwatch_unread': 0,
     }
 
 
@@ -72,9 +96,28 @@ def notifications_page(user_id):
         health_alerts = [alert for alert in all_alerts if alert.category == 'health']
         medication_alerts = [alert for alert in all_alerts if alert.category == 'medication']
 
+        for alert in health_alerts:
+            health_source = _health_alert_source(alert) or 'manual'
+            alert.health_source = health_source
+            alert.health_source_label = _format_source_label(health_source)
+
+        for alert in all_alerts:
+            if alert.category == 'health':
+                health_source = _health_alert_source(alert) or 'manual'
+                alert.health_source = health_source
+                alert.health_source_label = _format_source_label(health_source)
+
         unread_count = sum(1 for alert in all_alerts if not alert.is_read)
         health_unread = sum(1 for alert in health_alerts if not alert.is_read)
         medication_unread = sum(1 for alert in medication_alerts if not alert.is_read)
+        health_manual_unread = sum(
+            1 for alert in health_alerts
+            if not alert.is_read and (getattr(alert, 'health_source', None) or 'manual') == 'manual'
+        )
+        health_smartwatch_unread = sum(
+            1 for alert in health_alerts
+            if not alert.is_read and (getattr(alert, 'health_source', None) or 'manual') == 'google_fit'
+        )
 
         today = date.today()
         week_ago = today - timedelta(days=7)
@@ -133,6 +176,8 @@ def notifications_page(user_id):
             'taken_count': len(taken_logs),
             'missed_count': len(missed_logs),
             'skipped_count': len(skipped_logs),
+            'health_manual_unread': health_manual_unread,
+            'health_smartwatch_unread': health_smartwatch_unread,
         }
 
     except Exception:
@@ -148,6 +193,7 @@ def get_notifications(user_id, limit=10):
 
         notifications = []
         for alert in alerts:
+            health_source = _health_alert_source(alert) if alert.category == 'health' else None
             notifications.append({
                 'alert_id': alert.alert_id,
                 'title': alert.title or 'Alert',
@@ -156,6 +202,8 @@ def get_notifications(user_id, limit=10):
                 'severity': _normalize_severity(alert.severity),
                 'created_at': alert.created_at.strftime('%b %d, %Y %I:%M %p'),
                 'is_read': alert.is_read,
+                'health_source': health_source,
+                'health_source_label': _format_source_label(health_source) if health_source else None,
             })
 
         return {

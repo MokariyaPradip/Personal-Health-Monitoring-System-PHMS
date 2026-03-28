@@ -209,6 +209,7 @@ function getSeverityLabel(severity) {
 }
 
 function escapeHtml(text) {
+    const safeText = String(text == null ? '' : text);
     const map = {
         '&': '&amp;',
         '<': '&lt;',
@@ -216,7 +217,7 @@ function escapeHtml(text) {
         '"': '&quot;',
         "'": '&#039;'
     };
-    return text.replace(/[&<>"']/g, m => map[m]);
+    return safeText.replace(/[&<>"']/g, m => map[m]);
 }
 
 // ===== NOTIFICATION COUNT POLLING =====

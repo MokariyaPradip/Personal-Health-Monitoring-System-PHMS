@@ -384,14 +384,11 @@
             </div>
             
             <!-- Action Box -->
-            <!--
             <div class="action-box">
                 <h3>📱 Log Your Medication</h3>
                 <p>Click below to access your medication dashboard and log this dose.</p>
-
-                <a href="{{ medication_url }}" class="cta-button">Log Medication Now</a>
+                <a href="{{ medication_url | default('#') }}" class="cta-button">Log Medication Now</a>
             </div>
-            -->
             
             <!-- Warning -->
             <div class="warning-box">
@@ -412,13 +409,11 @@
                 Your trusted health companion
             </p>
             
-            <!--
             <div class="footer-links">
-                <a href="{{ dashboard_url }}">Dashboard</a>
-                <a href="{{ medication_url }}">Medications</a>
-                <a href="{{ help_url }}">Help & Support</a>
+                <a href="{{ dashboard_url | default('#') }}">Dashboard</a>
+                <a href="{{ medication_url | default('#') }}">Medications</a>
+                <a href="{{ help_url | default('#') }}">Help & Support</a>
             </div>
-            -->
 
             <div class="brand-section">
                 <span class="brand-icon">❤️</span>

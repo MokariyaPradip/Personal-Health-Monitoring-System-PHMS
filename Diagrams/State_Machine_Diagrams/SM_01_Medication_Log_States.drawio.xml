@@ -1,0 +1,105 @@
+<mxfile host="app.diagrams.net" modified="2026-03-28T12:10:00.000Z" agent="Mozilla/5.0" version="24.7.17" type="device">
+  <diagram id="sm-medlog-states" name="SM-01: Medication Log States">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="900">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <!-- Title -->
+        <mxCell id="title" value="State Machine: Medication Log Status Transitions"
+          style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=18;fontStyle=1;"
+          vertex="1" parent="1">
+          <mxGeometry x="50" y="15" width="1300" height="30" as="geometry"/>
+        </mxCell>
+
+        <!-- Start -->
+        <mxCell id="start" value=""
+          style="ellipse;whiteSpace=wrap;html=1;fillColor=#000000;strokeColor=none;"
+          vertex="1" parent="1">
+          <mxGeometry x="650" y="70" width="20" height="20" as="geometry"/>
+        </mxCell>
+
+        <!-- States -->
+        <mxCell id="pending" value="PENDING"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1f5ff;strokeWidth=2;"
+          vertex="1" parent="1">
+          <mxGeometry x="200" y="170" width="160" height="70" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="taken" value="TAKEN"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#c8e6c9;strokeWidth=2;"
+          vertex="1" parent="1">
+          <mxGeometry x="520" y="170" width="160" height="70" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="missed" value="MISSED"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffccbc;strokeWidth=2;"
+          vertex="1" parent="1">
+          <mxGeometry x="840" y="170" width="160" height="70" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="skipped" value="SKIPPED"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8bbd0;strokeWidth=2;"
+          vertex="1" parent="1">
+          <mxGeometry x="520" y="360" width="160" height="70" as="geometry"/>
+        </mxCell>
+
+        <!-- Start Arrow -->
+        <mxCell id="start_arrow"
+          style="edgeStyle=orthogonalEdgeStyle;endArrow=classic;strokeWidth=2;"
+          edge="1" parent="1" source="start" target="pending">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- Transitions -->
+        <mxCell id="t1" value="User marks taken"
+          style="edgeStyle=orthogonalEdgeStyle;endArrow=classic;strokeWidth=2;"
+          edge="1" parent="1" source="pending" target="taken">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="t2" value="Grace period expires"
+          style="edgeStyle=orthogonalEdgeStyle;endArrow=classic;strokeWidth=2;"
+          edge="1" parent="1" source="pending" target="missed">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="t3" value="User skips"
+          style="edgeStyle=orthogonalEdgeStyle;endArrow=classic;strokeWidth=2;"
+          edge="1" parent="1" source="pending" target="skipped">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- Notes -->
+        <mxCell id="note1"
+          value="Pending: Grace period running before expiry"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#cccccc;fontSize=10;"
+          vertex="1" parent="1">
+          <mxGeometry x="200" y="270" width="200" height="50" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="note2"
+          value="Taken: Counts toward adherence %"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#cccccc;fontSize=10;"
+          vertex="1" parent="1">
+          <mxGeometry x="520" y="270" width="200" height="50" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="note3"
+          value="Missed: Alert triggered"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#cccccc;fontSize=10;"
+          vertex="1" parent="1">
+          <mxGeometry x="840" y="270" width="200" height="50" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="note4"
+          value="Skipped: User intentionally skipped"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#cccccc;fontSize=10;"
+          vertex="1" parent="1">
+          <mxGeometry x="520" y="450" width="200" height="50" as="geometry"/>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

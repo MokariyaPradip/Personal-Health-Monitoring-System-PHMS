@@ -4,11 +4,17 @@
 
 {% block head_extra %}
 <link rel="stylesheet" href="{{ url_for('static', filename='style/reports.css') }}">
+<script src="{{ url_for('static', filename='js/chart-fallback.js') }}"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="{{ url_for('static', filename='js/reports.js') }}"></script>
 {% endblock %}
 
 {% block content %}
-<div class="reports-container">
+<div class="reports-container"
+	data-has-report-data="{{ '1' if report_data else '0' }}"
+	data-risk-indicators='{{ (report_data.risk_indicators if report_data else {}) | tojson | forceescape }}'
+	data-trend-analysis='{{ (report_data.trend_analysis if report_data else {}) | tojson | forceescape }}'
+	data-medication-adherence='{{ (report_data.medication_adherence if report_data else {}) | tojson | forceescape }}'>
 <div class="report-card">
 	<h2 class="report-title">Reports & Analytics</h2>
 	<p class="report-subtitle">Weekly, monthly, yearly and custom reports with trend analysis, risk indicators, adherence and alerts.</p>
@@ -32,10 +38,10 @@
 		
 		<div class="report-form-row date-presets field-item">
 			<label>Quick Presets</label>
-			<button type="button" class="preset-btn" onclick="setDateRange(7)">Last 7 Days</button>
-			<button type="button" class="preset-btn" onclick="setDateRange(30)">Last 30 Days</button>
-			<button type="button" class="preset-btn" onclick="setDateRange('month')">This Month</button>
-			<button type="button" class="preset-btn" onclick="setDateRange('year')">This Year</button>
+			<button type="button" class="preset-btn" data-action="set-date-range" data-preset="7">Last 7 Days</button>
+			<button type="button" class="preset-btn" data-action="set-date-range" data-preset="30">Last 30 Days</button>
+			<button type="button" class="preset-btn" data-action="set-date-range" data-preset="month">This Month</button>
+			<button type="button" class="preset-btn" data-action="set-date-range" data-preset="year">This Year</button>
 		</div>
 
 		<div class="report-form-row">
@@ -89,7 +95,7 @@
 		<a class="report-btn" data-loading-link data-loading-message="Preparing JSON report..." href="{{ request.path }}?{% if request.query_string %}{{ request.query_string.decode() }}&{% endif %}format=json">Download JSON</a>
 		<a class="report-btn" data-loading-link data-loading-message="Preparing CSV report..." href="{{ request.path }}?{% if request.query_string %}{{ request.query_string.decode() }}&{% endif %}format=csv">Download CSV</a>
 		<a class="report-btn" data-loading-link data-loading-message="Preparing PDF report..." href="/reports/{{ meta.report_type }}/pdf?feature={{ meta.feature_filter }}{% if meta.report_type == 'custom' %}&start_date={{ meta.start_date }}&end_date={{ meta.end_date }}{% endif %}">Download PDF</a>
-		<button class="report-btn" onclick="window.print()">Print Report</button>
+		<button class="report-btn" id="printReportBtn">Print Report</button>
 	</div>
 </div>
 
@@ -99,6 +105,7 @@
 	{% set critical_alerts = report_data.alert_summary.critical_alerts if report_data.alert_summary and report_data.alert_summary.critical_alerts is not none else 0 %}
 	{% set avg_health_score = report_data.summary_statistics.health_score.avg if report_data.summary_statistics and report_data.summary_statistics.health_score and report_data.summary_statistics.health_score.avg is not none else None %}
 	{% set record_count = meta.record_count if meta.record_count is not none else 0 %}
+	{% set source = report_data.source_summary if report_data and report_data.source_summary else {} %}
 
 	<div class="kpi-grid">
 		<div class="kpi-card">
@@ -163,6 +170,34 @@
 			<h4>Trend % Change by Metric</h4>
 			<canvas id="trendBarChart" aria-label="Trend Comparison Chart"></canvas>
 		</div>
+	</div>
+</div>
+
+<div class="report-card">
+	<h3>Data Source Intelligence</h3>
+	<div class="source-insights-grid">
+		<div class="source-insight-card manual">
+			<p class="source-label">Manual Records</p>
+			<p class="source-value">{{ source.manual_count if source.manual_count is not none else 0 }}</p>
+			<span class="source-pill">{{ source.manual_pct if source.manual_pct is not none else 0 }}%</span>
+		</div>
+		<div class="source-insight-card smartwatch">
+			<p class="source-label">Smartwatch Records</p>
+			<p class="source-value">{{ source.smartwatch_total if source.smartwatch_total is not none else 0 }}</p>
+			<span class="source-pill">{{ source.smartwatch_pct if source.smartwatch_pct is not none else 0 }}%</span>
+		</div>
+		<div class="source-insight-card dominant">
+			<p class="source-label">Dominant Source</p>
+			<p class="source-value source-cap">{{ source.dominant_source if source.dominant_source else 'none' }}</p>
+			<span class="source-pill neutral">Google Fit: {{ source.google_fit_count if source.google_fit_count is not none else 0 }}</span>
+		</div>
+	</div>
+	<div class="source-timestamps">
+		<p><strong>Latest smartwatch entry:</strong> {{ source.latest_smartwatch_at if source.latest_smartwatch_at else 'No smartwatch records in this period' }}</p>
+		<p><strong>Latest manual entry:</strong> {{ source.latest_manual_at if source.latest_manual_at else 'No manual records in this period' }}</p>
+	</div>
+	<div class="source-help-text">
+		Source split helps validate whether trends come from self-entered records or wearable ingestion.
 	</div>
 </div>
 
@@ -284,151 +319,6 @@
 	</div>
 </div>
 
-<script>
-	(function () {
-		if (typeof Chart === 'undefined') return;
-
-		const riskIndicators = {{ report_data.risk_indicators | tojson }};
-		const trendAnalysis = {{ report_data.trend_analysis | tojson }};
-		const medicationAdherence = {{ report_data.medication_adherence | tojson }};
-
-		const riskCounts = { normal: 0, warning: 0, critical: 0 };
-		Object.values(riskIndicators || {}).forEach((item) => {
-			const status = (item && item.status ? item.status : '').toLowerCase();
-			if (status in riskCounts) {
-				riskCounts[status] += 1;
-			}
-		});
-
-		const taken = Number(medicationAdherence.total_taken_doses || 0);
-		const total = Number(medicationAdherence.total_scheduled_doses || 0);
-		const missed = Math.max(total - taken, 0);
-
-		const trendLabels = [];
-		const trendValues = [];
-		Object.entries(trendAnalysis || {}).forEach(([metric, stats]) => {
-			trendLabels.push(metric.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()));
-			const v = stats && stats.pct_change !== null ? Number(stats.pct_change) : 0;
-			trendValues.push(Number.isFinite(v) ? v : 0);
-		});
-
-		const riskCtx = document.getElementById('riskPieChart');
-		if (riskCtx) {
-			new Chart(riskCtx, {
-				type: 'doughnut',
-				data: {
-					labels: ['Normal', 'Warning', 'Critical'],
-					datasets: [{
-						data: [riskCounts.normal, riskCounts.warning, riskCounts.critical],
-						backgroundColor: ['#27ae60', '#f39c12', '#e74c3c'],
-						borderWidth: 1,
-						borderColor: '#ffffff'
-					}]
-				},
-				options: {
-					responsive: true,
-					maintainAspectRatio: false,
-					plugins: {
-						legend: { position: 'bottom' }
-					}
-				}
-			});
-		}
-
-		const adherenceCtx = document.getElementById('adherencePieChart');
-		if (adherenceCtx) {
-			new Chart(adherenceCtx, {
-				type: 'pie',
-				data: {
-					labels: ['Taken', 'Missed'],
-					datasets: [{
-						data: [taken, missed],
-						backgroundColor: ['#3498db', '#e74c3c'],
-						borderWidth: 1,
-						borderColor: '#ffffff'
-					}]
-				},
-				options: {
-					responsive: true,
-					maintainAspectRatio: false,
-					plugins: {
-						legend: { position: 'bottom' }
-					}
-				}
-			});
-		}
-
-		const trendCtx = document.getElementById('trendBarChart');
-		if (trendCtx) {
-			new Chart(trendCtx, {
-				type: 'bar',
-				data: {
-					labels: trendLabels,
-					datasets: [{
-						label: '% Change',
-						data: trendValues,
-						backgroundColor: trendValues.map(v => v >= 0 ? '#667eea' : '#ef4444'),
-						borderRadius: 6
-					}]
-				},
-				options: {
-					responsive: true,
-					maintainAspectRatio: false,
-					scales: {
-						y: {
-							ticks: {
-								callback: function (value) { return value + '%'; }
-							}
-						}
-					},
-					plugins: {
-						legend: { display: false }
-					}
-				}
-			});
-		}
-	})();
-
-	// Date preset handlers
-	function setDateRange(preset) {
-		const today = new Date();
-		let startDate, endDate = today;
-		
-		if (typeof preset === 'number') {
-			startDate = new Date(today);
-			startDate.setDate(today.getDate() - preset + 1);
-		} else if (preset === 'month') {
-			startDate = new Date(today.getFullYear(), today.getMonth(), 1);
-		} else if (preset === 'year') {
-			startDate = new Date(today.getFullYear(), 0, 1);
-		}
-		
-		const formatDate = (d) => d.toISOString().split('T')[0];
-		document.getElementById('start_date').value = formatDate(startDate);
-		document.getElementById('end_date').value = formatDate(endDate);
-	}
-
-	// Date validation and constraints
-	document.addEventListener('DOMContentLoaded', function() {
-		const today = new Date().toISOString().split('T')[0];
-		const endInput = document.getElementById('end_date');
-		const startInput = document.getElementById('start_date');
-		
-		// Set max date to today for end date
-		if (endInput) {
-			endInput.setAttribute('max', today);
-		}
-		
-		// Dynamic max date based on start date selection
-		if (startInput) {
-			startInput.addEventListener('change', function() {
-				if (endInput && this.value) {
-					endInput.setAttribute('min', this.value);
-				}
-			});
-		}
-	});
-</script>
 {% else %}
 <div class="report-card empty-state">
 	<p>No report data available yet.</p>

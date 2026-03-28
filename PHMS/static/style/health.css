@@ -81,7 +81,7 @@
 }
 
 .stat-value {
-    font-size: 2rem;
+    font-size: 1.5rem;
     font-weight: 700;
     color: var(--text-dark);
     margin: 0.5rem 0;
@@ -93,6 +93,118 @@
     color: var(--accent-green);
     font-weight: 600;
     margin-top: 0.5rem;
+}
+
+.stat-trend.negative {
+    color: var(--accent-red);
+}
+
+.smartwatch-stat-card {
+    border-top-color: #0f9d58;
+}
+
+.smartwatch-health-banner {
+    background: #ffffff;
+    border: 1px solid var(--border-light);
+    border-left: 4px solid #0f9d58;
+    border-radius: 12px;
+    padding: 1.25rem;
+    margin-bottom: 2rem;
+    box-shadow: var(--shadow-sm);
+}
+
+.smartwatch-health-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.smartwatch-health-head h3 {
+    margin: 0;
+    color: var(--text-dark);
+    font-size: 1.05rem;
+}
+
+.smartwatch-health-head p {
+    margin: 0.35rem 0 0;
+    color: var(--text-light);
+    font-size: 0.85rem;
+}
+
+.smartwatch-status-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.3rem 0.75rem;
+    border-radius: 999px;
+    font-size: 0.73rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    border: 1px solid transparent;
+    white-space: nowrap;
+}
+
+.smartwatch-status-pill.connected {
+    background: #dbf4e8;
+    color: #0b7d4a;
+    border-color: #a2dec1;
+}
+
+.smartwatch-status-pill.disconnected {
+    background: #fde8e6;
+    color: #8a1f17;
+    border-color: #f0b0a9;
+}
+
+.smartwatch-health-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+.smartwatch-health-item {
+    background: var(--bg-light);
+    border: 1px solid var(--border-light);
+    border-radius: 8px;
+    padding: 0.7rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.smartwatch-health-item .k {
+    font-size: 0.7rem;
+    color: var(--text-light);
+    text-transform: uppercase;
+    letter-spacing: 0.45px;
+    font-weight: 700;
+}
+
+.smartwatch-health-item .v {
+    font-size: 0.88rem;
+    color: var(--text-dark);
+    font-weight: 700;
+}
+
+.smartwatch-health-actions {
+    margin-top: 1rem;
+}
+
+.btn-smartwatch-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    text-decoration: none;
+    color: #1565c0;
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+.btn-smartwatch-link:hover {
+    color: #0d47a1;
+    text-decoration: underline;
 }
 
 /* ===== HEALTH INSIGHTS SECTION ===== */
@@ -561,6 +673,10 @@
     color: #166534;
 }
 
+.timestamp .source-badge {
+    margin-left: 0.55rem;
+}
+
 .entry-details {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -810,6 +926,14 @@
         align-items: flex-start;
     }
 
+    .smartwatch-health-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .smartwatch-health-head {
+        flex-direction: column;
+    }
+
     .modal-content {
         width: 95%;
         margin: 20% auto;
@@ -853,6 +977,10 @@
 
     .stat-value {
         font-size: 1.3rem;
+    }
+
+    .smartwatch-health-grid {
+        grid-template-columns: 1fr;
     }
 
     .health-insights-section h3 {

@@ -689,6 +689,10 @@
     border-top: 4px solid var(--accent-red);
 }
 
+.stat-card.smartwatch {
+    border-top: 4px solid #16a085;
+}
+
 .stat-card-icon {
     font-size: 2rem;
     margin-bottom: 0.5rem;
@@ -849,6 +853,166 @@
     background: linear-gradient(135deg, #fa709a, #fee140);
 }
 
+/* Smartwatch Card */
+.smartwatch-card {
+    grid-column: span 1;
+}
+
+.smartwatch-card-body {
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    flex: 1;
+}
+
+.smartwatch-provider-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.9rem 1rem;
+    border: 1px solid var(--border-light);
+    border-left: 4px solid #16a085;
+    border-radius: 8px;
+    background: linear-gradient(135deg, rgba(22, 160, 133, 0.08), rgba(52, 152, 219, 0.08));
+}
+
+.smartwatch-provider-name {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-dark);
+}
+
+.smartwatch-provider-id {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.smartwatch-status-pill {
+    padding: 0.35rem 0.8rem;
+    border-radius: 14px;
+    font-size: 0.74rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    border: 1px solid transparent;
+}
+
+.smartwatch-status-pill.connected {
+    color: #0b7d4a;
+    background: #d9f6e8;
+    border-color: #8ad3b4;
+}
+
+.smartwatch-status-pill.disconnected {
+    color: #8a1f17;
+    background: #fbe2df;
+    border-color: #f2a7a0;
+}
+
+.smartwatch-metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+.smartwatch-metric-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    border: 1px solid var(--border-light);
+    border-radius: 8px;
+    padding: 0.75rem;
+    background: var(--bg-light);
+}
+
+.smartwatch-metric-item .metric-label {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.45px;
+    font-weight: 700;
+}
+
+.smartwatch-metric-item .metric-value {
+    font-size: 0.9rem;
+    color: var(--text-dark);
+    font-weight: 600;
+    word-break: break-word;
+}
+
+.smartwatch-metric-item .metric-value.cursor {
+    font-family: Consolas, Monaco, monospace;
+    font-size: 0.78rem;
+}
+
+.smartwatch-errors {
+    border: 1px solid var(--border-light);
+    border-radius: 8px;
+    padding: 0.9rem;
+    background: #fcfdff;
+}
+
+.smartwatch-errors-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 700;
+    color: var(--text-dark);
+    margin-bottom: 0.6rem;
+}
+
+.smartwatch-error-count {
+    min-width: 1.8rem;
+    height: 1.8rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: #eef3f8;
+    color: #32506a;
+    font-size: 0.78rem;
+    border: 1px solid #d4e0ec;
+}
+
+.smartwatch-error-list {
+    margin: 0;
+    padding-left: 1rem;
+    display: grid;
+    gap: 0.5rem;
+}
+
+.smartwatch-error-list li {
+    color: var(--text-dark);
+    font-size: 0.86rem;
+}
+
+.smartwatch-error-list .error-source {
+    display: inline-block;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #8f4b0d;
+    background: #fef3e7;
+    border: 1px solid #f4d1a9;
+    border-radius: 10px;
+    padding: 0.1rem 0.45rem;
+    margin-right: 0.4rem;
+}
+
+.smartwatch-no-errors {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.88rem;
+}
+
+.smartwatch-card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
 /* Enhanced Empty State */
 .empty-state.success {
     background: linear-gradient(135deg, #d5f4e6, #e8f8f5);
@@ -889,5 +1053,14 @@
     .quick-action-btn {
         padding: 0.75rem;
         font-size: 0.9rem;
+    }
+
+    .smartwatch-metrics-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .smartwatch-provider-row {
+        flex-direction: column;
+        align-items: flex-start;
     }
 }

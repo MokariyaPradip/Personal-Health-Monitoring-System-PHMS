@@ -425,13 +425,11 @@
             </div>
             
             <!-- Action Box -->
-             <!--
-                <div class="action-box">
-                    <h3>📱 Take Action Now</h3>
-                    <p>We recommend you take your medication immediately and log it in your dashboard.</p>
-                    <a href="{{ dashboard_url }}" class="cta-button">Go to Medication Log</a>
-                </div>
-            -->
+            <div class="action-box">
+                <h3>📱 Take Action Now</h3>
+                <p>We recommend you take your medication immediately and log it in your dashboard.</p>
+                <a href="{{ medication_url | default('#') }}" class="cta-button">Go to Medication Log</a>
+            </div>
             
             <!-- Information Box -->
             <div class="info-box">
@@ -475,11 +473,11 @@
                 Your trusted health companion
             </p>
             
-            <!--
             <div class="footer-links">
-                <a href="{{ help_url }}">Help & Support</a>
+                <a href="{{ help_url | default('#') }}">Help & Support</a>
+                <a href="{{ medication_url | default('#') }}">Medications</a>
+                <a href="{{ dashboard_url | default('#') }}">Dashboard</a>
             </div>
-            -->
             
             <div class="brand-section">
                 <span class="brand-icon">❤️</span>

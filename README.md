@@ -10,6 +10,7 @@ This repository is organized with source code under PHMS and project-level confi
 - Core Features
 - Tech Stack
 - Repository Structure
+- Documentation Index
 - Architecture at a Glance
 - Quick Start
 - Environment Configuration
@@ -63,10 +64,32 @@ See dependency pins in [PHMS/requirements.txt](PHMS/requirements.txt).
 ## Repository Structure
 
 - [instructions.txt](instructions.txt): project-level setup notes.
-- [Database](Database): ER docs and database artifacts.
+- [Diagrams](Diagrams): architecture and database diagrams/artifacts.
 - [PHMS](PHMS): main application package.
 - [pytest.ini](pytest.ini): pytest configuration.
 - [.env.example](.env.example): environment template.
+
+## Documentation Index
+
+Documentation available in support:
+
+- [PHMS/support/API_REFERENCE.md](PHMS/support/API_REFERENCE.md): REST endpoints, methods, auth model, request/response examples, and status codes.
+- [PHMS/support/TESTING_GUIDE.md](PHMS/support/TESTING_GUIDE.md): test execution commands, structure, locations, and CI/CD testing expectations.
+- [PHMS/support/ENVIRONMENT_CONFIGURATION.md](PHMS/support/ENVIRONMENT_CONFIGURATION.md): complete `.env` variable reference and secrets handling guidance.
+- [PHMS/support/SMARTWATCH_SETUP.md](PHMS/support/SMARTWATCH_SETUP.md): smartwatch OAuth setup, diagnostics, and sync behavior.
+- [PHMS/support/MEDICATION_LOG_SYSTEM_COMPREHENSIVE_GUIDE.md](PHMS/support/MEDICATION_LOG_SYSTEM_COMPREHENSIVE_GUIDE.md): medication log lifecycle and notification behavior.
+- [PHMS/support/ML_MODEL_GUIDE.md](PHMS/support/ML_MODEL_GUIDE.md): ML model architecture and usage notes.
+- [PHMS/support/ARCHITECTURE_INCREMENTAL_MIGRATION_PLAYBOOK.md](PHMS/support/ARCHITECTURE_INCREMENTAL_MIGRATION_PLAYBOOK.md): architecture migration guidance and rollout strategy.
+
+Task-based quick links:
+
+- API behavior, request/response contracts: [PHMS/support/API_REFERENCE.md](PHMS/support/API_REFERENCE.md)
+- Test setup and command reference (canonical): [PHMS/support/TESTING_GUIDE.md](PHMS/support/TESTING_GUIDE.md)
+- Environment variables and secrets handling: [PHMS/support/ENVIRONMENT_CONFIGURATION.md](PHMS/support/ENVIRONMENT_CONFIGURATION.md)
+- Smartwatch OAuth/sync diagnostics: [PHMS/support/SMARTWATCH_SETUP.md](PHMS/support/SMARTWATCH_SETUP.md)
+- Medication log lifecycle and notification rules: [PHMS/support/MEDICATION_LOG_SYSTEM_COMPREHENSIVE_GUIDE.md](PHMS/support/MEDICATION_LOG_SYSTEM_COMPREHENSIVE_GUIDE.md)
+- ML runtime contract and artifact loading behavior: [PHMS/support/ML_MODEL_GUIDE.md](PHMS/support/ML_MODEL_GUIDE.md)
+- Incremental architecture refactor patterns: [PHMS/support/ARCHITECTURE_INCREMENTAL_MIGRATION_PLAYBOOK.md](PHMS/support/ARCHITECTURE_INCREMENTAL_MIGRATION_PLAYBOOK.md)
 
 ## Architecture at a Glance
 
@@ -193,6 +216,8 @@ python app.py
 ## Running Tests
 
 Run full smartwatch-focused suite:
+
+Canonical test guide: [PHMS/support/TESTING_GUIDE.md](PHMS/support/TESTING_GUIDE.md)
 
 ```powershell
 cd PHMS

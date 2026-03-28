@@ -16,7 +16,7 @@
             <h1>Health Data Management</h1>
             <p class="header-subtitle">Track and monitor your vital signs and overall wellness</p>
         </div>
-        <button class="btn-add-entry" onclick="openModal()">+ Add Health Entry</button>
+        <button class="btn-add-entry" id="addHealthEntryBtn">+ Add Health Entry</button>
     </div>
 
     <!-- ===== QUICK STATS CARDS ===== -->
@@ -49,6 +49,46 @@
             <div class="stat-label">Last Updated</div>
             <div class="stat-value">{% if last_entry %}{{ last_entry.recorded_at.strftime('%d %b') }}{% else %}--{% endif %}</div>
             <div class="stat-trend">Recent</div>
+        </div>
+
+        <div class="health-stat-card smartwatch-stat-card">
+            <div class="stat-icon">⌚</div>
+            <div class="stat-label">Smartwatch</div>
+            <div class="stat-value">{{ 'Connected' if smartwatch_is_connected else 'Disconnected' }}</div>
+            <div class="stat-trend {% if not smartwatch_is_connected %}negative{% endif %}">{{ smartwatch_provider_label }}</div>
+        </div>
+    </div>
+
+    <div class="smartwatch-health-banner">
+        <div class="smartwatch-health-head">
+            <div>
+                <h3>Smartwatch Integration</h3>
+                <p>{{ smartwatch_provider_label }} sync status and ingestion footprint</p>
+            </div>
+            <span class="smartwatch-status-pill {{ 'connected' if smartwatch_is_connected else 'disconnected' }}">
+                {{ 'Connected' if smartwatch_is_connected else 'Disconnected' }}
+            </span>
+        </div>
+        <div class="smartwatch-health-grid">
+            <div class="smartwatch-health-item">
+                <span class="k">Last Successful Sync</span>
+                <span class="v">{{ smartwatch_last_synced_at or 'Never synced' }}</span>
+            </div>
+            <div class="smartwatch-health-item">
+                <span class="k">Last Sync Attempt</span>
+                <span class="v">{{ smartwatch_last_attempt_at or 'No attempts yet' }}</span>
+            </div>
+            <div class="smartwatch-health-item">
+                <span class="k">Smartwatch Records</span>
+                <span class="v">{{ smartwatch_records_count }}</span>
+            </div>
+            <div class="smartwatch-health-item">
+                <span class="k">Sync Errors</span>
+                <span class="v">{{ smartwatch_recent_errors_count }}</span>
+            </div>
+        </div>
+        <div class="smartwatch-health-actions">
+            <a href="/smartwatch?provider={{ smartwatch_provider }}" class="btn-smartwatch-link">Open Smartwatch Integration →</a>
         </div>
     </div>
 
@@ -101,7 +141,10 @@
                 <span class="value">{{ last_entry.sugar or 'N/A' }}</span>
             </div>
         </div>
-        <p class="timestamp">📅 Recorded on {{ last_entry.recorded_at.strftime('%d %b %Y at %I:%M %p') }}</p>
+        <p class="timestamp">
+            📅 Recorded on {{ last_entry.recorded_at.strftime('%d %b %Y at %I:%M %p') }}
+            <span class="source-badge source-{{ (last_entry.data_source or 'manual')|lower|replace('_', '-') }}">{{ last_entry.source_label or 'Manual' }}</span>
+        </p>
     </div>
     {% else %}
     <div class="no-data-message">
@@ -135,6 +178,8 @@
                 <div class="insight-title">📊 Data Collection</div>
                 <p><strong>Total records:</strong> {{ total_entries }}</p>
                 <p><strong>This month:</strong> {{ monthly_records_count or 0 }} entries</p>
+                <p><strong>Manual entries:</strong> {{ manual_records_count }}</p>
+                <p><strong>Smartwatch entries:</strong> {{ smartwatch_records_count }}</p>
                 <p style="margin-top: 0.5rem; color: #7f8c8d; font-size: 0.9rem;">Consistent tracking helps better health insights</p>
             </div>
 
@@ -168,7 +213,7 @@
                 <input type="hidden" name="page" value="1">
                 {% endif %}
                 <label for="history-source-filter">Source</label>
-                <select id="history-source-filter" name="source" onchange="this.form.submit()">
+                <select id="history-source-filter" name="source">
                     {% for option in source_options %}
                     <option value="{{ option.value }}" {{ 'selected' if source_filter == option.value else '' }}>{{ option.label }}</option>
                     {% endfor %}
@@ -189,7 +234,8 @@
 
                     <button class="delete-btn"
                         title="Delete entry"
-                        onclick="confirmDelete({{ entry.entry_id }}, this)">
+                        data-action="confirm-delete-entry"
+                        data-entry-id="{{ entry.entry_id }}">
                         🗑️
                     </button>
                 </div>
@@ -283,7 +329,7 @@
     <div class="modal-content" style="max-width: 400px;">
         <div class="modal-header">
             <h2>⚠️ Confirm Delete</h2>
-            <span class="close" onclick="closeConfirmModal()">&times;</span>
+            <span class="close" data-action="close-confirm-modal">&times;</span>
         </div>
         
         <div class="modal-body">
@@ -292,8 +338,8 @@
         </div>
 
         <div class="modal-footer">
-            <button type="button" class="btn-cancel" onclick="closeConfirmModal()">Cancel</button>
-            <button type="button" class="btn-submit" style="background: #e74c3c;" onclick="executeDelete()">Delete</button>
+            <button type="button" class="btn-cancel" data-action="close-confirm-modal">Cancel</button>
+            <button type="button" class="btn-submit" style="background: #e74c3c;" data-action="execute-delete-entry">Delete</button>
         </div>
     </div>
 </div>
@@ -303,7 +349,7 @@
     <div class="modal-content">
         <div class="modal-header">
             <h2>Add Health Entry</h2>
-            <span class="close" onclick="closeModal()">&times;</span>
+            <span class="close" data-action="close-health-modal">&times;</span>
         </div>
         
         <div class="modal-body">
@@ -341,202 +387,11 @@
         </div>
 
         <div class="modal-footer">
-            <button type="button" class="btn-cancel" onclick="closeModal()">Cancel</button>
-            <button type="button" class="btn-submit" onclick="addHealth(event)">Submit</button>
+            <button type="button" class="btn-cancel" data-action="close-health-modal">Cancel</button>
+            <button type="button" class="btn-submit" data-action="submit-health-entry">Submit</button>
         </div>
     </div>
 </div>
-
-<script>
-
-// ===== DELETE CONFIRMATION MODAL =====
-let deleteEntryId = null;
-let deleteTriggerButton = null;
-
-function confirmDelete(entryId, triggerButton) {
-    deleteEntryId = entryId;
-    deleteTriggerButton = triggerButton;
-    document.getElementById('confirmDeleteModal').style.display = 'block';
-}
-
-function closeConfirmModal() {
-    document.getElementById('confirmDeleteModal').style.display = 'none';
-    deleteEntryId = null;
-    deleteTriggerButton = null;
-}
-
-function executeDelete() {
-    if (!deleteEntryId) {
-        showToast('Error: No entry selected', 'error');
-        return;
-    }
-
-    // Capture values before closing modal (which resets them to null)
-    const entryId = deleteEntryId;
-    const triggerBtn = deleteTriggerButton;
-    
-    closeConfirmModal();
-    deleteHealth(entryId, triggerBtn);
-}
-
-function deleteHealth(entryId, triggerButton) {
-
-    const request = () => fetch(`/delete-health/${entryId}`, {
-        method: 'DELETE',
-        headers: {
-            'X-CSRFToken': window.getCsrfToken()
-        }
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.success) {
-            showToast('Health record deleted successfully');
-            if (window.PHMSLoading) {
-                window.PHMSLoading.showOverlay('Refreshing health history...');
-            }
-            location.reload();
-        } else {
-            showToast(data.message || 'Failed to delete entry', 'error');
-        }
-    });
-
-    const requestPromise = triggerButton && window.PHMSLoading
-        ? window.PHMSLoading.withLoading({ button: triggerButton, buttonText: 'Deleting...' }, request)
-        : request();
-
-    requestPromise.catch(() => showToast('Failed to delete entry', 'error'));
-}
-
-function openModal() {
-    document.getElementById('healthModal').style.display = 'block';
-}
-
-function closeModal() {
-    document.getElementById('healthModal').style.display = 'none';
-    document.getElementById('healthForm').reset();
-}
-
-function addHealth(event) {
-
-    const heartRate = document.getElementById('heart_rate').value;
-    const temperature = document.getElementById('temperature').value;
-    const steps = document.getElementById('steps').value;
-    const sleep = document.getElementById('sleep_hours').value;
-    const bp = document.getElementById('blood_pressure').value;
-    const sugar = document.getElementById('sugar').value;
-
-    /* ===== BASIC EMPTY CHECK ===== */
-    if (!heartRate && !temperature && !steps && !sleep && !bp && !sugar) {
-        showToast('Please enter at least one health detail', 'error');
-        return;
-    }
-
-    /* ===== RANGE VALIDATIONS (matching backend) ===== */
-    if (heartRate && (heartRate < 30 || heartRate > 220)) {
-        showToast('Heart rate must be between 30 and 220 bpm', 'error');
-        return;
-    }
-
-    if (temperature && (temperature < 35 || temperature > 42)) {
-        showToast('Temperature must be between 35°C and 42°C', 'error');
-        return;
-    }
-
-    if (steps && (steps < 0 || steps > 60000)) {
-        showToast('Steps must be between 0 and 60,000', 'error');
-        return;
-    }
-
-    if (sleep && (sleep < 0 || sleep > 24)) {
-        showToast('Sleep hours must be between 0 and 24', 'error');
-        return;
-    }
-
-    if (sugar && (sugar < 40 || sugar > 600)) {
-        showToast('Blood sugar must be between 40 and 600 mg/dL', 'error');
-        return;
-    }
-
-    /* ===== BLOOD PRESSURE RANGE ===== */
-    if (bp && (bp < 40 || bp > 250)) {
-        showToast('Blood pressure must be between 40 and 250 mmHg', 'error');
-        return;
-    }
-
-    /* ===== DISABLE BUTTON & SHOW LOADING STATE ===== */
-    const submitBtn = event ? event.target : null;
-    if (submitBtn) {
-        if (window.PHMSLoading) {
-            window.PHMSLoading.setButtonLoading(submitBtn, 'Submitting...');
-        } else {
-            submitBtn.disabled = true;
-            submitBtn.textContent = 'Submitting...';
-        }
-    }
-
-    /* ===== SEND DATA ===== */
-    const formData = {
-        heart_rate: heartRate || null,
-        temperature: temperature || null,
-        steps: steps || null,
-        sleep_hours: sleep || null,
-        blood_pressure: bp || null,
-        sugar: sugar || null
-    };
-
-    fetch('/add-health', {
-    method: 'POST',
-    headers: {
-        'Content-Type': 'application/json',
-        'X-CSRFToken': window.getCsrfToken()
-    },
-    body: JSON.stringify(formData)
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.message && data.message.toLowerCase().includes('added')) {
-            showToast('Health entry saved successfully!');
-            closeModal();
-            if (window.PHMSLoading) {
-                window.PHMSLoading.showOverlay('Refreshing health history...');
-            }
-            location.reload();
-        } else {
-            showToast(data.message || 'Failed to save health entry', 'error');
-            if (submitBtn) {
-                if (window.PHMSLoading) {
-                    window.PHMSLoading.clearButtonLoading(submitBtn);
-                } else {
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = 'Submit';
-                }
-            }
-        }
-    })
-    .catch(err => {
-        showToast('Something went wrong. Please try again', 'error');
-        if (submitBtn) {
-            if (window.PHMSLoading) {
-                window.PHMSLoading.clearButtonLoading(submitBtn);
-            } else {
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'Submit';
-            }
-        }
-    });
-}
-
-// Close modals when clicking outside them
-window.onclick = function(event) {
-    const healthModal = document.getElementById('healthModal');
-    const confirmModal = document.getElementById('confirmDeleteModal');
-    
-    if (event.target == healthModal) {
-        closeModal();
-    } else if (event.target == confirmModal) {
-        closeConfirmModal();
-    }
-}
-</script>
+<script src="{{ url_for('static', filename='js/health.js') }}"></script>
 
 {% endblock %}

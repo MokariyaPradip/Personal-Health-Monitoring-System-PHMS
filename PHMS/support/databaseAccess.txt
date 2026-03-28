@@ -37,6 +37,8 @@ VIEW SCHEMA (MODEL-ACCURATE TABLES)
 .schema medication_log
 .schema alert
 .schema password_reset_otp
+.schema smartwatch_account
+.schema smartwatch_sync_state
 
 
 QUICK COUNTS
@@ -53,7 +55,11 @@ SELECT 'medication_log', COUNT(*) FROM medication_log
 UNION ALL
 SELECT 'alert', COUNT(*) FROM alert
 UNION ALL
-SELECT 'password_reset_otp', COUNT(*) FROM password_reset_otp;
+SELECT 'password_reset_otp', COUNT(*) FROM password_reset_otp
+UNION ALL
+SELECT 'smartwatch_account', COUNT(*) FROM smartwatch_account
+UNION ALL
+SELECT 'smartwatch_sync_state', COUNT(*) FROM smartwatch_sync_state;
 
 
 SAMPLE ROWS
@@ -64,6 +70,8 @@ SELECT * FROM medication ORDER BY medication_id DESC LIMIT 5;
 SELECT * FROM medication_log ORDER BY log_id DESC LIMIT 5;
 SELECT * FROM alert ORDER BY created_at DESC LIMIT 5;
 SELECT * FROM password_reset_otp ORDER BY created_at DESC LIMIT 5;
+SELECT * FROM smartwatch_account ORDER BY created_at DESC LIMIT 5;
+SELECT * FROM smartwatch_sync_state ORDER BY updated_at DESC LIMIT 5;
 
 
 JOIN CHECKS (COMMON)
@@ -96,6 +104,20 @@ FROM alert a
 ORDER BY a.created_at DESC
 LIMIT 30;
 
+-- Smartwatch accounts per user
+SELECT u.user_id, u.username, sa.account_id, sa.provider, sa.connection_status, sa.last_synced_at, sa.last_error
+FROM user u
+LEFT JOIN smartwatch_account sa ON sa.user_id = u.user_id
+ORDER BY sa.last_synced_at DESC
+LIMIT 20;
+
+-- Smartwatch sync state with account details
+SELECT ss.state_id, ss.user_id, ss.provider, sa.account_id, ss.incremental_since, ss.last_synced_at, ss.last_error
+FROM smartwatch_sync_state ss
+JOIN smartwatch_account sa ON sa.account_id = ss.account_id
+ORDER BY ss.updated_at DESC
+LIMIT 20;
+
 
 INDEX AND CONSTRAINT CHECKS
 --------------------------------------------------------------------------------
@@ -106,6 +128,8 @@ PRAGMA index_list('medication');
 PRAGMA index_list('medication_log');
 PRAGMA index_list('alert');
 PRAGMA index_list('password_reset_otp');
+PRAGMA index_list('smartwatch_account');
+PRAGMA index_list('smartwatch_sync_state');
 
 
 FOREIGN KEY CHECKS
@@ -116,10 +140,13 @@ PRAGMA foreign_key_list('medication');
 PRAGMA foreign_key_list('medication_log');
 PRAGMA foreign_key_list('alert');
 PRAGMA foreign_key_list('password_reset_otp');
+PRAGMA foreign_key_list('smartwatch_account');
+PRAGMA foreign_key_list('smartwatch_sync_state');
 
 -- NOTE:
 -- password_reset_otp has NO foreign key in current model.
 -- It links to user by user_email in application logic.
+-- smartwatch tables are linked to user with cascade on delete.
 
 
 OPTIONAL MAINTENANCE

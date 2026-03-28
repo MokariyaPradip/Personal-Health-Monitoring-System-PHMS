@@ -1,4 +1,5 @@
 from datetime import date
+from datetime import datetime
 
 from config import db
 from models import User
@@ -6,6 +7,50 @@ from repositories.alert_repository import AlertRepository
 from repositories.health_repository import HealthRepository
 from repositories.medication_repository import MedicationRepository
 from utils.health_score import score_to_label
+
+
+def _format_display_datetime(value):
+    if not value:
+        return None
+
+    if isinstance(value, datetime):
+        return value.strftime('%d %b %Y, %I:%M %p')
+
+    try:
+        parsed = datetime.fromisoformat(str(value).replace('Z', '+00:00'))
+    except ValueError:
+        return str(value)
+
+    return parsed.strftime('%d %b %Y, %I:%M %p')
+
+
+def _build_smartwatch_profile_summary(user_id):
+    summary = {
+        'provider': 'google_fit',
+        'provider_label': 'Google Fit',
+        'is_connected': False,
+        'last_synced_at': None,
+        'recent_errors_count': 0,
+    }
+
+    try:
+        from . import smartwatch_service
+
+        smartwatch_context = smartwatch_service.get_integration_page_context(user_id)
+        account = smartwatch_context.get('account') or {}
+        recent_errors = smartwatch_context.get('recent_errors') or []
+
+        summary.update({
+            'provider': smartwatch_context.get('provider') or summary['provider'],
+            'provider_label': smartwatch_context.get('provider_label') or summary['provider_label'],
+            'is_connected': bool(smartwatch_context.get('is_connected')),
+            'last_synced_at': _format_display_datetime(account.get('last_synced_at')),
+            'recent_errors_count': len(recent_errors),
+        })
+    except (RuntimeError, ValueError, TypeError, AttributeError):
+        pass
+
+    return summary
 
 
 def _get_bmi_insight(bmi):
@@ -27,6 +72,8 @@ def profile(user_id):
     user = db.session.get(User, user_id)
 
     total_health_entries = HealthRepository.count_user_entries(user.user_id)
+    manual_health_entries = HealthRepository.count_user_entries_by_source(user.user_id, 'manual')
+    smartwatch_health_entries = HealthRepository.count_user_entries_by_source(user.user_id, 'google_fit')
     latest_health = HealthRepository.get_latest_user_entry(user.user_id)
     latest_health_risk = (
         score_to_label(latest_health.health_score)
@@ -68,11 +115,15 @@ def profile(user_id):
     }
 
     bmi_insight = _get_bmi_insight(user.bmi)
+    smartwatch_summary = _build_smartwatch_profile_summary(user.user_id)
 
     return {
         'user': user,
         'profile_stats': profile_stats,
         'bmi_insight': bmi_insight,
+        'smartwatch_summary': smartwatch_summary,
+        'manual_health_entries': manual_health_entries,
+        'smartwatch_health_entries': smartwatch_health_entries,
     }
 
 

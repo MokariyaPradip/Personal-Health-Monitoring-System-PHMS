@@ -1,0 +1,162 @@
+<mxfile host="app.diagrams.net" modified="2026-03-28T10:00:00.000Z" agent="Mozilla/5.0" version="24.7.17" type="device">
+  <diagram id="phms-usecase-diagram" name="PHMS Usecase Diagram">
+    <mxGraphModel dx="1600" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="900" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="title" value="Personal Health Monitoring System (PHMS) - Use Case Diagram" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=22;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="370" y="20" width="860" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="systemBoundary" value="PHMS" style="rounded=0;whiteSpace=wrap;html=1;strokeWidth=2;fontStyle=1;align=left;verticalAlign=top;spacingTop=10;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="280" y="90" width="980" height="730" as="geometry" />
+        </mxCell>
+
+        <mxCell id="actorUser" value="Patient/User" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;" vertex="1" parent="1">
+          <mxGeometry x="80" y="180" width="60" height="120" as="geometry" />
+        </mxCell>
+
+        <mxCell id="actorDoctor" value="Doctor" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;" vertex="1" parent="1">
+          <mxGeometry x="80" y="470" width="60" height="120" as="geometry" />
+        </mxCell>
+
+        <mxCell id="actorGoogleFit" value="Google Fit API" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;" vertex="1" parent="1">
+          <mxGeometry x="1380" y="210" width="60" height="120" as="geometry" />
+        </mxCell>
+
+        <mxCell id="actorScheduler" value="Scheduler/Jobs" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;" vertex="1" parent="1">
+          <mxGeometry x="1380" y="500" width="60" height="120" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ucRegister" value="Register / Login" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="390" y="140" width="210" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ucManageProfile" value="Manage Profile" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="390" y="220" width="210" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ucViewDashboard" value="View Health Dashboard" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="390" y="300" width="210" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ucRecordHealth" value="Log Health Data" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="390" y="380" width="210" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ucMLAssess" value="Run Risk / ML Assessment" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="650" y="380" width="250" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ucMedicationCRUD" value="Manage Medications" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="390" y="460" width="210" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ucMedicationLog" value="Log Medication Intake" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="390" y="540" width="210" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ucNotifications" value="Receive Notifications / Alerts" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="650" y="540" width="270" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ucReports" value="Generate / View Reports" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="390" y="620" width="210" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ucShareReports" value="Share Reports with Doctor" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="650" y="620" width="250" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ucOAuth" value="Connect Smartwatch (OAuth)" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="930" y="220" width="280" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ucManualSync" value="Manual Smartwatch Sync" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="930" y="320" width="280" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ucScheduledSync" value="Scheduled Smartwatch Sync" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="930" y="420" width="280" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ucSyncDiagnostics" value="Run Sync Diagnostics" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="930" y="520" width="280" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ucAuthInclude" value="&lt;&lt;include&gt;&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="612" y="390" width="70" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="eUserRegister" style="endArrow=none;html=1;" edge="1" parent="1" source="actorUser" target="ucRegister">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="eUserProfile" style="endArrow=none;html=1;" edge="1" parent="1" source="actorUser" target="ucManageProfile">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="eUserDashboard" style="endArrow=none;html=1;" edge="1" parent="1" source="actorUser" target="ucViewDashboard">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="eUserHealthLog" style="endArrow=none;html=1;" edge="1" parent="1" source="actorUser" target="ucRecordHealth">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="eUserMedManage" style="endArrow=none;html=1;" edge="1" parent="1" source="actorUser" target="ucMedicationCRUD">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="eUserMedLog" style="endArrow=none;html=1;" edge="1" parent="1" source="actorUser" target="ucMedicationLog">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="eUserReports" style="endArrow=none;html=1;" edge="1" parent="1" source="actorUser" target="ucReports">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="eUserShare" style="endArrow=none;html=1;" edge="1" parent="1" source="actorUser" target="ucShareReports">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="eUserOAuth" style="endArrow=none;html=1;" edge="1" parent="1" source="actorUser" target="ucOAuth">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="eUserManualSync" style="endArrow=none;html=1;" edge="1" parent="1" source="actorUser" target="ucManualSync">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="eUserDiagnostics" style="endArrow=none;html=1;" edge="1" parent="1" source="actorUser" target="ucSyncDiagnostics">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="eDoctorReports" style="endArrow=none;html=1;" edge="1" parent="1" source="actorDoctor" target="ucShareReports">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="eDoctorDashboard" style="endArrow=none;html=1;" edge="1" parent="1" source="actorDoctor" target="ucReports">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="eFitOAuth" style="endArrow=none;html=1;" edge="1" parent="1" source="actorGoogleFit" target="ucOAuth">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="eFitManualSync" style="endArrow=none;html=1;" edge="1" parent="1" source="actorGoogleFit" target="ucManualSync">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="eFitScheduledSync" style="endArrow=none;html=1;" edge="1" parent="1" source="actorGoogleFit" target="ucScheduledSync">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="eSchedulerRun" style="endArrow=none;html=1;" edge="1" parent="1" source="actorScheduler" target="ucScheduledSync">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="eSchedulerNotify" style="endArrow=none;html=1;" edge="1" parent="1" source="actorScheduler" target="ucNotifications">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="eAssessInclude" value="&lt;&lt;include&gt;&gt;" style="dashed=1;endArrow=open;html=1;" edge="1" parent="1" source="ucRecordHealth" target="ucMLAssess">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="eMedNotifyInclude" value="&lt;&lt;include&gt;&gt;" style="dashed=1;endArrow=open;html=1;" edge="1" parent="1" source="ucMedicationLog" target="ucNotifications">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="eReportShareExtend" value="&lt;&lt;extend&gt;&gt;" style="dashed=1;endArrow=open;html=1;" edge="1" parent="1" source="ucShareReports" target="ucReports">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

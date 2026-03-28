@@ -107,6 +107,10 @@
     border-top-color: var(--secondary-color);
 }
 
+.profile-overview-card.smartwatch {
+    border-top-color: #0f9d58;
+}
+
 .profile-overview-label {
     font-size: 0.72rem;
     text-transform: uppercase;
@@ -327,6 +331,75 @@
 
 .profile-insight-card strong {
     color: var(--text-dark);
+}
+
+.smartwatch-profile-card {
+    border-top: 2px solid #0f9d58;
+}
+
+.smartwatch-profile-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    padding: 0.85rem 1rem;
+    border-radius: 8px;
+    border: 1px solid var(--border-light);
+    background: linear-gradient(135deg, rgba(15, 157, 88, 0.09), rgba(26, 115, 232, 0.07));
+}
+
+.smartwatch-provider {
+    color: var(--text-dark);
+    font-weight: 700;
+}
+
+.smartwatch-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.3rem 0.75rem;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    font-weight: 700;
+    border: 1px solid transparent;
+}
+
+.smartwatch-pill.connected {
+    background: #d9f6e8;
+    color: #0b7d4a;
+    border-color: #9fdcbc;
+}
+
+.smartwatch-pill.disconnected {
+    background: #fde7e5;
+    color: #8a1f17;
+    border-color: #f0b0a9;
+}
+
+.smartwatch-profile-meta p {
+    margin: 0.5rem 0;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+.smartwatch-profile-meta strong {
+    color: var(--text-dark);
+}
+
+.smartwatch-profile-link {
+    display: inline-block;
+    margin-top: 0.5rem;
+    color: #1565c0;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.smartwatch-profile-link:hover {
+    text-decoration: underline;
+    color: #0d47a1;
 }
 
 /* Action Section */

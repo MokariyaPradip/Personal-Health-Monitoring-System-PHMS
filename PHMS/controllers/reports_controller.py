@@ -144,6 +144,17 @@ def _generate_csv(report_data: dict) -> str:
     writer.writerow(["Medium Risk Predictions", ml_dist.get("Medium Risk", 0)])
     writer.writerow(["High Risk Predictions", ml_dist.get("High Risk", 0)])
     writer.writerow(["Total Predictions", ml_dist.get("total_predictions", 0)])
+    writer.writerow([])
+
+    writer.writerow(["Data Source Summary"])
+    source = report_data.get("source_summary", {})
+    writer.writerow(["Manual Records", source.get("manual_count", 0)])
+    writer.writerow(["Google Fit Records", source.get("google_fit_count", 0)])
+    writer.writerow(["Smartwatch Records (Total)", source.get("smartwatch_total", 0)])
+    writer.writerow(["Other Source Records", source.get("other_count", 0)])
+    writer.writerow(["Manual %", f"{source.get('manual_pct', 0)}%"])
+    writer.writerow(["Smartwatch %", f"{source.get('smartwatch_pct', 0)}%"])
+    writer.writerow(["Dominant Source", source.get("dominant_source", "none")])
 
     return output.getvalue()
 

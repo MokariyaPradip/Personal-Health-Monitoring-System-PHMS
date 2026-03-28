@@ -71,6 +71,7 @@ def _verify_otp(otp_record, code):
     otp_record.attempts += 1
 
     if otp_record.attempts > 5:
+        db.session.commit()
         return False, "Too many attempts"
 
     if not _otp_matches(otp_record.otp_code, code):

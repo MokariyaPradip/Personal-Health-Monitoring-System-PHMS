@@ -45,6 +45,15 @@
             <div class="stat-card-label">Unread Alerts</div>
             <div class="stat-card-trend">Pending Review</div>
         </div>
+
+        <div class="stat-card smartwatch">
+            <div class="stat-card-icon">⌚</div>
+            <div class="stat-card-value">{{ 'On' if smartwatch_is_connected else 'Off' }}</div>
+            <div class="stat-card-label">Smartwatch Link</div>
+            <div class="stat-card-trend {% if not smartwatch_is_connected %}negative{% endif %}">
+                {{ smartwatch_provider_label }}
+            </div>
+        </div>
     </div>
 
     <!-- ===== Main Content Grid ===== -->
@@ -197,6 +206,68 @@
             {% endif %}
             <div class="card-footer">
                 <a href="/notifications" class="link">View All Alerts →</a>
+            </div>
+        </div>
+
+        <!-- ===== Smartwatch Integration ===== -->
+        <div class="card smartwatch-card">
+            <div class="card-header">
+                <h3>Smartwatch Integration</h3>
+                <span class="card-icon">⌚</span>
+            </div>
+
+            <div class="smartwatch-card-body">
+                <div class="smartwatch-provider-row">
+                    <div>
+                        <div class="smartwatch-provider-name">{{ smartwatch_provider_label }}</div>
+                        <div class="smartwatch-provider-id">Provider: {{ smartwatch_provider }}</div>
+                    </div>
+                    <span class="smartwatch-status-pill {{ 'connected' if smartwatch_is_connected else 'disconnected' }}">
+                        {{ 'Connected' if smartwatch_is_connected else 'Disconnected' }}
+                    </span>
+                </div>
+
+                <div class="smartwatch-metrics-grid">
+                    <div class="smartwatch-metric-item">
+                        <span class="metric-label">Last Successful Sync</span>
+                        <span class="metric-value">{{ smartwatch_last_synced_at or 'Never synced' }}</span>
+                    </div>
+                    <div class="smartwatch-metric-item">
+                        <span class="metric-label">Last Sync Attempt</span>
+                        <span class="metric-value">{{ smartwatch_last_attempt_at or 'No attempts yet' }}</span>
+                    </div>
+                    <div class="smartwatch-metric-item">
+                        <span class="metric-label">Incremental Cursor</span>
+                        <span class="metric-value cursor">{{ smartwatch_incremental_cursor or 'N/A' }}</span>
+                    </div>
+                    <div class="smartwatch-metric-item">
+                        <span class="metric-label">Incremental Since</span>
+                        <span class="metric-value">{{ smartwatch_incremental_since or 'N/A' }}</span>
+                    </div>
+                </div>
+
+                <div class="smartwatch-errors">
+                    <div class="smartwatch-errors-head">
+                        <span>Recent Sync Errors</span>
+                        <span class="smartwatch-error-count">{{ smartwatch_recent_errors_count }}</span>
+                    </div>
+                    {% if smartwatch_recent_errors %}
+                    <ul class="smartwatch-error-list">
+                        {% for err in smartwatch_recent_errors[:2] %}
+                        <li>
+                            <span class="error-source">{{ err.source|capitalize }}</span>
+                            <span class="error-message">{{ err.message }}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p class="smartwatch-no-errors">No sync errors recorded recently.</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="card-footer smartwatch-card-footer">
+                <a href="/smartwatch?provider={{ smartwatch_provider }}" class="link">Open Integration →</a>
             </div>
         </div>
     </div>

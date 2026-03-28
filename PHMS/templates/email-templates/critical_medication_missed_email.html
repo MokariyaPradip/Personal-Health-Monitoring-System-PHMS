@@ -424,9 +424,7 @@
             <div class="urgent-action-box">
                 <h3>⚡ TAKE IMMEDIATE ACTION</h3>
                 <p>Please take your medication now if it's still within a safe timeframe, or consult your doctor immediately.</p>
-                <!--
-                <a href="{{ medication_url }}" class="cta-button">Update Medication Log</a>
-                -->
+                <a href="{{ medication_url | default('#') }}" class="cta-button">Update Medication Log</a>
             </div>
             
             <!-- Critical Instructions -->
@@ -472,13 +470,11 @@
                 Your trusted health companion
             </p>
             
-            <!--
-                <div class="footer-links">
-                    <a href="{{ dashboard_url }}">Dashboard</a>
-                    <a href="{{ medication_url }}">Medications</a>
-                    <a href="{{ help_url }}">Help & Support</a>
-                </div>
-            -->
+            <div class="footer-links">
+                <a href="{{ dashboard_url | default('#') }}">Dashboard</a>
+                <a href="{{ medication_url | default('#') }}">Medications</a>
+                <a href="{{ help_url | default('#') }}">Help & Support</a>
+            </div>
             
             <div class="brand-section">
                 <span class="brand-icon">❤️</span>

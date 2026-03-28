@@ -25,6 +25,54 @@ SOURCE_LABELS = {
 }
 
 
+def _format_display_datetime(value):
+    if not value:
+        return None
+
+    if isinstance(value, datetime):
+        return value.strftime('%d %b %Y, %I:%M %p')
+
+    try:
+        parsed = datetime.fromisoformat(str(value).replace('Z', '+00:00'))
+    except ValueError:
+        return str(value)
+
+    return parsed.strftime('%d %b %Y, %I:%M %p')
+
+
+def _build_health_smartwatch_summary(user_id):
+    summary = {
+        'provider': 'google_fit',
+        'provider_label': 'Google Fit',
+        'is_connected': False,
+        'last_synced_at': None,
+        'last_attempt_at': None,
+        'recent_errors_count': 0,
+    }
+
+    try:
+        # Local import avoids circular dependency with smartwatch ingestion gateway.
+        from . import smartwatch_service
+
+        smartwatch_context = smartwatch_service.get_integration_page_context(user_id)
+        account = smartwatch_context.get('account') or {}
+        sync_state = smartwatch_context.get('sync_state') or {}
+        recent_errors = smartwatch_context.get('recent_errors') or []
+
+        summary.update({
+            'provider': smartwatch_context.get('provider') or summary['provider'],
+            'provider_label': smartwatch_context.get('provider_label') or summary['provider_label'],
+            'is_connected': bool(smartwatch_context.get('is_connected')),
+            'last_synced_at': _format_display_datetime(account.get('last_synced_at')),
+            'last_attempt_at': _format_display_datetime(sync_state.get('last_synced_at')),
+            'recent_errors_count': len(recent_errors),
+        })
+    except (RuntimeError, ValueError, TypeError, AttributeError):
+        pass
+
+    return summary
+
+
 def _normalize_source_filter(source):
     normalized = (source or '').strip().lower()
     if normalized in ('', 'all'):
@@ -241,6 +289,16 @@ def health_page(user_id, page=1, per_page=50, source_filter=None):
         start_datetime=first_of_month,
     )
 
+    manual_records_count = HealthRepository.count_user_entries_by_source(
+        user_id=user_id,
+        data_source='manual',
+    )
+    smartwatch_records_count = HealthRepository.count_user_entries_by_source(
+        user_id=user_id,
+        data_source='google_fit',
+    )
+    smartwatch_summary = _build_health_smartwatch_summary(user_id)
+
     return {
         'last_entry': last_entry,
         'entries': pagination.items,
@@ -254,6 +312,14 @@ def health_page(user_id, page=1, per_page=50, source_filter=None):
             {'value': 'manual', 'label': SOURCE_LABELS['manual']},
             {'value': 'google_fit', 'label': SOURCE_LABELS['google_fit']},
         ],
+        'manual_records_count': manual_records_count,
+        'smartwatch_records_count': smartwatch_records_count,
+        'smartwatch_provider': smartwatch_summary['provider'],
+        'smartwatch_provider_label': smartwatch_summary['provider_label'],
+        'smartwatch_is_connected': smartwatch_summary['is_connected'],
+        'smartwatch_last_synced_at': smartwatch_summary['last_synced_at'],
+        'smartwatch_last_attempt_at': smartwatch_summary['last_attempt_at'],
+        'smartwatch_recent_errors_count': smartwatch_summary['recent_errors_count'],
     }
 
 

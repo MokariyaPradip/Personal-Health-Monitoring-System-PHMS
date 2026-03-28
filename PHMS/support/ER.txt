@@ -8,7 +8,7 @@ OVERVIEW
 --------------------------------------------------------------------------------
 - This ER document is generated from SQLAlchemy models in `PHMS/models`.
 - Database engine: SQLite (via Flask-SQLAlchemy).
-- Total entities: 7
+- Total entities: 9 (including smartwatch sync framework)
 - Naming follows model columns exactly.
 
 
@@ -21,6 +21,7 @@ TABLES
   - password (VARCHAR(255), NOT NULL)
   - age (INTEGER), gender (VARCHAR(10)), height (FLOAT), weight (FLOAT)
   - bmi (FLOAT)
+  - is_admin (BOOLEAN, NOT NULL, default False)
   - created_at (DATETIME, NOT NULL, default utcnow)
   - updated_at (DATETIME, NOT NULL, default utcnow, on update utcnow)
   - Relationships:
@@ -28,6 +29,8 @@ TABLES
     * 1:N medication (cascade delete-orphan)
     * 1:N alert (cascade delete-orphan)
     * 1:N medication_log (via backref, direct FK exists)
+    * 1:N smartwatch_account (cascade delete-orphan)
+    * 1:N smartwatch_sync_state
 
 2) health_data
   - PK: entry_id (INTEGER)
@@ -38,6 +41,12 @@ TABLES
   - health_score (INTEGER)
   - ml_regression_health_score (FLOAT)
   - ml_classifier_risk_label (VARCHAR(20))
+  - data_source (VARCHAR(30), NOT NULL, default 'manual', indexed)
+  - source_record_id (VARCHAR(255), NULLABLE)
+  - ingestion_fingerprint (VARCHAR(64), NULLABLE, indexed)
+  - UNIQUE constraints:
+    * UQ(user_id, data_source, source_record_id)   [deduplication by source]
+    * UQ(user_id, ingestion_fingerprint)           [deduplication by content hash]
   - Relationships:
     * N:1 user
     * 1:N alert (optional link through alert.health_id)
@@ -74,6 +83,8 @@ TABLES
   - scheduled_time (TIME, NOT NULL)
   - taken_at (DATETIME, NULLABLE)
   - created_at (DATETIME, default utcnow)
+  - UNIQUE constraint:
+    * UQ(medication_id, log_date, scheduled_time)  [one log per scheduled time]
   - Relationships:
     * N:1 user (optional)
     * N:1 medication
@@ -90,6 +101,8 @@ TABLES
   - created_at (DATETIME, NOT NULL, default utcnow)
   - severity (VARCHAR(20))
   - is_read (BOOLEAN, default False)
+  - UNIQUE constraint:
+    * UQ(medication_log_id, title)  [one alert title per medication log]
   - Relationships:
     * N:1 user
     * optional N:1 health_data
@@ -98,7 +111,7 @@ TABLES
 7) password_reset_otp
   - PK: otp_id (INTEGER)
   - user_email (VARCHAR(100), NOT NULL, indexed)
-  - otp_code (VARCHAR(6), NOT NULL)
+  - otp_code (VARCHAR(255), NOT NULL)  [HASHED, not plaintext]
   - attempts (INTEGER, default 0)
   - created_at (DATETIME, NOT NULL, default utcnow)
   - expires_at (DATETIME, NOT NULL)
@@ -106,6 +119,43 @@ TABLES
   - IMPORTANT:
     * No foreign key to user table in model.
     * Link is application-level by matching user_email.
+
+8) smartwatch_account
+  - PK: account_id (INTEGER)
+  - FK: user_id -> user.user_id (ON DELETE CASCADE, indexed, NOT NULL)
+  - provider (VARCHAR(50), NOT NULL, indexed)
+  - provider_user_id (VARCHAR(128), NULLABLE)
+  - access_token (TEXT, NOT NULL)
+  - refresh_token (TEXT, NULLABLE)
+  - token_expiry (DATETIME, NULLABLE)
+  - scopes (TEXT, NULLABLE)  [JSON-serialized scope list]
+  - connection_status (VARCHAR(20), default 'connected')
+  - last_synced_at (DATETIME, NULLABLE)
+  - last_error (TEXT, NULLABLE)
+  - created_at (DATETIME, NOT NULL, default utcnow)
+  - updated_at (DATETIME, NOT NULL, default utcnow, on update utcnow)
+  - UNIQUE constraint:
+    * UQ(user_id, provider)  [one account per provider per user]
+  - Relationships:
+    * N:1 user
+    * 1:1 smartwatch_sync_state (cascade delete-orphan)
+
+9) smartwatch_sync_state
+  - PK: state_id (INTEGER)
+  - FK: account_id -> smartwatch_account.account_id (ON DELETE CASCADE, indexed, NOT NULL)
+  - FK: user_id -> user.user_id (ON DELETE CASCADE, indexed, NOT NULL)
+  - provider (VARCHAR(50), NOT NULL, indexed)  [denormalized from account for query speed]
+  - incremental_cursor (VARCHAR(255), NULLABLE)  [provider-specific pagination/sync token]
+  - incremental_since (DATETIME, NULLABLE)  [last incremental sync timestamp]
+  - last_synced_at (DATETIME, NULLABLE)
+  - last_error (TEXT, NULLABLE)
+  - created_at (DATETIME, NOT NULL, default utcnow)
+  - updated_at (DATETIME, NOT NULL, default utcnow, on update utcnow)
+  - UNIQUE constraint:
+    * UQ(user_id, provider)  [one sync state per provider per user]
+  - Relationships:
+    * N:1 smartwatch_account
+    * N:1 user
 
 
 RELATIONSHIP SUMMARY
@@ -118,6 +168,9 @@ RELATIONSHIP SUMMARY
 - user 1 -> many alert (cascade on delete)
 - health_data 1 -> many alert (optional reference)
 - medication_log 1 -> many alert (optional reference)
+- user 1 -> many smartwatch_account (cascade on delete)
+- smartwatch_account 1 -> one smartwatch_sync_state (cascade on delete)
+- user 1 -> many smartwatch_sync_state (cascade on delete)
 - password_reset_otp has no FK; linked by user_email in application logic
 
 
@@ -128,6 +181,8 @@ user --< medication >-- medicine
 user --< medication_log >-- medication
 user --< alert >-- health_data
 alert >-- medication_log
+user --< smartwatch_account >-- smartwatch_sync_state
+user --< smartwatch_sync_state
 password_reset_otp -(logical via user_email)-> user
 
 
@@ -138,3 +193,8 @@ NOTES
 - `health_data` keeps single `blood_pressure` field (FLOAT).
 - `alert` has `medication_log_id` and no `medication_id` FK column.
 - `password_reset_otp` uses `user_email` and not `user_id`.
+- `smartwatch_account` and `smartwatch_sync_state` support multi-provider wearable integration.
+- `smartwatch_sync_state.provider` is denormalized from `smartwatch_account` for faster queries.
+- `health_data` deduplication uses both source ID (provider-native) and ingestion fingerprint (content hash).
+- `user.is_admin` flag controls role-based features (admin dashboard, user management).
+- `otp_code` is stored hashed (argon2) at VARCHAR(255) length, not plaintext 6-digit.

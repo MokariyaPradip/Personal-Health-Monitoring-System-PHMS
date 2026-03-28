@@ -7,21 +7,6 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style/register.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='style/loading-states.css') }}">
     <script src="{{ url_for('static', filename='js/loading-states.js') }}"></script>
-
-    <script>
-    function getCsrfToken() {
-        const el = document.querySelector('meta[name="csrf-token"]');
-        return el ? el.getAttribute('content') : '';
-    }
-    function showPageToast(message, isError) {
-        const t = document.createElement('div');
-        t.className = 'phms-page-toast';
-        t.textContent = message;
-        t.style.background = isError ? '#ef4444' : '#10b981';
-        document.body.appendChild(t);
-        setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 3500);
-    }
-    </script>
 </head>
 
 <body>
@@ -45,7 +30,7 @@
     <input id="height" type="number" step="0.1" placeholder="Height (cm)">
     <input id="weight" type="number" step="0.1" placeholder="Weight (kg)">
 
-    <button onclick="register(event)">Register</button>
+    <button id="registerBtn">Register</button>
 
         <!-- login link -->
     <div class="login-link">
@@ -53,74 +38,7 @@
     </div>
 </div>
 
-<script>
-function register(event) {
-    const usernameInput = document.getElementById('username');
-    const emailInput = document.getElementById('email');
-    const passwordInput = document.getElementById('password');
-    const ageInput = document.getElementById('age');
-    const genderInput = document.getElementById('gender');
-    const heightInput = document.getElementById('height');
-    const weightInput = document.getElementById('weight');
-    const registerBtn = event ? event.target : null;
-    if (registerBtn) {
-        if (window.PHMSLoading) {
-            window.PHMSLoading.setButtonLoading(registerBtn, 'Creating account...');
-        } else {
-            registerBtn.disabled = true;
-            registerBtn.textContent = 'Creating account...';
-        }
-    }
-
-    fetch('/register', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': getCsrfToken()
-        },
-        body: JSON.stringify({
-            username: usernameInput ? usernameInput.value : '',
-            email: emailInput ? emailInput.value : '',
-            password: passwordInput ? passwordInput.value : '',
-            age: ageInput ? ageInput.value : '',
-            gender: genderInput ? genderInput.value : '',
-            height: heightInput ? heightInput.value : '',
-            weight: weightInput ? weightInput.value : ''
-        })
-    })
-    .then(res => res.json())
-    .then(data => {
-        showPageToast(data.message, !data.success);
-        if (data.success) {
-            if (window.PHMSLoading) {
-                window.PHMSLoading.showOverlay('Redirecting to login...');
-            }
-            window.location = "/login";
-            return;
-        }
-
-        if (registerBtn) {
-            if (window.PHMSLoading) {
-                window.PHMSLoading.clearButtonLoading(registerBtn);
-            } else {
-                registerBtn.disabled = false;
-                registerBtn.textContent = 'Register';
-            }
-        }
-    })
-    .catch(() => {
-        showPageToast('Registration failed. Please try again.', true);
-        if (registerBtn) {
-            if (window.PHMSLoading) {
-                window.PHMSLoading.clearButtonLoading(registerBtn);
-            } else {
-                registerBtn.disabled = false;
-                registerBtn.textContent = 'Register';
-            }
-        }
-    });
-}
-</script>
+<script src="{{ url_for('static', filename='js/register.js') }}"></script>
 
 </body>
 </html>

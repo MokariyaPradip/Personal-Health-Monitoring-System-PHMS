@@ -56,6 +56,12 @@
             <span class="profile-overview-value">{{ profile_stats.latest_health_score if profile_stats.latest_health_score is not none else 'N/A' }}</span>
             <span class="profile-overview-meta">Risk: {{ profile_stats.latest_health_risk or 'N/A' }}</span>
         </div>
+
+        <div class="profile-overview-card smartwatch">
+            <span class="profile-overview-label">Smartwatch Sync</span>
+            <span class="profile-overview-value">{{ 'On' if smartwatch_summary.is_connected else 'Off' }}</span>
+            <span class="profile-overview-meta">{{ smartwatch_summary.provider_label }}</span>
+        </div>
     </div>
 
     <!-- ===== PROFILE INFORMATION ===== -->
@@ -118,6 +124,28 @@
             </div>
         </div>
 
+        <div class="profile-card smartwatch-profile-card">
+            <div class="card-header">
+                <h3>Smartwatch Integration</h3>
+                <span class="card-icon">⌚</span>
+            </div>
+            <div class="card-content">
+                <div class="smartwatch-profile-row">
+                    <span class="smartwatch-provider">{{ smartwatch_summary.provider_label }}</span>
+                    <span class="smartwatch-pill {{ 'connected' if smartwatch_summary.is_connected else 'disconnected' }}">
+                        {{ 'Connected' if smartwatch_summary.is_connected else 'Disconnected' }}
+                    </span>
+                </div>
+                <div class="smartwatch-profile-meta">
+                    <p><strong>Last successful sync:</strong> {{ smartwatch_summary.last_synced_at or 'Never synced' }}</p>
+                    <p><strong>Manual records:</strong> {{ manual_health_entries }}</p>
+                    <p><strong>Smartwatch records:</strong> {{ smartwatch_health_entries }}</p>
+                    <p><strong>Sync errors:</strong> {{ smartwatch_summary.recent_errors_count }}</p>
+                </div>
+                <a class="smartwatch-profile-link" href="/smartwatch?provider={{ smartwatch_summary.provider }}">Open Smartwatch Integration →</a>
+            </div>
+        </div>
+
     </div>
 
     <!-- ===== PROFILE INSIGHTS ===== -->
@@ -127,6 +155,7 @@
             <p><strong>Latest score:</strong> {{ profile_stats.latest_health_score if profile_stats.latest_health_score is not none else 'N/A' }}</p>
             <p><strong>Risk level:</strong> {{ profile_stats.latest_health_risk or 'N/A' }}</p>
             <p><strong>Tracked records:</strong> {{ profile_stats.health_entries }}</p>
+            <p><strong>Manual vs smartwatch:</strong> {{ manual_health_entries }} / {{ smartwatch_health_entries }}</p>
         </div>
 
         <div class="profile-insight-card">
@@ -144,14 +173,20 @@
             {% if profile_stats.critical_medications > 0 %}
             <p>You have {{ profile_stats.critical_medications }} critical medication(s). Keep reminders enabled.</p>
             {% endif %}
+
+            {% if smartwatch_summary.is_connected %}
+            <p>Your wearable is connected. Keep syncing to enrich automated health insights.</p>
+            {% else %}
+            <p>Connect your smartwatch to automatically import vitals into PHMS.</p>
+            {% endif %}
         </div>
     </div>
 
     <!-- ===== ACTION BUTTONS ===== -->
     <div class="action-section">
-        <button class="btn-update" onclick="openUpdate()">✏️ Update Profile</button>
-        <button class="btn-password" onclick="openPassword()">🔐 Change Password</button>
-        <button class="btn-logout" onclick="logoutUser(this)">🚪 Logout</button>
+        <button class="btn-update" id="openUpdateBtn">✏️ Update Profile</button>
+        <button class="btn-password" id="openPasswordBtn">🔐 Change Password</button>
+        <button class="btn-logout" id="logoutBtn">🚪 Logout</button>
     </div>
 
 </div>
@@ -161,7 +196,7 @@
     <div class="modal-content">
         <div class="modal-header">
             <h2>Update Profile</h2>
-            <span class="close" onclick="closeAll()">&times;</span>
+            <span class="close" data-action="close-all-profile-modals">&times;</span>
         </div>
         
         <div class="modal-body">
@@ -200,8 +235,8 @@
         </div>
 
         <div class="modal-footer">
-            <button type="button" class="btn-cancel" onclick="closeAll()">Cancel</button>
-            <button type="button" class="btn-submit" onclick="updateProfile(event)">Update</button>
+            <button type="button" class="btn-cancel" data-action="close-all-profile-modals">Cancel</button>
+            <button type="button" class="btn-submit" data-action="submit-profile-update">Update</button>
         </div>
     </div>
 </div>
@@ -211,7 +246,7 @@
     <div class="modal-content">
         <div class="modal-header">
             <h2>Change Password</h2>
-            <span class="close" onclick="closeAll()">&times;</span>
+            <span class="close" data-action="close-all-profile-modals">&times;</span>
         </div>
         
         <div class="modal-body">
@@ -234,228 +269,11 @@
         </div>
 
         <div class="modal-footer">
-            <button type="button" class="btn-cancel" onclick="closeAll()">Cancel</button>
-            <button type="button" class="btn-submit" onclick="resetPassword(event)">Change Password</button>
+            <button type="button" class="btn-cancel" data-action="close-all-profile-modals">Cancel</button>
+            <button type="button" class="btn-submit" data-action="submit-password-change">Change Password</button>
         </div>
     </div>
 </div>
-
-<script>
-
-function openUpdate() {
-    closeAll();
-    document.getElementById('updateModal').style.display = 'block';
-}
-
-function openPassword() {
-    closeAll();
-    document.getElementById('passwordModal').style.display = 'block';
-}
-
-function closeAll() {
-    document.getElementById('updateModal').style.display = 'none';
-    document.getElementById('passwordModal').style.display = 'none';
-}
-
-function updateProfile(event) {
-    const username = document.getElementById('edit_username').value;
-    const gender = document.getElementById('edit_gender').value;
-    const age = document.getElementById('edit_age').value;
-    const height = document.getElementById('edit_height').value;
-    const weight = document.getElementById('edit_weight').value;
-
-    if (!username || !gender || !age || !height || !weight) {
-        showToast('Please fill in all fields', 'error');
-        return;
-    }
-
-    const submitBtn = event ? event.target : null;
-    if (submitBtn) {
-        if (window.PHMSLoading) {
-            window.PHMSLoading.setButtonLoading(submitBtn, 'Updating...');
-        } else {
-            submitBtn.disabled = true;
-            submitBtn.textContent = 'Updating...';
-        }
-    }
-
-    fetch('/update-profile', {
-        method: 'PUT',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': window.getCsrfToken()
-        },
-        body: JSON.stringify({
-            username: username,
-            gender: gender,
-            age: parseInt(age),
-            height: parseFloat(height),
-            weight: parseFloat(weight)
-        })
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.success) {
-            showToast('Profile updated successfully');
-            if (window.PHMSLoading) {
-                window.PHMSLoading.showOverlay('Refreshing profile...');
-            }
-            location.reload();
-        } else {
-            showToast(data.message || 'Failed to update profile', 'error');
-            if (submitBtn) {
-                if (window.PHMSLoading) {
-                    window.PHMSLoading.clearButtonLoading(submitBtn);
-                } else {
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = 'Update';
-                }
-            }
-        }
-    })
-    .catch(err => {
-        showToast('Error updating profile. Please try again.', 'error');
-        if (submitBtn) {
-            if (window.PHMSLoading) {
-                window.PHMSLoading.clearButtonLoading(submitBtn);
-            } else {
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'Update';
-            }
-        }
-    });
-}
-
-function resetPassword(event) {
-    const currentPassword = document.getElementById('current_password').value;
-    const newPassword = document.getElementById('new_password').value;
-    const repeat = document.getElementById('confirm_password').value;
-
-    if (!currentPassword || !newPassword || !repeat) {
-        showToast('Please fill in all fields', 'error');
-        return;
-    }
-
-    if (newPassword !== repeat) {
-        showToast('Passwords do not match. Please try again.', 'error');
-        return;
-    }
-
-    if (newPassword.length < 8) {
-        showToast('Password must be at least 8 characters long', 'error');
-        return;
-    }
-
-    const submitBtn = event ? event.target : null;
-    if (submitBtn) {
-        if (window.PHMSLoading) {
-            window.PHMSLoading.setButtonLoading(submitBtn, 'Changing...');
-        } else {
-            submitBtn.disabled = true;
-            submitBtn.textContent = 'Changing...';
-        }
-    }
-
-    fetch('/change-password', {
-        method: 'PUT',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': window.getCsrfToken()
-        },
-        body: JSON.stringify({
-            current_password: currentPassword,
-            new_password: newPassword,
-            confirm_password: repeat
-        })
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.success) {
-            showToast(data.message);
-            closeAll();
-        } else {
-            showToast(data.message || 'Failed to reset password', 'error');
-        }
-
-        if (submitBtn) {
-            if (window.PHMSLoading) {
-                window.PHMSLoading.clearButtonLoading(submitBtn);
-            } else {
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'Change Password';
-            }
-        }
-    })
-    .catch(err => {
-        showToast('Error resetting password. Please try again.', 'error');
-        if (submitBtn) {
-            if (window.PHMSLoading) {
-                window.PHMSLoading.clearButtonLoading(submitBtn);
-            } else {
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'Change Password';
-            }
-        }
-    });
-}
-
-function logoutUser(triggerButton) {
-    if (triggerButton) {
-        if (window.PHMSLoading) {
-            window.PHMSLoading.setButtonLoading(triggerButton, 'Logging out...');
-        } else {
-            triggerButton.disabled = true;
-            triggerButton.textContent = 'Logging out...';
-        }
-    }
-
-    fetch('/logout', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': window.getCsrfToken()
-        }
-    })
-    .then(res => {
-        if (res.ok) {
-            if (window.PHMSLoading) {
-                window.PHMSLoading.showOverlay('Signing out...');
-            }
-            window.location.href = '/login';
-        } else {
-            showToast('Logout failed. Please try again.', 'error');
-            if (triggerButton) {
-                if (window.PHMSLoading) {
-                    window.PHMSLoading.clearButtonLoading(triggerButton);
-                } else {
-                    triggerButton.disabled = false;
-                    triggerButton.textContent = '🚪 Logout';
-                }
-            }
-        }
-    })
-    .catch(err => {
-        showToast('Error during logout. Please try again.', 'error');
-        if (triggerButton) {
-            if (window.PHMSLoading) {
-                window.PHMSLoading.clearButtonLoading(triggerButton);
-            } else {
-                triggerButton.disabled = false;
-                triggerButton.textContent = '🚪 Logout';
-            }
-        }
-    });
-}
-
-// Close modal when clicking outside
-window.onclick = function(event) {
-    const updateModal = document.getElementById('updateModal');
-    const passwordModal = document.getElementById('passwordModal');
-    if (event.target == updateModal || event.target == passwordModal) {
-        closeAll();
-    }
-}
-
-</script>
+<script src="{{ url_for('static', filename='js/profile.js') }}"></script>
 
 {% endblock %}

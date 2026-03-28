@@ -10,6 +10,18 @@
 
 {% block content %}
 <div class="notifications-page">
+    {% set src = namespace(manual=0, smartwatch=0) %}
+    {% for alert in health_alerts %}
+        {% if not alert.is_read %}
+            {% set health_source = ((alert.health.data_source if alert.health else none) or 'manual')|lower %}
+            {% if health_source == 'google_fit' %}
+                {% set src.smartwatch = src.smartwatch + 1 %}
+            {% else %}
+                {% set src.manual = src.manual + 1 %}
+            {% endif %}
+        {% endif %}
+    {% endfor %}
+
     <div class="page-header">
         <div>
             <h1>🔔 Notifications</h1>
@@ -26,6 +38,11 @@
                 <span class="stat-badge unread">Unread: <strong>{{ unread_count }}</strong></span>
             </div>
         </div>
+    </div>
+
+    <div class="health-source-stats">
+        <span class="source-stat source-manual">Manual Health Alerts: <strong>{{ health_manual_unread if health_manual_unread is defined else src.manual }}</strong></span>
+        <span class="source-stat source-smartwatch">Smartwatch Health Alerts: <strong>{{ health_smartwatch_unread if health_smartwatch_unread is defined else src.smartwatch }}</strong></span>
     </div>
 
     <!-- Category Tabs -->
@@ -76,6 +93,10 @@
                         <div class="notification-badges">
                             <span class="category-badge {{ alert.category }}">{{ alert.category|upper }}</span>
                             <span class="severity-badge {{ alert.severity|lower }}">{{ alert.severity|upper }}</span>
+                            {% if alert.category == 'health' %}
+                            {% set health_source = ((alert.health.data_source if alert.health else none) or (alert.health_source if alert.health_source is defined else 'manual'))|lower %}
+                            <span class="health-source-badge source-{{ health_source|replace('_', '-') }}">{{ 'Google Fit' if health_source == 'google_fit' else ('Smartwatch' if health_source == 'smartwatch' else 'Manual') }}</span>
+                            {% endif %}
                         </div>
                         <div class="notification-actions">
                             {% if not alert.is_read %}
@@ -122,6 +143,8 @@
                         <div class="notification-badges">
                             <span class="category-badge health">HEALTH</span>
                             <span class="severity-badge {{ alert.severity|lower }}">{{ alert.severity|upper }}</span>
+                            {% set health_source = ((alert.health.data_source if alert.health else none) or (alert.health_source if alert.health_source is defined else 'manual'))|lower %}
+                            <span class="health-source-badge source-{{ health_source|replace('_', '-') }}">{{ 'Google Fit' if health_source == 'google_fit' else ('Smartwatch' if health_source == 'smartwatch' else 'Manual') }}</span>
                         </div>
                         <div class="notification-actions">
                             {% if not alert.is_read %}

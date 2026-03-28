@@ -11,7 +11,7 @@
 <div class="medication-container">
     
     <!-- ===== ADD MEDICATION BUTTON ===== -->
-    <button class="btn-add-medication" onclick="openMedicationModal()">+ Add Medication</button>
+    <button class="btn-add-medication" id="addMedicationBtn">+ Add Medication</button>
 
     <!-- ===== PAGE HEADER ===== -->
     <div class="medication-page-header">
@@ -118,7 +118,8 @@
                     </div>
                     <button class="delete-btn"
                         title="Delete medication"
-                        onclick="confirmDeleteMedication({{ med.medication_id }}, this)">
+                        data-action="confirm-delete-medication"
+                        data-medication-id="{{ med.medication_id }}">
                         🗑️
                     </button>
                 </div>
@@ -188,7 +189,7 @@
                 
             </div>
 
-            <button class="add-medicine-btn" onclick="openMedicineModal()">
+            <button class="add-medicine-btn" data-action="open-medicine-modal">
                 + Add Medicine
             </button>
 
@@ -270,7 +271,7 @@
     <div class="modal-content" style="max-width: 400px;">
         <div class="modal-header">
             <h2>⚠️ Confirm Delete</h2>
-            <span class="close" onclick="closeConfirmDeleteMedicationModal()">&times;</span>
+            <span class="close" data-action="close-confirm-delete-medication-modal">&times;</span>
         </div>
         
         <div class="modal-body">
@@ -279,8 +280,8 @@
         </div>
 
         <div class="modal-footer">
-            <button type="button" class="btn-cancel" onclick="closeConfirmDeleteMedicationModal()">Cancel</button>
-            <button type="button" class="btn-submit" style="background: #e74c3c;" onclick="executeDeleteMedication()">Delete</button>
+            <button type="button" class="btn-cancel" data-action="close-confirm-delete-medication-modal">Cancel</button>
+            <button type="button" class="btn-submit" style="background: #e74c3c;" data-action="execute-delete-medication">Delete</button>
         </div>
     </div>
 </div>
@@ -290,7 +291,7 @@
     <div class="modal-content">
         <div class="modal-header">
             <h2>Add Medication</h2>
-            <span class="close" onclick="closeMedicationModal()">&times;</span>
+            <span class="close" data-action="close-medication-modal">&times;</span>
         </div>
         
         <div class="modal-body">
@@ -334,8 +335,8 @@
         </div>
 
         <div class="modal-footer">
-            <button type="button" class="btn-cancel" onclick="closeMedicationModal()">Cancel</button>
-            <button type="button" class="btn-submit" onclick="addMedication(event)">Add Medication</button>
+            <button type="button" class="btn-cancel" data-action="close-medication-modal">Cancel</button>
+            <button type="button" class="btn-submit" data-action="submit-medication">Add Medication</button>
         </div>
     </div>
 </div>
@@ -345,7 +346,7 @@
     <div class="modal-content">
         <div class="modal-header">
             <h2>Add Medicine</h2>
-            <span class="close" onclick="closeMedicineModal()">&times;</span>
+            <span class="close" data-action="close-medicine-modal">&times;</span>
         </div>
 
         <div class="modal-body">
@@ -373,264 +374,12 @@
         </div>
 
         <div class="modal-footer">
-            <button class="btn-cancel" onclick="closeMedicineModal()">Cancel</button>
-            <button class="btn-submit" onclick="addMedicine(event)">Add Medicine</button>
+            <button class="btn-cancel" data-action="close-medicine-modal">Cancel</button>
+            <button class="btn-submit" data-action="submit-medicine">Add Medicine</button>
         </div>
     </div>
 </div>
-
-
-<script>
-
-// ===== DELETE CONFIRMATION MODAL =====
-let deleteMedicationId = null;
-let deleteMedicationTriggerButton = null;
-
-function confirmDeleteMedication(medicationId, triggerButton) {
-    deleteMedicationId = medicationId;
-    deleteMedicationTriggerButton = triggerButton;
-    document.getElementById('confirmDeleteMedicationModal').style.display = 'block';
-}
-
-function closeConfirmDeleteMedicationModal() {
-    document.getElementById('confirmDeleteMedicationModal').style.display = 'none';
-    deleteMedicationId = null;
-    deleteMedicationTriggerButton = null;
-}
-
-function executeDeleteMedication() {
-    if (!deleteMedicationId) {
-        showToast('Error: No medication selected', 'error');
-        return;
-    }
-
-    // Capture values before closing modal
-    const medicationId = deleteMedicationId;
-    const triggerBtn = deleteMedicationTriggerButton;
-    
-    closeConfirmDeleteMedicationModal();
-    deleteMedication(medicationId, triggerBtn);
-}
-
-function deleteMedication(medicationId, triggerButton) {
-    const request = () => fetch(`/delete-medication/${medicationId}`, {
-        method: 'DELETE',
-        headers: {
-            'X-CSRFToken': window.getCsrfToken()
-        }
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.success) {
-            showToast('Medication deleted successfully');
-            if (window.PHMSLoading) {
-                window.PHMSLoading.showOverlay('Refreshing medications...');
-            }
-            location.reload();
-        } else {
-            showToast(data.message || 'Failed to delete medication', 'error');
-        }
-    });
-
-    const requestPromise = triggerButton && window.PHMSLoading
-        ? window.PHMSLoading.withLoading({ button: triggerButton, buttonText: 'Deleting...' }, request)
-        : request();
-
-    requestPromise.catch(() => showToast('Error deleting medication. Please try again.', 'error'));
-}
-
-function openMedicationModal() {
-    document.getElementById('medicationModal').style.display = 'block';
-}
-
-function closeMedicationModal() {
-    document.getElementById('medicationModal').style.display = 'none';
-    document.getElementById('medicationForm').reset();
-}
-
-function addMedication(event) {
-    const medicineName = document.getElementById('medicine_name').value;
-    const dosage = document.getElementById('dosage').value;
-    const frequency = document.getElementById('frequency').value;
-    const start_date = document.getElementById('start_date').value;
-    const end_date = document.getElementById('end_date').value;
-    const is_critical = document.getElementById('is_critical').checked;
-
-    /* ===== VALIDATION ===== */
-    if (!medicineName || !dosage || !frequency || !start_date || !end_date) {
-        showToast('Please fill in all fields', 'error');
-        return;
-    }
-
-    
-
-    /* ===== DISABLE BUTTON & SHOW LOADING STATE ===== */
-    const submitBtn = event ? event.target : null;
-    if (submitBtn) {
-        if (window.PHMSLoading) {
-            window.PHMSLoading.setButtonLoading(submitBtn, 'Adding Medication...');
-        } else {
-            submitBtn.disabled = true;
-            submitBtn.textContent = 'Adding Medication...';
-        }
-    }
-
-    /* ===== SEND DATA ===== */
-    fetch('/add-medication', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': window.getCsrfToken()
-        },
-        body: JSON.stringify({
-            medicine_name: medicineName,
-            dosage: dosage,
-            frequency: frequency,
-            start_date: start_date,
-            end_date: end_date,
-            is_critical: is_critical
-        })
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.message && data.message.toLowerCase().includes('added')) {
-            showToast('Medication added successfully');
-            closeMedicationModal();
-            if (window.PHMSLoading) {
-                window.PHMSLoading.showOverlay('Refreshing medications...');
-            }
-            location.reload();
-        } else {
-            showToast(data.message || 'Failed to add medication', 'error');
-            if (submitBtn) {
-                if (window.PHMSLoading) {
-                    window.PHMSLoading.clearButtonLoading(submitBtn);
-                } else {
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = 'Add Medication';
-                }
-            }
-        }
-    })
-    .catch(err => {
-        showToast('Something went wrong. Please try again.', 'error');
-        if (submitBtn) {
-            if (window.PHMSLoading) {
-                window.PHMSLoading.clearButtonLoading(submitBtn);
-            } else {
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'Add Medication';
-            }
-        }
-    });
-}
-
-</script>
-
-<script>
-function openMedicineModal() {
-    document.getElementById('medicineModal').style.display = 'block';
-}
-
-function closeMedicineModal() {
-    document.getElementById('medicineModal').style.display = 'none';
-    document.getElementById('medicineForm').reset();
-}
-
-function addMedicine(event) {
-    const name = document.getElementById('new_medicine_name').value;
-    const type = document.getElementById('new_medicine_type').value;
-    const purpose = document.getElementById('new_medicine_purpose').value;
-    const remark = document.getElementById('new_medicine_remark').value;
-
-    if (!name || !purpose) {
-        showToast('Please fill required fields', 'error');
-        return;
-    }
-
-    const submitBtn = event ? event.target : null;
-    if (submitBtn) {
-        if (window.PHMSLoading) {
-            window.PHMSLoading.setButtonLoading(submitBtn, 'Adding Medicine...');
-        } else {
-            submitBtn.disabled = true;
-            submitBtn.textContent = 'Adding Medicine...';
-        }
-    }
-
-    fetch('/add-medicine', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': window.getCsrfToken()
-        },
-        body: JSON.stringify({
-            medicine_name: name,
-            medicine_type: type,
-            purpose: purpose,
-            remark: remark
-        })
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.success) {
-            showToast('Medicine added successfully');
-            closeMedicineModal();
-            if (window.PHMSLoading) {
-                window.PHMSLoading.showOverlay('Refreshing medicines...');
-            }
-            location.reload();
-        } else {
-            showToast(data.message, 'error');
-            if (submitBtn) {
-                if (window.PHMSLoading) {
-                    window.PHMSLoading.clearButtonLoading(submitBtn);
-                } else {
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = 'Add Medicine';
-                }
-            }
-        }
-    })
-    .catch(() => {
-        showToast('Something went wrong. Please try again.', 'error');
-        if (submitBtn) {
-            if (window.PHMSLoading) {
-                window.PHMSLoading.clearButtonLoading(submitBtn);
-            } else {
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'Add Medicine';
-            }
-        }
-    });
-}
-
-// Close modal when clicking outside it
-window.onclick = function(event) {
-    const medicationModal = document.getElementById('medicationModal');
-    const medicineModal = document.getElementById('medicineModal');
-    const confirmDeleteModal = document.getElementById('confirmDeleteMedicationModal');
-    
-    if (event.target == medicationModal) {
-        closeMedicationModal();
-    }
-    if (event.target == medicineModal) {
-        closeMedicineModal();
-    }
-    if (event.target == confirmDeleteModal) {
-        closeConfirmDeleteMedicationModal();
-    }
-}
-</script>
-
-<script>
-document.addEventListener("DOMContentLoaded", function () {
-    const today = new Date().toISOString().split("T")[0];
-
-    document.getElementById("start_date").setAttribute("min", today);
-    document.getElementById("end_date").setAttribute("min", today);
-});
-</script>
+<script src="{{ url_for('static', filename='js/medication.js') }}"></script>
 
 
 {% endblock %}

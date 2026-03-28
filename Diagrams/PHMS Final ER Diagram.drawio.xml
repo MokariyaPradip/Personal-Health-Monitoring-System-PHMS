@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0" version="29.3.2">
+  <diagram name="PHMS ER Diagram (Model Derived)" id="phms-er-20260308">
+    <mxGraphModel dx="1600" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2200" pageHeight="1400" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="100" parent="1" vertex="1" style="rounded=1;fillColor=#dae8fc;strokeColor=#6c8ebf;whiteSpace=wrap;html=1;" value="USER&#xa;------------------&#xa;user_id : INT (PK)&#xa;username : VARCHAR(50) INDEX&#xa;user_email : VARCHAR(100) UNIQUE INDEX&#xa;password : VARCHAR(255)&#xa;age : INT&#xa;gender : VARCHAR(10)&#xa;height : FLOAT&#xa;weight : FLOAT&#xa;bmi : FLOAT&#xa;is_admin : BOOLEAN DEFAULT FALSE&#xa;created_at : DATETIME&#xa;updated_at : DATETIME">
+          <mxGeometry x="40" y="40" width="300" height="320" as="geometry" />
+        </mxCell>
+
+        <mxCell id="101" parent="1" vertex="1" style="rounded=1;fillColor=#d5e8d4;strokeColor=#82b366;whiteSpace=wrap;html=1;" value="HEALTH_DATA&#xa;------------------&#xa;entry_id : INT (PK)&#xa;user_id : INT (FK, INDEX)&#xa;heart_rate : INT&#xa;temperature : FLOAT&#xa;steps : INT&#xa;sleep_hours : FLOAT&#xa;blood_pressure : FLOAT&#xa;sugar : FLOAT&#xa;recorded_at : DATETIME&#xa;health_score : INT&#xa;ml_regression_health_score : FLOAT&#xa;ml_classifier_risk_label : VARCHAR(20)&#xa;data_source : VARCHAR(30) DEFAULT 'manual'&#xa;source_record_id : VARCHAR(255) NULL&#xa;ingestion_fingerprint : VARCHAR(64) INDEX NULL&#xa;UQ(user_id,data_source,source_record_id)&#xa;UQ(user_id,ingestion_fingerprint)">
+          <mxGeometry x="390" y="40" width="460" height="360" as="geometry" />
+        </mxCell>
+
+        <mxCell id="105" parent="1" vertex="1" style="rounded=1;fillColor=#ffe6cc;strokeColor=#d79b00;whiteSpace=wrap;html=1;" value="ALERT&#xa;------------------&#xa;alert_id : INT (PK)&#xa;user_id : INT (FK, INDEX)&#xa;health_id : INT (FK, nullable)&#xa;medication_log_id : INT (FK, nullable)&#xa;title : VARCHAR(150)&#xa;message : TEXT&#xa;category : VARCHAR(30)&#xa;severity : VARCHAR(20)&#xa;is_read : BOOLEAN&#xa;created_at : DATETIME&#xa;UQ(medication_log_id,title)">
+          <mxGeometry x="1220" y="40" width="430" height="300" as="geometry" />
+        </mxCell>
+
+        <mxCell id="102" parent="1" vertex="1" style="rounded=1;fillColor=#fff2cc;strokeColor=#d6b656;whiteSpace=wrap;html=1;" value="MEDICINE&#xa;------------------&#xa;medicine_id : INT (PK)&#xa;medicine_name : VARCHAR(100) UNIQUE&#xa;medicine_type : VARCHAR(50)&#xa;purpose : VARCHAR(200)&#xa;remark : VARCHAR(200)">
+          <mxGeometry x="40" y="430" width="340" height="230" as="geometry" />
+        </mxCell>
+
+        <mxCell id="103" parent="1" vertex="1" style="rounded=1;fillColor=#f8cecc;strokeColor=#b85450;whiteSpace=wrap;html=1;" value="MEDICATION&#xa;------------------&#xa;medication_id : INT (PK)&#xa;user_id : INT (FK)&#xa;medicine_id : INT (FK)&#xa;dosage : VARCHAR(50)&#xa;frequency : INT&#xa;start_date : DATE&#xa;end_date : DATE&#xa;is_critical : BOOLEAN">
+          <mxGeometry x="420" y="430" width="400" height="280" as="geometry" />
+        </mxCell>
+
+        <mxCell id="104" parent="1" vertex="1" style="rounded=1;fillColor=#e1d5e7;strokeColor=#9673a6;whiteSpace=wrap;html=1;" value="MEDICATION_LOG&#xa;------------------&#xa;log_id : INT (PK)&#xa;user_id : INT (FK, nullable, INDEX)&#xa;medication_id : INT (FK, INDEX)&#xa;log_date : DATE&#xa;scheduled_time : TIME&#xa;taken_at : DATETIME&#xa;status : ENUM(pending,taken,missed,skipped)&#xa;created_at : DATETIME&#xa;UQ(medication_id,log_date,scheduled_time)">
+          <mxGeometry x="420" y="760" width="430" height="250" as="geometry" />
+        </mxCell>
+
+        <mxCell id="106" parent="1" vertex="1" style="rounded=1;fillColor=#f5f5f5;strokeColor=#666666;whiteSpace=wrap;html=1;" value="PASSWORD_RESET_OTP&#xa;------------------&#xa;otp_id : INT (PK)&#xa;user_email : VARCHAR(100) INDEX&#xa;otp_code : VARCHAR(255) (HASHED)&#xa;attempts : INT&#xa;created_at : DATETIME&#xa;expires_at : DATETIME&#xa;is_verified : BOOLEAN&#xa;NOTE: no FK to USER">
+          <mxGeometry x="1220" y="430" width="430" height="230" as="geometry" />
+        </mxCell>
+
+        <mxCell id="107" parent="1" vertex="1" style="rounded=1;fillColor=#cfe2f3;strokeColor=#3d85c6;whiteSpace=wrap;html=1;" value="SMARTWATCH_ACCOUNT&#xa;------------------&#xa;account_id : INT (PK)&#xa;user_id : INT (FK, INDEX)&#xa;provider : VARCHAR(50) INDEX&#xa;provider_user_id : VARCHAR(128) NULL&#xa;access_token : TEXT&#xa;refresh_token : TEXT NULL&#xa;token_expiry : DATETIME NULL&#xa;scopes : TEXT NULL&#xa;connection_status : VARCHAR(20) DEFAULT 'connected'&#xa;last_synced_at : DATETIME NULL&#xa;last_error : TEXT NULL&#xa;created_at : DATETIME&#xa;updated_at : DATETIME&#xa;UQ(user_id,provider)">
+          <mxGeometry x="900" y="430" width="420" height="360" as="geometry" />
+        </mxCell>
+
+        <mxCell id="108" parent="1" vertex="1" style="rounded=1;fillColor=#d9ead3;strokeColor=#6aa84f;whiteSpace=wrap;html=1;" value="SMARTWATCH_SYNC_STATE&#xa;------------------&#xa;state_id : INT (PK)&#xa;account_id : INT (FK, INDEX)&#xa;user_id : INT (FK, INDEX)&#xa;provider : VARCHAR(50) INDEX&#xa;incremental_cursor : VARCHAR(255) NULL&#xa;incremental_since : DATETIME NULL&#xa;last_synced_at : DATETIME NULL&#xa;last_error : TEXT NULL&#xa;created_at : DATETIME&#xa;updated_at : DATETIME&#xa;UQ(user_id,provider)">
+          <mxGeometry x="1360" y="760" width="420" height="310" as="geometry" />
+        </mxCell>
+
+        <mxCell id="200" parent="1" edge="1" source="100" target="101" value="1:N" style="endArrow=block;html=1;rounded=0;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="201" parent="1" edge="1" source="100" target="103" value="1:N" style="endArrow=block;html=1;rounded=0;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="202" parent="1" edge="1" source="102" target="103" value="1:N" style="endArrow=block;html=1;rounded=0;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="203" parent="1" edge="1" source="103" target="104" value="1:N" style="endArrow=block;html=1;rounded=0;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="204" parent="1" edge="1" source="100" target="104" value="1:N (direct FK)" style="endArrow=block;html=1;rounded=0;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="205" parent="1" edge="1" source="100" target="105" value="1:N" style="endArrow=block;html=1;rounded=0;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="206" parent="1" edge="1" source="101" target="105" value="optional ref" style="endArrow=block;html=1;rounded=0;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="207" parent="1" edge="1" source="104" target="105" value="optional ref" style="endArrow=block;html=1;rounded=0;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="208" parent="1" edge="1" source="100" target="106" value="logical via user_email (no FK)" style="dashed=1;endArrow=open;html=1;rounded=0;strokeColor=#666666;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="209" parent="1" edge="1" source="100" target="107" value="1:N" style="endArrow=block;html=1;rounded=0;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="210" parent="1" edge="1" source="107" target="108" value="1:1" style="endArrow=block;html=1;rounded=0;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="211" parent="1" edge="1" source="100" target="108" value="1:N" style="endArrow=block;html=1;rounded=0;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

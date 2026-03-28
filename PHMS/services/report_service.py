@@ -492,6 +492,68 @@ def _fetch_health_records(user_id: int, dr: ReportDateRange) -> list[HealthData]
     return ReportRepository.get_health_records_for_range(user_id, dr.start_dt, dr.end_dt)
 
 
+def _source_summary(records: list[HealthData]) -> dict:
+    """Build source-level ingestion summary for report period."""
+    manual_count = 0
+    google_fit_count = 0
+    smartwatch_legacy_count = 0
+    other_count = 0
+
+    latest_manual_at = None
+    latest_smartwatch_at = None
+
+    for item in records:
+        source = str(getattr(item, 'data_source', 'manual') or 'manual').strip().lower()
+        recorded_at = getattr(item, 'recorded_at', None)
+
+        if source == 'manual':
+            manual_count += 1
+            if recorded_at and (latest_manual_at is None or recorded_at > latest_manual_at):
+                latest_manual_at = recorded_at
+        elif source == 'google_fit':
+            google_fit_count += 1
+            if recorded_at and (latest_smartwatch_at is None or recorded_at > latest_smartwatch_at):
+                latest_smartwatch_at = recorded_at
+        elif source == 'smartwatch':
+            smartwatch_legacy_count += 1
+            if recorded_at and (latest_smartwatch_at is None or recorded_at > latest_smartwatch_at):
+                latest_smartwatch_at = recorded_at
+        else:
+            other_count += 1
+
+    total = len(records)
+    smartwatch_total = google_fit_count + smartwatch_legacy_count
+
+    def _pct(count):
+        if total == 0:
+            return 0.0
+        return round((count / total) * 100.0, 1)
+
+    dominant = 'none'
+    if total > 0:
+        if smartwatch_total > manual_count:
+            dominant = 'smartwatch'
+        elif manual_count > smartwatch_total:
+            dominant = 'manual'
+        else:
+            dominant = 'balanced'
+
+    return {
+        'total_records': total,
+        'manual_count': manual_count,
+        'google_fit_count': google_fit_count,
+        'smartwatch_legacy_count': smartwatch_legacy_count,
+        'smartwatch_total': smartwatch_total,
+        'other_count': other_count,
+        'manual_pct': _pct(manual_count),
+        'smartwatch_pct': _pct(smartwatch_total),
+        'other_pct': _pct(other_count),
+        'dominant_source': dominant,
+        'latest_manual_at': latest_manual_at.isoformat() if latest_manual_at else None,
+        'latest_smartwatch_at': latest_smartwatch_at.isoformat() if latest_smartwatch_at else None,
+    }
+
+
 def build_report_for_range(
     user_id: int,
     report_type: str,
@@ -606,6 +668,7 @@ def build_report_for_range(
     alerts = _alert_summary(user_id, dr)
     chronic_flags = _chronic_condition_flags(summary)
     ml_classifier_dist = _ml_classifier_distribution(current_df)
+    source_summary = _source_summary(current_records)
 
     record_count = len(current_records)
     records_per_day = round(record_count / dr.days, 1) if dr.days > 0 else 0.0
@@ -638,4 +701,5 @@ def build_report_for_range(
         "alert_summary": alerts,
         "chronic_condition_summary": chronic_flags,
         "ml_classifier_distribution": ml_classifier_dist,
+        "source_summary": source_summary,
     }

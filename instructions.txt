@@ -201,7 +201,7 @@ Required packages include:
 - ReportLab (PDF generation)
 roject Root/
 ├── instructions.txt            # This file - setup guide
-├── Database/                   # ER diagrams and database documentation
+├── Diagrams/                   # Project diagrams (ER, use case, class)
 │
 └── PHMS/                       # Main application directory ⭐ START HERE
     ├── app.py                  # Flask app entry point
@@ -261,7 +261,7 @@ roject Root/
         ├── databaseAccess.txt  # Database access methods
         ├── ER.txt              # Entity-Relationship diagram
         ├── ML_Architecture.txt # ML pipeline documentation
-        └── notification and medication log scheduler.txt========================
+        └── MEDICATION_LOG_SYSTEM_COMPREHENSIVE_GUIDE.md========================
 PHMS/
 ├── app.py                      # Entry point
 ├── config.py                   # App factory, extensions

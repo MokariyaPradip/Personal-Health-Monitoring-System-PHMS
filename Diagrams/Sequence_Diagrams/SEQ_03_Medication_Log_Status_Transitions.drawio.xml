@@ -1,0 +1,48 @@
+<mxfile host="app.diagrams.net" modified="2026-03-28T20:00:00.000Z" agent="Mozilla/5.0" version="24.7.17" type="device">
+  <diagram id="seq-med-log-status" name="SEQ-03: Medication Log Status Transitions">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="1080" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="title" value="Sequence: Medication Log Status Transitions" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=18;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="100" y="15" width="1200" height="30" as="geometry" /></mxCell>
+
+        <mxCell id="user" value="User" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;" vertex="1" parent="1"><mxGeometry x="40" y="80" width="50" height="70" as="geometry" /></mxCell>
+        <mxCell id="app" value="App UI" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1f5fe;" vertex="1" parent="1"><mxGeometry x="180" y="90" width="90" height="40" as="geometry" /></mxCell>
+        <mxCell id="ctrl" value="MedicationLog Controller" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff3e0;" vertex="1" parent="1"><mxGeometry x="360" y="90" width="170" height="40" as="geometry" /></mxCell>
+        <mxCell id="svc" value="MedicationLog Service" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ede7f6;" vertex="1" parent="1"><mxGeometry x="620" y="90" width="160" height="40" as="geometry" /></mxCell>
+        <mxCell id="db" value="Database" style="shape=cylinder;whiteSpace=wrap;html=1;fillColor=#f3e5f5;" vertex="1" parent="1"><mxGeometry x="930" y="80" width="90" height="60" as="geometry" /></mxCell>
+        <mxCell id="notif" value="Notification Service" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffebee;" vertex="1" parent="1"><mxGeometry x="1120" y="90" width="150" height="40" as="geometry" /></mxCell>
+
+        <mxCell id="ln_user" value="" style="line;strokeWidth=2;html=1;" vertex="1" parent="1"><mxGeometry x="65" y="150" width="2" height="880" as="geometry" /></mxCell>
+        <mxCell id="ln_app" value="" style="line;strokeWidth=2;html=1;" vertex="1" parent="1"><mxGeometry x="225" y="130" width="2" height="900" as="geometry" /></mxCell>
+        <mxCell id="ln_ctrl" value="" style="line;strokeWidth=2;html=1;" vertex="1" parent="1"><mxGeometry x="445" y="130" width="2" height="900" as="geometry" /></mxCell>
+        <mxCell id="ln_svc" value="" style="line;strokeWidth=2;html=1;" vertex="1" parent="1"><mxGeometry x="700" y="130" width="2" height="900" as="geometry" /></mxCell>
+        <mxCell id="ln_db" value="" style="line;strokeWidth=2;html=1;" vertex="1" parent="1"><mxGeometry x="975" y="140" width="2" height="890" as="geometry" /></mxCell>
+        <mxCell id="ln_notif" value="" style="line;strokeWidth=2;html=1;" vertex="1" parent="1"><mxGeometry x="1195" y="130" width="2" height="900" as="geometry" /></mxCell>
+
+        <mxCell id="act_ctrl" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffcc80;opacity=30;strokeColor=#ef6c00;" vertex="1" parent="1"><mxGeometry x="437" y="180" width="18" height="690" as="geometry" /></mxCell>
+        <mxCell id="act_svc" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#b39ddb;opacity=30;strokeColor=#5e35b1;" vertex="1" parent="1"><mxGeometry x="692" y="230" width="18" height="590" as="geometry" /></mxCell>
+        <mxCell id="act_notif" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ef9a9a;opacity=30;strokeColor=#c62828;" vertex="1" parent="1"><mxGeometry x="1187" y="530" width="18" height="240" as="geometry" /></mxCell>
+
+        <mxCell id="m1" value="1. Open due medication card" style="endArrow=block;html=1;fontSize=12;" edge="1" parent="1" source="ln_user" target="ln_app"><mxGeometry relative="1" as="geometry"><mxPoint x="65" y="175" as="sourcePoint" /><mxPoint x="225" y="175" as="targetPoint" /></mxGeometry></mxCell>
+        <mxCell id="m2" value="2. POST /medication-log (status action)" style="endArrow=block;html=1;fontSize=12;" edge="1" parent="1" source="ln_app" target="ln_ctrl"><mxGeometry relative="1" as="geometry"><mxPoint x="225" y="225" as="sourcePoint" /><mxPoint x="445" y="225" as="targetPoint" /></mxGeometry></mxCell>
+        <mxCell id="m3" value="3. validate status transition" style="endArrow=block;html=1;fontSize=12;" edge="1" parent="1" source="ln_ctrl" target="ln_svc"><mxGeometry relative="1" as="geometry"><mxPoint x="445" y="275" as="sourcePoint" /><mxPoint x="700" y="275" as="targetPoint" /></mxGeometry></mxCell>
+        <mxCell id="m4" value="4. fetch scheduled dose window" style="endArrow=block;html=1;fontSize=12;" edge="1" parent="1" source="ln_svc" target="ln_db"><mxGeometry relative="1" as="geometry"><mxPoint x="700" y="325" as="sourcePoint" /><mxPoint x="975" y="325" as="targetPoint" /></mxGeometry></mxCell>
+        <mxCell id="m5" value="5. scheduled record + prior state" style="endArrow=open;dashed=1;html=1;fontSize=12;" edge="1" parent="1" source="ln_db" target="ln_svc"><mxGeometry relative="1" as="geometry"><mxPoint x="975" y="375" as="sourcePoint" /><mxPoint x="700" y="375" as="targetPoint" /></mxGeometry></mxCell>
+        <mxCell id="m6" value="6. compute next status + timestamps" style="endArrow=block;html=1;fontSize=12;" edge="1" parent="1" source="ln_svc" target="ln_svc"><mxGeometry relative="1" as="geometry"><mxPoint x="700" y="425" as="sourcePoint" /><mxPoint x="720" y="425" as="targetPoint" /></mxGeometry></mxCell>
+        <mxCell id="m7" value="7. UPDATE medication_log state" style="endArrow=block;html=1;fontSize=12;" edge="1" parent="1" source="ln_svc" target="ln_db"><mxGeometry relative="1" as="geometry"><mxPoint x="700" y="475" as="sourcePoint" /><mxPoint x="975" y="475" as="targetPoint" /></mxGeometry></mxCell>
+        <mxCell id="m8" value="8. DB update ack" style="endArrow=open;dashed=1;html=1;fontSize=12;" edge="1" parent="1" source="ln_db" target="ln_svc"><mxGeometry relative="1" as="geometry"><mxPoint x="975" y="525" as="sourcePoint" /><mxPoint x="700" y="525" as="targetPoint" /></mxGeometry></mxCell>
+        <mxCell id="m9" value="9. if status = MISSED trigger alert" style="endArrow=block;html=1;strokeColor=#c62828;fontSize=12;" edge="1" parent="1" source="ln_svc" target="ln_notif"><mxGeometry relative="1" as="geometry"><mxPoint x="700" y="575" as="sourcePoint" /><mxPoint x="1195" y="575" as="targetPoint" /></mxGeometry></mxCell>
+        <mxCell id="m10" value="10. if status = SKIPPED create warning" style="endArrow=block;html=1;strokeColor=#f9a825;fontSize=12;" edge="1" parent="1" source="ln_svc" target="ln_notif"><mxGeometry relative="1" as="geometry"><mxPoint x="700" y="625" as="sourcePoint" /><mxPoint x="1195" y="625" as="targetPoint" /></mxGeometry></mxCell>
+        <mxCell id="m11" value="11. if status = TAKEN log positive note" style="endArrow=block;html=1;strokeColor=#2e7d32;fontSize=12;" edge="1" parent="1" source="ln_svc" target="ln_notif"><mxGeometry relative="1" as="geometry"><mxPoint x="700" y="675" as="sourcePoint" /><mxPoint x="1195" y="675" as="targetPoint" /></mxGeometry></mxCell>
+        <mxCell id="m12" value="12. persist notification event" style="endArrow=block;html=1;fontSize=12;" edge="1" parent="1" source="ln_notif" target="ln_db"><mxGeometry relative="1" as="geometry"><mxPoint x="1195" y="725" as="sourcePoint" /><mxPoint x="975" y="725" as="targetPoint" /></mxGeometry></mxCell>
+        <mxCell id="m13" value="13. return event id" style="endArrow=open;dashed=1;html=1;fontSize=12;" edge="1" parent="1" source="ln_notif" target="ln_svc"><mxGeometry relative="1" as="geometry"><mxPoint x="1195" y="775" as="sourcePoint" /><mxPoint x="700" y="775" as="targetPoint" /></mxGeometry></mxCell>
+        <mxCell id="m14" value="14. status response object" style="endArrow=open;dashed=1;html=1;fontSize=12;" edge="1" parent="1" source="ln_svc" target="ln_ctrl"><mxGeometry relative="1" as="geometry"><mxPoint x="700" y="825" as="sourcePoint" /><mxPoint x="445" y="825" as="targetPoint" /></mxGeometry></mxCell>
+        <mxCell id="m15" value="15. UI toast + updated badge" style="endArrow=open;dashed=1;html=1;fontSize=12;" edge="1" parent="1" source="ln_ctrl" target="ln_app"><mxGeometry relative="1" as="geometry"><mxPoint x="445" y="875" as="sourcePoint" /><mxPoint x="225" y="875" as="targetPoint" /></mxGeometry></mxCell>
+
+        <mxCell id="note" value="Transition-aware flow: TAKEN, MISSED, SKIPPED each trigger different notification outcomes." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff9c4;fontSize=10;align=left;spacing=4;" vertex="1" parent="1"><mxGeometry x="50" y="960" width="1280" height="60" as="geometry" /></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -164,10 +164,8 @@ support/
 |-- ML_Architecture.txt
 |-- databaseAccess.txt
 |-- ER.txt
-|-- notification and medication log scheduler.txt
 |-- ARCHITECTURE_INCREMENTAL_MIGRATION_PLAYBOOK.md
-|-- NOTIFICATION_AND_MEDICATION_LOG_MANAGEMENT.md
-`-- NOTIFICATION_AND_MEDICATION_LOG_MANAGEMENT_SUMMARY.md
+`-- MEDICATION_LOG_SYSTEM_COMPREHENSIVE_GUIDE.md
 
 DEVELOPMENT GUIDELINES
 ================================================================================

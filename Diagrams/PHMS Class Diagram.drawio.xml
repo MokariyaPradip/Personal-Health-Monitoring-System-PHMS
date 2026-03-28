@@ -1,0 +1,126 @@
+<mxfile host="app.diagrams.net" modified="2026-03-28T10:20:00.000Z" agent="Mozilla/5.0" version="24.7.17" type="device">
+  <diagram id="phms-class-diagram" name="PHMS Class Diagram">
+    <mxGraphModel dx="1760" dy="980" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1920" pageHeight="1080" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="title" value="PHMS - Class Diagram (Core Domain + Service Layers)" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=22;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="530" y="20" width="860" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="pkgModel" value="Domain Models" style="rounded=0;whiteSpace=wrap;html=1;strokeWidth=2;fontStyle=1;align=left;verticalAlign=top;spacingTop=10;spacingLeft=10;fillColor=#f8f9fa;" vertex="1" parent="1">
+          <mxGeometry x="260" y="90" width="1120" height="620" as="geometry" />
+        </mxCell>
+
+        <mxCell id="pkgRepo" value="Repositories" style="rounded=0;whiteSpace=wrap;html=1;strokeWidth=2;fontStyle=1;align=left;verticalAlign=top;spacingTop=10;spacingLeft=10;fillColor=#eef7ff;" vertex="1" parent="1">
+          <mxGeometry x="70" y="140" width="170" height="520" as="geometry" />
+        </mxCell>
+
+        <mxCell id="pkgService" value="Services" style="rounded=0;whiteSpace=wrap;html=1;strokeWidth=2;fontStyle=1;align=left;verticalAlign=top;spacingTop=10;spacingLeft=10;fillColor=#fff7e6;" vertex="1" parent="1">
+          <mxGeometry x="1420" y="140" width="380" height="520" as="geometry" />
+        </mxCell>
+
+        <mxCell id="clsUser" value="User|+user_id: int&#xa;+username: str&#xa;+user_email: str&#xa;+password: str&#xa;+age: int&#xa;+height: float&#xa;+weight: float&#xa;+bmi: float" style="shape=umlClass;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="320" y="150" width="230" height="220" as="geometry" />
+        </mxCell>
+
+        <mxCell id="clsHealth" value="HealthData|+entry_id: int&#xa;+user_id: int&#xa;+heart_rate: int&#xa;+temperature: float&#xa;+steps: int&#xa;+sleep_hours: float&#xa;+blood_pressure: float&#xa;+sugar: float&#xa;+health_score: int&#xa;+ml_classifier_risk_label: str" style="shape=umlClass;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="620" y="130" width="300" height="250" as="geometry" />
+        </mxCell>
+
+        <mxCell id="clsAlert" value="Alert|+alert_id: int&#xa;+user_id: int&#xa;+health_id: int&#xa;+medication_log_id: int&#xa;+title: str&#xa;+message: text&#xa;+category: str&#xa;+severity: str&#xa;+is_read: bool" style="shape=umlClass;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="970" y="150" width="300" height="220" as="geometry" />
+        </mxCell>
+
+        <mxCell id="clsMedicine" value="Medicine|+medicine_id: int&#xa;+medicine_name: str&#xa;+medicine_type: str&#xa;+purpose: str&#xa;+remark: str" style="shape=umlClass;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="320" y="430" width="250" height="180" as="geometry" />
+        </mxCell>
+
+        <mxCell id="clsMedication" value="Medication|+medication_id: int&#xa;+user_id: int&#xa;+medicine_id: int&#xa;+dosage: str&#xa;+frequency: int&#xa;+start_date: date&#xa;+end_date: date&#xa;+is_critical: bool&#xa;+is_active(): bool" style="shape=umlClass;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="620" y="420" width="300" height="210" as="geometry" />
+        </mxCell>
+
+        <mxCell id="clsMedLog" value="MedicationLog|+log_id: int&#xa;+user_id: int&#xa;+medication_id: int&#xa;+log_date: date&#xa;+status: enum&#xa;+scheduled_time: time&#xa;+taken_at: datetime" style="shape=umlClass;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="970" y="430" width="300" height="190" as="geometry" />
+        </mxCell>
+
+        <mxCell id="clsSwAcc" value="SmartwatchAccount|+account_id: int&#xa;+user_id: int&#xa;+provider: str&#xa;+access_token: text&#xa;+refresh_token: text&#xa;+token_expiry: datetime&#xa;+connection_status: str&#xa;+last_synced_at: datetime" style="shape=umlClass;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="320" y="650" width="310" height="200" as="geometry" />
+        </mxCell>
+
+        <mxCell id="clsSwState" value="SmartwatchSyncState|+state_id: int&#xa;+account_id: int&#xa;+user_id: int&#xa;+provider: str&#xa;+incremental_cursor: str&#xa;+incremental_since: datetime&#xa;+last_synced_at: datetime&#xa;+last_error: text" style="shape=umlClass;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="700" y="680" width="340" height="180" as="geometry" />
+        </mxCell>
+
+        <mxCell id="repoHealth" value="HealthRepository" style="shape=umlClass;whiteSpace=wrap;html=1;fillColor=#dceeff;" vertex="1" parent="1">
+          <mxGeometry x="85" y="190" width="140" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="repoMedication" value="MedicationRepository" style="shape=umlClass;whiteSpace=wrap;html=1;fillColor=#dceeff;" vertex="1" parent="1">
+          <mxGeometry x="85" y="260" width="140" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="repoMedLog" value="MedicationLogRepository" style="shape=umlClass;whiteSpace=wrap;html=1;fillColor=#dceeff;" vertex="1" parent="1">
+          <mxGeometry x="85" y="340" width="140" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="repoAlert" value="AlertRepository" style="shape=umlClass;whiteSpace=wrap;html=1;fillColor=#dceeff;" vertex="1" parent="1">
+          <mxGeometry x="85" y="420" width="140" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="repoSmart" value="SmartwatchRepository" style="shape=umlClass;whiteSpace=wrap;html=1;fillColor=#dceeff;" vertex="1" parent="1">
+          <mxGeometry x="85" y="490" width="140" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="svcHealth" value="HealthService" style="shape=umlClass;whiteSpace=wrap;html=1;fillColor=#ffe6bf;" vertex="1" parent="1">
+          <mxGeometry x="1450" y="180" width="150" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="svcMedication" value="MedicationService" style="shape=umlClass;whiteSpace=wrap;html=1;fillColor=#ffe6bf;" vertex="1" parent="1">
+          <mxGeometry x="1450" y="260" width="150" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="svcMedLog" value="MedicationLogService" style="shape=umlClass;whiteSpace=wrap;html=1;fillColor=#ffe6bf;" vertex="1" parent="1">
+          <mxGeometry x="1450" y="340" width="150" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="svcNotif" value="NotificationService" style="shape=umlClass;whiteSpace=wrap;html=1;fillColor=#ffe6bf;" vertex="1" parent="1">
+          <mxGeometry x="1450" y="420" width="150" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="svcSmart" value="SmartwatchService" style="shape=umlClass;whiteSpace=wrap;html=1;fillColor=#ffe6bf;" vertex="1" parent="1">
+          <mxGeometry x="1450" y="500" width="150" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="eUserHealth" value="1..*" style="endArrow=block;html=1;" edge="1" parent="1" source="clsUser" target="clsHealth"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="eUserMedication" value="1..*" style="endArrow=block;html=1;" edge="1" parent="1" source="clsUser" target="clsMedication"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="eUserAlert" value="1..*" style="endArrow=block;html=1;" edge="1" parent="1" source="clsUser" target="clsAlert"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="eUserSwAcc" value="1..*" style="endArrow=block;html=1;" edge="1" parent="1" source="clsUser" target="clsSwAcc"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="eUserSwState" value="1..*" style="endArrow=block;html=1;" edge="1" parent="1" source="clsUser" target="clsSwState"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <mxCell id="eMedicineMedication" value="1..*" style="endArrow=block;html=1;" edge="1" parent="1" source="clsMedicine" target="clsMedication"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="eMedicationLog" value="1..*" style="endArrow=block;html=1;" edge="1" parent="1" source="clsMedication" target="clsMedLog"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="eHealthAlert" value="0..*" style="endArrow=block;html=1;" edge="1" parent="1" source="clsHealth" target="clsAlert"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="eMedLogAlert" value="0..*" style="endArrow=block;html=1;" edge="1" parent="1" source="clsMedLog" target="clsAlert"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="eSwAccState" value="1..1" style="endArrow=block;html=1;" edge="1" parent="1" source="clsSwAcc" target="clsSwState"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <mxCell id="eSvcHealthRepo" style="dashed=1;endArrow=open;html=1;" edge="1" parent="1" source="svcHealth" target="repoHealth"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="eSvcHealthModel" style="dashed=1;endArrow=open;html=1;" edge="1" parent="1" source="svcHealth" target="clsHealth"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <mxCell id="eSvcMedicationRepo" style="dashed=1;endArrow=open;html=1;" edge="1" parent="1" source="svcMedication" target="repoMedication"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="eSvcMedicationModel" style="dashed=1;endArrow=open;html=1;" edge="1" parent="1" source="svcMedication" target="clsMedication"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="eSvcMedicationMedicine" style="dashed=1;endArrow=open;html=1;" edge="1" parent="1" source="svcMedication" target="clsMedicine"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <mxCell id="eSvcMedLogRepo" style="dashed=1;endArrow=open;html=1;" edge="1" parent="1" source="svcMedLog" target="repoMedLog"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="eSvcMedLogModel" style="dashed=1;endArrow=open;html=1;" edge="1" parent="1" source="svcMedLog" target="clsMedLog"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <mxCell id="eSvcNotifRepo" style="dashed=1;endArrow=open;html=1;" edge="1" parent="1" source="svcNotif" target="repoAlert"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="eSvcNotifModel" style="dashed=1;endArrow=open;html=1;" edge="1" parent="1" source="svcNotif" target="clsAlert"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <mxCell id="eSvcSmartRepo" style="dashed=1;endArrow=open;html=1;" edge="1" parent="1" source="svcSmart" target="repoSmart"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="eSvcSmartAcc" style="dashed=1;endArrow=open;html=1;" edge="1" parent="1" source="svcSmart" target="clsSwAcc"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="eSvcSmartState" style="dashed=1;endArrow=open;html=1;" edge="1" parent="1" source="svcSmart" target="clsSwState"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <mxCell id="eRepoHealthModel" style="dashed=1;endArrow=open;html=1;" edge="1" parent="1" source="repoHealth" target="clsHealth"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="eRepoMedicationModel" style="dashed=1;endArrow=open;html=1;" edge="1" parent="1" source="repoMedication" target="clsMedication"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="eRepoMedLogModel" style="dashed=1;endArrow=open;html=1;" edge="1" parent="1" source="repoMedLog" target="clsMedLog"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="eRepoAlertModel" style="dashed=1;endArrow=open;html=1;" edge="1" parent="1" source="repoAlert" target="clsAlert"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="eRepoSmartAcc" style="dashed=1;endArrow=open;html=1;" edge="1" parent="1" source="repoSmart" target="clsSwAcc"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="eRepoSmartState" style="dashed=1;endArrow=open;html=1;" edge="1" parent="1" source="repoSmart" target="clsSwState"><mxGeometry relative="1" as="geometry" /></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

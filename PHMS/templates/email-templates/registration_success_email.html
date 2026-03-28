@@ -1,13 +1,25 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Welcome to PHMS - Registration Successful</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f5f5f5;
+        * {
             margin: 0;
-            padding: 20px;
+            padding: 0;
+            box-sizing: border-box;
         }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, Arial, sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+            padding: 20px 0;
+        }
+        
         .email-container {
             background-color: #ffffff;
             border-radius: 8px;
@@ -16,33 +28,44 @@
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
             overflow: hidden;
         }
+        
         .email-header {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             padding: 30px 20px;
             text-align: center;
         }
+        
         .email-header h1 {
             margin: 0;
             font-size: 28px;
             font-weight: 600;
         }
+        
+        .email-header p {
+            margin: 10px 0 0 0;
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        
         .email-body {
             padding: 30px 20px;
             color: #333;
-            line-height: 1.6;
         }
+        
         .greeting {
             font-size: 18px;
             font-weight: 600;
             color: #333;
             margin-bottom: 15px;
         }
+        
         .message {
             font-size: 14px;
             color: #555;
             margin-bottom: 20px;
         }
+        
         .features {
             background-color: #f9f9f9;
             border-left: 4px solid #667eea;
@@ -50,20 +73,36 @@
             margin: 20px 0;
             border-radius: 4px;
         }
+        
         .features h3 {
             margin-top: 0;
             color: #667eea;
             font-size: 16px;
+            margin-bottom: 12px;
         }
+        
         .features ul {
             margin: 10px 0;
             padding-left: 20px;
+            list-style: none;
         }
+        
         .features li {
             margin: 8px 0;
             font-size: 14px;
             color: #555;
+            position: relative;
+            padding-left: 20px;
         }
+        
+        .features li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #667eea;
+            font-weight: bold;
+        }
+        
         .cta-button {
             display: inline-block;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -74,24 +113,91 @@
             font-weight: 600;
             font-size: 14px;
             margin: 20px 0;
+            transition: opacity 0.3s ease;
         }
+        
         .cta-button:hover {
             opacity: 0.9;
         }
+        
+        .quick-tips {
+            background-color: #ede9fe;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        
+        .quick-tips h4 {
+            color: #5b21b6;
+            font-size: 14px;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .quick-tips ol {
+            margin: 0;
+            padding-left: 20px;
+        }
+        
+        .quick-tips li {
+            color: #5b21b6;
+            font-size: 13px;
+            margin-bottom: 8px;
+            line-height: 1.6;
+        }
+        
+        .security-notice {
+            background-color: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+            font-size: 12px;
+            color: #0d47a1;
+        }
+        
         .footer {
-            background-color: #f5f5f5;
-            border-top: 1px solid #e0e0e0;
+            background-color: #f3f4f6;
+            border-top: 1px solid #e5e7eb;
             padding: 20px;
             text-align: center;
-            font-size: 12px;
-            color: #999;
         }
+        
         .footer p {
+            font-size: 12px;
+            color: #6b7280;
             margin: 5px 0;
+            line-height: 1.6;
         }
-        .highlight {
+        
+        .footer-links {
+            margin: 15px 0 0 0;
+            padding-top: 15px;
+            border-top: 1px solid #d1d5db;
+        }
+        
+        .footer-links a {
             color: #667eea;
-            font-weight: 600;
+            text-decoration: none;
+            font-size: 12px;
+            margin: 0 10px;
+            display: inline-block;
+        }
+        
+        @media only screen and (max-width: 600px) {
+            .email-container {
+                border-radius: 0;
+            }
+            
+            .email-header h1 {
+                font-size: 22px;
+            }
+            
+            .email-body {
+                padding: 20px 15px;
+            }
         }
     </style>
 </head>
@@ -100,7 +206,7 @@
         <!-- Header -->
         <div class="email-header">
             <h1>🎉 Welcome to PHMS!</h1>
-            <p style="margin: 10px 0 0 0; font-size: 16px; opacity: 0.9;">Personal Health Monitoring System</p>
+            <p>Personal Health Monitoring System</p>
         </div>
 
         <!-- Body -->
@@ -131,24 +237,31 @@
             </div>
 
             <div style="text-align: center;">
-                <a href="{{ dashboard_url }}" class="cta-button">Go to Dashboard</a>
+                <a href="{{ dashboard_url | default('#') }}" class="cta-button">Go to Dashboard</a>
             </div>
 
-            <div class="message" style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
-                <strong>Quick Tips:</strong>
-                <ul style="margin: 10px 0; padding-left: 20px; color: #555; font-size: 14px;">
-                    <li>Keep your profile information updated</li>
-                    <li>Add your health data regularly for accurate insights</li>
-                    <li>Enable notifications to stay informed about your health</li>
-                    <li>Check the Reports section for health trends</li>
-                </ul>
+            <!-- Quick Tips -->
+            <div class="quick-tips">
+                <h4>⚡ Quick Start Guide</h4>
+                <ol>
+                    <li><strong>Complete Your Profile:</strong> Add your personal health information and medical history</li>
+                    <li><strong>Add Your Medications:</strong> Enter all current medications and dosages</li>
+                    <li><strong>Set Health Alerts:</strong> Configure your health alert preferences</li>
+                    <li><strong>Enable Notifications:</strong> Stay updated with important health reminders</li>
+                    <li><strong>Review Dashboard:</strong> Explore the dashboard to understand all available features</li>
+                </ol>
             </div>
 
             <div class="message">
                 If you have any questions or need support, please don't hesitate to contact us. We're here to help you achieve your health goals!
             </div>
 
-            <div class="message" style="color: #667eea; font-weight: 600;">
+            <!-- Security Notice -->
+            <div class="security-notice">
+                <strong>🔒 Security:</strong> Your health data is encrypted and protected. Never share your password with anyone. Always log out when using shared devices.
+            </div>
+
+            <div class="message" style="color: #667eea; font-weight: 600; text-align: center;">
                 Stay Healthy! 💪<br>
                 The PHMS Team
             </div>
@@ -159,6 +272,16 @@
             <p><strong>Personal Health Monitoring System</strong></p>
             <p>© 2026 PHMS. All rights reserved.</p>
             <p>This email was sent to you because you registered for a PHMS account.</p>
+            
+            <div class="footer-links">
+                <a href="#">Privacy Policy</a>
+                <a href="#">Terms of Service</a>
+                <a href="#">Contact Support</a>
+            </div>
+            
+            <p style="margin-top: 15px; font-size: 11px;">
+                This is an automated email from PHMS. Please do not reply directly.
+            </p>
         </div>
     </div>
 </body>

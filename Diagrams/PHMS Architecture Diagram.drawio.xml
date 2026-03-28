@@ -1,0 +1,120 @@
+<mxfile host="app.diagrams.net" modified="2026-03-28T11:10:00.000Z" agent="Mozilla/5.0" version="24.7.17" type="device">
+  <diagram id="phms-architecture-diagram" name="PHMS Architecture Diagram">
+    <mxGraphModel dx="1800" dy="1000" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1920" pageHeight="1080" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="title" value="PHMS - High Level Architecture" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=24;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="620" y="20" width="700" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="actorUser" value="Patient / User" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;" vertex="1" parent="1">
+          <mxGeometry x="60" y="190" width="60" height="120" as="geometry" />
+        </mxCell>
+
+        <mxCell id="actorDoctor" value="Doctor" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;" vertex="1" parent="1">
+          <mxGeometry x="60" y="520" width="60" height="120" as="geometry" />
+        </mxCell>
+
+        <mxCell id="extGoogle" value="Google Fit API" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e8f4ff;strokeColor=#5b9bd5;" vertex="1" parent="1">
+          <mxGeometry x="1620" y="220" width="220" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="extMail" value="SMTP / Mail Server" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff4e8;strokeColor=#d79b00;" vertex="1" parent="1">
+          <mxGeometry x="1620" y="420" width="220" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="extRedis" value="Redis (Rate Limit Store)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fbe8ff;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="1620" y="620" width="220" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="pkgClient" value="Client Layer" style="rounded=0;whiteSpace=wrap;html=1;strokeWidth=2;fontStyle=1;align=left;verticalAlign=top;spacingTop=8;spacingLeft=10;fillColor=#f5f5f5;" vertex="1" parent="1">
+          <mxGeometry x="180" y="110" width="260" height="620" as="geometry" />
+        </mxCell>
+
+        <mxCell id="webUI" value="Browser UI\n(Templates + Static JS/CSS)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;" vertex="1" parent="1">
+          <mxGeometry x="210" y="180" width="200" height="90" as="geometry" />
+        </mxCell>
+
+        <mxCell id="reportView" value="Reports UI\n(PDF + Charts)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;" vertex="1" parent="1">
+          <mxGeometry x="210" y="320" width="200" height="90" as="geometry" />
+        </mxCell>
+
+        <mxCell id="notifUI" value="Notification UI\n(Dropdown + Alerts)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;" vertex="1" parent="1">
+          <mxGeometry x="210" y="460" width="200" height="90" as="geometry" />
+        </mxCell>
+
+        <mxCell id="pkgApp" value="Application Layer (Flask)" style="rounded=0;whiteSpace=wrap;html=1;strokeWidth=2;fontStyle=1;align=left;verticalAlign=top;spacingTop=8;spacingLeft=10;fillColor=#eef7ff;strokeColor=#5b9bd5;" vertex="1" parent="1">
+          <mxGeometry x="490" y="90" width="760" height="660" as="geometry" />
+        </mxCell>
+
+        <mxCell id="routes" value="Routes\n(feature_routes/* + routes.py)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dceeff;strokeColor=#5b9bd5;" vertex="1" parent="1">
+          <mxGeometry x="530" y="150" width="220" height="90" as="geometry" />
+        </mxCell>
+
+        <mxCell id="controllers" value="Controllers\n(auth, health, medication,\nnotifications, reports, smartwatch)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dceeff;strokeColor=#5b9bd5;" vertex="1" parent="1">
+          <mxGeometry x="790" y="150" width="250" height="110" as="geometry" />
+        </mxCell>
+
+        <mxCell id="services" value="Services\nBusiness Logic + Validation\n+ Orchestration" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#cfe8ff;strokeColor=#5b9bd5;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1080" y="150" width="150" height="110" as="geometry" />
+        </mxCell>
+
+        <mxCell id="smartwatchSvc" value="Smartwatch Service\n+ Orchestrator" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e8f4ff;strokeColor=#5b9bd5;" vertex="1" parent="1">
+          <mxGeometry x="530" y="320" width="220" height="90" as="geometry" />
+        </mxCell>
+
+        <mxCell id="mlModule" value="ML Module\n(ml/ml_model.py)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e8f4ff;strokeColor=#5b9bd5;" vertex="1" parent="1">
+          <mxGeometry x="790" y="320" width="250" height="90" as="geometry" />
+        </mxCell>
+
+        <mxCell id="scheduler" value="Scheduler / Jobs\n(APScheduler + jobs/*)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e8f4ff;strokeColor=#5b9bd5;" vertex="1" parent="1">
+          <mxGeometry x="1080" y="320" width="150" height="90" as="geometry" />
+        </mxCell>
+
+        <mxCell id="repositories" value="Repository Layer\n(repositories/*)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dceeff;strokeColor=#5b9bd5;" vertex="1" parent="1">
+          <mxGeometry x="530" y="470" width="320" height="90" as="geometry" />
+        </mxCell>
+
+        <mxCell id="schemas" value="Schema Layer\n(Pydantic schemas/*)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dceeff;strokeColor=#5b9bd5;" vertex="1" parent="1">
+          <mxGeometry x="890" y="470" width="340" height="90" as="geometry" />
+        </mxCell>
+
+        <mxCell id="models" value="Model Layer\n(SQLAlchemy models/*)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dceeff;strokeColor=#5b9bd5;" vertex="1" parent="1">
+          <mxGeometry x="530" y="610" width="320" height="90" as="geometry" />
+        </mxCell>
+
+        <mxCell id="database" value="SQLite / RDBMS\n(instance/phms.db)" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;fillColor=#ffffff;strokeColor=#5b9bd5;" vertex="1" parent="1">
+          <mxGeometry x="890" y="600" width="340" height="110" as="geometry" />
+        </mxCell>
+
+        <mxCell id="eUserWeb" style="endArrow=block;html=1;" edge="1" parent="1" source="actorUser" target="webUI"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="eDocReport" style="endArrow=block;html=1;" edge="1" parent="1" source="actorDoctor" target="reportView"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="eWebRoutes" style="endArrow=block;html=1;" edge="1" parent="1" source="webUI" target="routes"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="eReportRoutes" style="endArrow=block;html=1;" edge="1" parent="1" source="reportView" target="routes"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="eNotifRoutes" style="endArrow=block;html=1;" edge="1" parent="1" source="notifUI" target="routes"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <mxCell id="eRoutesControllers" style="endArrow=block;html=1;" edge="1" parent="1" source="routes" target="controllers"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="eControllersServices" style="endArrow=block;html=1;" edge="1" parent="1" source="controllers" target="services"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="eServicesRepos" style="endArrow=block;html=1;" edge="1" parent="1" source="services" target="repositories"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="eServicesSchemas" style="endArrow=block;html=1;" edge="1" parent="1" source="services" target="schemas"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="eReposModels" style="endArrow=block;html=1;" edge="1" parent="1" source="repositories" target="models"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="eModelsDb" style="endArrow=block;html=1;" edge="1" parent="1" source="models" target="database"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <mxCell id="eServicesMl" style="dashed=1;endArrow=open;html=1;" edge="1" parent="1" source="services" target="mlModule"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="eControllersSmartwatch" style="dashed=1;endArrow=open;html=1;" edge="1" parent="1" source="controllers" target="smartwatchSvc"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="eSchedulerServices" style="dashed=1;endArrow=open;html=1;" edge="1" parent="1" source="scheduler" target="services"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="eSchedulerRepos" style="dashed=1;endArrow=open;html=1;" edge="1" parent="1" source="scheduler" target="repositories"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <mxCell id="eGoogleSmartwatch" style="endArrow=block;html=1;strokeColor=#5b9bd5;" edge="1" parent="1" source="extGoogle" target="smartwatchSvc"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="eMailServices" style="endArrow=block;html=1;strokeColor=#d79b00;" edge="1" parent="1" source="services" target="extMail"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="eRedisRoutes" style="endArrow=block;html=1;strokeColor=#9673a6;" edge="1" parent="1" source="routes" target="extRedis"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <mxCell id="legend" value="Solid arrows: primary request/data flow&#xa;Dashed arrows: supporting integration flow" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fffbe6;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="1280" y="760" width="560" height="70" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

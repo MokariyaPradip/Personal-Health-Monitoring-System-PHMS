@@ -1,95 +1,77 @@
 # Architecture Incremental Migration Playbook
 
-This playbook captures proven patterns already present in PHMS and defines how to reuse them for low-risk, incremental migration.
+## Document Metadata
+- Purpose: Practical migration patterns for incremental refactoring without breaking stable runtime behavior.
+- Audience: Maintainers and contributors performing architecture cleanup.
+- Last Verified: 2026-03-27
+- Verified Against: Current feature routes, controllers, services, repositories, jobs.
+- Source of Truth: Existing layered implementation patterns already in repository.
+
+## Task-Based Navigation
+- I need layering rules: [Layering Standards](#layering-standards)
+- I need incremental migration sequence: [Migration Sequence Per Domain](#migration-sequence-per-domain)
+- I need done criteria: [Done Criteria](#done-criteria)
 
 ## Why This Exists
+PHMS already contains reusable architecture slices. The safest migration path is to copy proven patterns, not rewrite entire domains.
 
-PHMS already has working architecture slices that match the target layering model:
+## Reusable Patterns in Current Codebase
+1. Feature route composition via `feature_routes/*` and central `routes.py` registration.
+2. Controller transport boundary that parses requests and delegates to services.
+3. Service orchestration layer with repository-backed persistence.
+4. Background jobs as thin callbacks in `jobs/*` delegating into services.
+5. Compatibility facades for safe module split transitions:
+   - `services/medication_log_service.py`
+   - `scheduler_config.py`
 
-1. Route -> service split in reports:
-   1. `reports/routes/report_routes.py`
-   2. `reports/services/report_service.py`
-2. Scheduler orchestration -> job callbacks split:
-   1. `jobs/scheduler.py`
-   2. `jobs/medication_tasks.py`
-3. Modular medication-log domain with compatibility facade:
-   1. `services/medication_log/manager.py`
-   2. `services/medication_log_service.py`
+## Layering Standards
+### Routes
+- Keep URL wiring only.
+- Do not add business logic.
 
-The goal is to reuse these patterns instead of rewrite-heavy refactors.
+### Controllers
+- Parse transport concerns (JSON/query/path/session).
+- Normalize input and return HTTP response shape.
+- Delegate business logic to services.
 
-## Reusable Patterns
+### Services
+- Own workflow decisions and domain rules.
+- Coordinate repositories and side effects.
+- Avoid direct HTTP coupling.
 
-### 1. Feature Route Composition
+### Repositories
+- Own query composition and persistence helpers.
+- Keep query intent explicit and reusable.
 
-Pattern:
-1. Keep `feature_routes/*_routes.py` focused on URL wiring only.
-2. Delegate all behavior to controllers.
-3. Keep central registration as a thin composition layer.
+### Jobs
+- Keep callbacks thin and idempotent-oriented.
+- Delegate work to service layer.
 
-Use this for any new feature endpoint set.
+## Migration Sequence Per Domain
+1. Freeze endpoint contract (no URL/name breakage during migration).
+2. Move business logic out of controllers into services.
+3. Move reusable queries into repositories.
+4. Add/expand schema validation at service boundary.
+5. Add compatibility facades if import paths change.
+6. Add or update tests (route wiring, transport validation, service behavior).
+7. Remove dead code only after migration tests pass.
 
-### 2. Controller as Transport Boundary
-
-Pattern:
-1. Parse request input (JSON/content type/query args).
-2. Normalize transport-specific fields.
-3. Delegate business logic to service layer.
-4. Convert service result to HTTP response.
-
-Do not place ORM queries in controllers.
-
-### 3. Service as Application Logic Layer
-
-Pattern:
-1. Hold business rules, orchestrations, workflow decisions.
-2. Consume schemas for input validation.
-3. Delegate data access to repositories.
-
-Do not embed HTTP request/response concerns in services.
-
-### 4. Repository as Data Access Layer
-
-Pattern:
-1. Keep SQLAlchemy query blocks in repositories.
-2. Expose explicit query methods for service use.
-3. Keep transaction ownership in service where workflows span multiple writes.
-
-### 5. Background Jobs as Thin Callbacks
-
-Pattern:
-1. Keep `jobs/*.py` callbacks tiny.
-2. Delegate work to service methods.
-3. Keep scheduler setup in `jobs/scheduler.py`.
-
-Do not place business logic in scheduler configuration.
-
-### 6. Compatibility Facades for Safe Refactor
-
-Pattern:
-1. When splitting large modules, preserve import contracts via a facade module.
-2. Re-export stable symbols from the new package structure.
-3. Migrate call sites gradually.
-
-This enables non-breaking incremental migration.
-
-## Incremental Migration Steps (Per Domain)
-
-1. Add/expand service methods first while keeping controller signatures unchanged.
-2. Move ORM query blocks into repository methods.
-3. Introduce schema validation for service inputs.
-4. Add compatibility facade exports if module paths change.
-5. Keep route endpoint names stable; add aliases only when needed.
-6. Add focused tests for route registration, transport behavior, and service validation.
-7. Remove legacy paths only after tests and consumers are migrated.
+## Risk Controls
+- Preserve existing route aliases during transition.
+- Keep compatibility modules until all call sites are migrated.
+- Prefer small PRs per domain boundary.
+- Validate startup behavior to avoid accidental background-service starts on import.
 
 ## Done Criteria
+A migrated domain is considered complete when:
+1. Route file contains routing only.
+2. Controller contains transport logic only.
+3. Service contains business logic.
+4. Repository contains persistence/query logic.
+5. Existing tests pass and migration-specific tests exist.
+6. Legacy compatibility exports remain only where still required.
 
-A migrated domain is complete when:
-
-1. Controllers contain only transport logic.
-2. Services contain business logic and orchestration.
-3. Repositories own query logic.
-4. Background jobs delegate to services.
-5. Legacy imports (if any) are preserved by facades during transition.
-6. Tests verify route wiring and service validation behavior.
+## See Also
+- [MEDICATION_LOG_SYSTEM_COMPREHENSIVE_GUIDE.md](MEDICATION_LOG_SYSTEM_COMPREHENSIVE_GUIDE.md)
+- [TESTING_GUIDE.md](TESTING_GUIDE.md)
+- [README.md](../../README.md)
