@@ -1,124 +1,86 @@
 # PHMS - Personal Health Monitoring System
 
-PHMS is a Flask-based health monitoring platform that combines manual health logging, medication tracking, notification workflows, report generation, and smartwatch integration through Google Fit.
+PHMS is a Flask-based web application for personal health tracking, medication management, notifications, reporting, and smartwatch (Google Fit) synchronization.
 
-This repository is organized with source code under PHMS and project-level configuration/docs at the repository root.
+This repository is structured as a final-year college project with code, tests, architecture/design diagrams, and implementation/testing evidence.
 
-## Table of Contents
+## Project Scope
 
-- Overview
-- Core Features
-- Tech Stack
-- Repository Structure
-- Documentation Index
-- Architecture at a Glance
-- Quick Start
-- Environment Configuration
-- Database and Migrations
-- Smartwatch Integration
-- Scheduler and Background Jobs
-- Running Tests
-- Security Notes
-- API and Route Areas
-- Deployment Notes
-- Troubleshooting
-- Contributing
-- Maintainers and Contact
-
-## Overview
-
-PHMS helps users:
-
-- Track health metrics and risk indicators.
-- Manage medications and intake logs.
-- Receive alerts and notifications.
-- Generate health reports.
-- Connect smartwatch data via Google Fit sync.
-
-The system is designed with modular route groups, service and repository layers, and strict ingestion policies for smartwatch data quality.
+- Educational software engineering project.
+- Demonstrates layered backend architecture, scheduling, ML-assisted risk evaluation, and OAuth integration.
+- Not intended as a certified medical system.
 
 ## Core Features
 
-- Authentication and profile management.
-- Health data ingestion and risk scoring.
-- ML-assisted health assessment integration.
-- Medication CRUD, scheduled logs, and status tracking.
-- Notification workflows and alert generation.
-- Report pages and PDF report generation.
-- Smartwatch OAuth, sync diagnostics, manual sync, and periodic scheduler sync.
-- Resilient sync flow with retries and adaptive fetch windows for provider data.
+- User authentication, session management, and OTP-based password reset.
+- Profile management with BMI and health context updates.
+- Health metric ingestion (manual and smartwatch-origin data) with validation.
+- ML-assisted health risk assessment pipeline.
+- Medication CRUD and medication-log lifecycle tracking (`pending/taken/missed/skipped`).
+- Notification center plus email-based critical alerts.
+- Report generation (weekly/monthly/yearly/custom) including PDF export.
+- Smartwatch OAuth connect/disconnect, diagnostics, manual sync, and periodic scheduler sync.
 
-## Tech Stack
+## Technology Stack
 
 - Backend: Flask, Flask-Login, Flask-WTF, Flask-Mail
-- Data layer: SQLAlchemy, Flask-Migrate, Alembic
-- Scheduler: APScheduler, Flask-APScheduler
+- Data: SQLAlchemy, Flask-Migrate, Alembic
+- Scheduling: APScheduler, Flask-APScheduler
 - Validation: Pydantic
 - ML/Data: scikit-learn, pandas, numpy, scipy, joblib
 - Reporting: reportlab, matplotlib
-- Security/Rate limiting: Flask-Limiter, Redis (recommended for production)
+- Security/Rate limiting: Flask-Limiter (Redis recommended in production)
 - Testing: pytest
 
-See dependency pins in [PHMS/requirements.txt](PHMS/requirements.txt).
+Dependencies are pinned in [PHMS/requirements.txt](PHMS/requirements.txt).
 
-## Repository Structure
+## Repository Layout
 
-- [instructions.txt](instructions.txt): project-level setup notes.
-- [Diagrams](Diagrams): architecture and database diagrams/artifacts.
-- [PHMS](PHMS): main application package.
-- [pytest.ini](pytest.ini): pytest configuration.
-- [.env.example](.env.example): environment template.
+- [PHMS](PHMS): main application source code.
+- [PHMS/tests](PHMS/tests): automated tests.
+- [PHMS/support](PHMS/support): API/testing/env/smartwatch and implementation guides.
+- [Diagrams](Diagrams): architecture, UML, DFD, flow, sequence, state-machine, and UI evidence assets.
+- [instructions.txt](instructions.txt): project setup notes.
+- [pytest.ini](pytest.ini): pytest discovery and path configuration.
+- [.env.example](.env.example): environment variable template.
 
-## Documentation Index
+## Architecture Summary
 
-Documentation available in support:
+PHMS follows a layered composition:
 
-- [PHMS/support/API_REFERENCE.md](PHMS/support/API_REFERENCE.md): REST endpoints, methods, auth model, request/response examples, and status codes.
-- [PHMS/support/TESTING_GUIDE.md](PHMS/support/TESTING_GUIDE.md): test execution commands, structure, locations, and CI/CD testing expectations.
-- [PHMS/support/ENVIRONMENT_CONFIGURATION.md](PHMS/support/ENVIRONMENT_CONFIGURATION.md): complete `.env` variable reference and secrets handling guidance.
-- [PHMS/support/SMARTWATCH_SETUP.md](PHMS/support/SMARTWATCH_SETUP.md): smartwatch OAuth setup, diagnostics, and sync behavior.
-- [PHMS/support/MEDICATION_LOG_SYSTEM_COMPREHENSIVE_GUIDE.md](PHMS/support/MEDICATION_LOG_SYSTEM_COMPREHENSIVE_GUIDE.md): medication log lifecycle and notification behavior.
-- [PHMS/support/ML_MODEL_GUIDE.md](PHMS/support/ML_MODEL_GUIDE.md): ML model architecture and usage notes.
-- [PHMS/support/ARCHITECTURE_INCREMENTAL_MIGRATION_PLAYBOOK.md](PHMS/support/ARCHITECTURE_INCREMENTAL_MIGRATION_PLAYBOOK.md): architecture migration guidance and rollout strategy.
+1. Routes (`PHMS/feature_routes/*`) register endpoints by feature module.
+2. Controllers (`PHMS/controllers/*`) handle HTTP transport and response shape.
+3. Services (`PHMS/services/*`) hold business logic and orchestration.
+4. Repositories (`PHMS/repositories/*`) centralize persistence queries.
+5. Models (`PHMS/models/*`) define SQLAlchemy entities.
+6. Jobs (`PHMS/jobs/*`) host scheduler task callbacks.
 
-Task-based quick links:
+Route composition entrypoints:
 
-- API behavior, request/response contracts: [PHMS/support/API_REFERENCE.md](PHMS/support/API_REFERENCE.md)
-- Test setup and command reference (canonical): [PHMS/support/TESTING_GUIDE.md](PHMS/support/TESTING_GUIDE.md)
-- Environment variables and secrets handling: [PHMS/support/ENVIRONMENT_CONFIGURATION.md](PHMS/support/ENVIRONMENT_CONFIGURATION.md)
-- Smartwatch OAuth/sync diagnostics: [PHMS/support/SMARTWATCH_SETUP.md](PHMS/support/SMARTWATCH_SETUP.md)
-- Medication log lifecycle and notification rules: [PHMS/support/MEDICATION_LOG_SYSTEM_COMPREHENSIVE_GUIDE.md](PHMS/support/MEDICATION_LOG_SYSTEM_COMPREHENSIVE_GUIDE.md)
-- ML runtime contract and artifact loading behavior: [PHMS/support/ML_MODEL_GUIDE.md](PHMS/support/ML_MODEL_GUIDE.md)
-- Incremental architecture refactor patterns: [PHMS/support/ARCHITECTURE_INCREMENTAL_MIGRATION_PLAYBOOK.md](PHMS/support/ARCHITECTURE_INCREMENTAL_MIGRATION_PLAYBOOK.md)
+- [PHMS/routes.py](PHMS/routes.py)
+- [PHMS/feature_routes/__init__.py](PHMS/feature_routes/__init__.py)
 
-## Architecture at a Glance
+## Diagram Coverage
 
-PHMS follows a layered structure:
+This repository includes a complete design trail from analysis to validation.
 
-- Routes layer: feature route registration and HTTP endpoints.
-- Controller layer: request transport handling.
-- Service layer: business logic orchestration.
-- Repository layer: persistence and query operations.
-- Model layer: SQLAlchemy entities.
-- Jobs layer: scheduled task callbacks.
+- Root draw.io + PNG diagrams:
+  - `PHMS Architecture Diagram`
+  - `PHMS Class Diagram`
+  - `PHMS Final ER Diagram`
+  - `PHMS Usecase Diagram`
+- DFD diagrams: [Diagrams/DFD_Diagrams](Diagrams/DFD_Diagrams)
+- Flow diagrams: [Diagrams/Flow_Diagrams](Diagrams/Flow_Diagrams)
+- Sequence diagrams: [Diagrams/Sequence_Diagrams](Diagrams/Sequence_Diagrams)
+- State machines: [Diagrams/State_Machine_Diagrams](Diagrams/State_Machine_Diagrams)
+- Mermaid source mirrors of outer diagrams: [Diagrams/Repeat_Outer_Diagrams](Diagrams/Repeat_Outer_Diagrams)
+- Chapter-wise visual evidence/output captures:
+  - [Diagrams/UI Output/Chapter_4_Requirement_Analysis](Diagrams/UI%20Output/Chapter_4_Requirement_Analysis)
+  - [Diagrams/UI Output/Chapter_5_System_Design](Diagrams/UI%20Output/Chapter_5_System_Design)
+  - [Diagrams/UI Output/Chapter_6_System_Implementation](Diagrams/UI%20Output/Chapter_6_System_Implementation)
+  - [Diagrams/UI Output/Chapter_7_Testing_and_Validation](Diagrams/UI%20Output/Chapter_7_Testing_and_Validation)
 
-Route composition starts in [PHMS/routes.py](PHMS/routes.py) and feature registrations in [PHMS/feature_routes/__init__.py](PHMS/feature_routes/__init__.py).
-
-## Quick Start
-
-### Option A: Automated startup (recommended for local)
-
-```powershell
-cd PHMS
-python -m venv venv
-.\venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-python start.py
-```
-
-App runs at <http://127.0.0.1:5000>
-
-### Option B: App entrypoint directly
+## Quick Start (Windows PowerShell)
 
 ```powershell
 cd PHMS
@@ -126,6 +88,15 @@ python -m venv venv
 .\venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 python app.py
+```
+
+Application URL: <http://127.0.0.1:5000>
+
+Alternative manual entrypoint:
+
+```powershell
+cd PHMS
+python start.py
 ```
 
 ## Environment Configuration
@@ -136,7 +107,7 @@ python app.py
 copy .env.example .env
 ```
 
-1. Set at minimum:
+1. Set baseline values:
 
 ```env
 FLASK_ENV=development
@@ -146,7 +117,7 @@ SECURITY_PASSWORD_SALT=<strong-random-value>
 DATABASE_URL=sqlite:///phms.db
 ```
 
-1. For smartwatch integration:
+1. Smartwatch OAuth keys (required for connect/sync):
 
 ```env
 PHMS_BASE_URL=http://127.0.0.1:5000
@@ -155,7 +126,7 @@ GOOGLE_FIT_CLIENT_ID=<google-client-id>
 GOOGLE_FIT_CLIENT_SECRET=<google-client-secret>
 ```
 
-1. For scheduler tuning:
+1. Scheduler settings:
 
 ```env
 ENABLE_SCHEDULER=0
@@ -165,7 +136,10 @@ SMARTWATCH_SYNC_MISFIRE_GRACE_SECONDS=60
 SMARTWATCH_SYNC_COALESCE=1
 ```
 
-Complete variable documentation is in [.env.example](.env.example).
+For full variable reference, see:
+
+- [.env.example](.env.example)
+- [PHMS/support/ENVIRONMENT_CONFIGURATION.md](PHMS/support/ENVIRONMENT_CONFIGURATION.md)
 
 ## Database and Migrations
 
@@ -177,33 +151,17 @@ cd PHMS
 flask db upgrade
 ```
 
-SQLite is used by default for local development.
-
-## Smartwatch Integration
-
-Smartwatch setup details are documented in [PHMS/support/SMARTWATCH_SETUP.md](PHMS/support/SMARTWATCH_SETUP.md).
-
-Current integration behavior:
-
-- OAuth via Google Fit.
-- Pre-sync diagnostics endpoint to inspect provider metric availability.
-- Manual sync endpoint with adaptive lookback and retry behavior.
-- Strict ingestion policy for smartwatch payload completeness is enforced downstream.
-
-Important practical note:
-
-- PHMS can only ingest metric families that exist in Google Fit for the connected account.
-- Some watch/app combinations (for example Fire-Boltt via Da Fit) may export only partial families (commonly steps).
+Default local database is SQLite.
 
 ## Scheduler and Background Jobs
 
-Scheduler bootstrap and policy are in [PHMS/app.py](PHMS/app.py) and [PHMS/jobs/scheduler.py](PHMS/jobs/scheduler.py).
+Scheduler startup policy is defined in [PHMS/app.py](PHMS/app.py) and jobs are wired in [PHMS/jobs/scheduler.py](PHMS/jobs/scheduler.py).
 
-Key behavior:
+Verified behavior:
 
-- Importing app module does not auto-start background scheduler.
-- Scheduler starts via explicit bootstrap path.
-- In multi-worker setups, run scheduler in a dedicated process.
+- Importing modules does not auto-start the scheduler.
+- Background bootstrap is explicit.
+- In multi-worker production, run scheduler in one dedicated process.
 
 Dedicated scheduler process example:
 
@@ -213,87 +171,59 @@ set ENABLE_SCHEDULER=1
 python app.py
 ```
 
-## Running Tests
+## Smartwatch Integration Notes
 
-Run full smartwatch-focused suite:
+- Provider flow is Google Fit OAuth.
+- Pre-sync diagnostics endpoint is available to inspect metric availability.
+- Manual and periodic sync both rely on provider-side data availability.
+- Some device/app combinations may export only partial metric families.
 
-Canonical test guide: [PHMS/support/TESTING_GUIDE.md](PHMS/support/TESTING_GUIDE.md)
+Detailed guide: [PHMS/support/SMARTWATCH_SETUP.md](PHMS/support/SMARTWATCH_SETUP.md)
 
-```powershell
-cd PHMS
-python -m pytest tests/smartwatch -q
-```
+## Testing
+
+Test configuration:
+
+- Runner: `pytest`
+- Config: [pytest.ini](pytest.ini)
+- Discovery root: `PHMS/tests`
 
 Run all tests:
 
 ```powershell
-cd PHMS
 python -m pytest -q
 ```
 
-## Security Notes
+Run smartwatch suite:
 
-- Do not commit .env.
-- Use strong random values for SECRET_KEY and SECURITY_PASSWORD_SALT.
-- Use Redis-backed rate-limit storage in production.
-- Disable debug mode in production.
-- Enforce HTTPS in production deployments.
+```powershell
+python -m pytest PHMS/tests/smartwatch -q
+```
 
-Security-sensitive configuration lives in [PHMS/config.py](PHMS/config.py).
+Canonical testing documentation: [PHMS/support/TESTING_GUIDE.md](PHMS/support/TESTING_GUIDE.md)
 
-## API and Route Areas
+## API and Modules Reference
 
-Route families include:
+- API contract: [PHMS/support/API_REFERENCE.md](PHMS/support/API_REFERENCE.md)
+- Medication-log system guide: [PHMS/support/MEDICATION_LOG_SYSTEM_COMPREHENSIVE_GUIDE.md](PHMS/support/MEDICATION_LOG_SYSTEM_COMPREHENSIVE_GUIDE.md)
+- ML model/runtime notes: [PHMS/support/ML_MODEL_GUIDE.md](PHMS/support/ML_MODEL_GUIDE.md)
+- Architecture migration playbook: [PHMS/support/ARCHITECTURE_INCREMENTAL_MIGRATION_PLAYBOOK.md](PHMS/support/ARCHITECTURE_INCREMENTAL_MIGRATION_PLAYBOOK.md)
 
-- Auth
-- Dashboard
-- Profile
-- Health
-- Medication
-- Medication log
-- Notifications
-- Reports
-- Smartwatch
+## Known Limitations
 
-See feature route modules in [PHMS/feature_routes](PHMS/feature_routes).
-
-## Deployment Notes
-
-For production hardening, ensure:
-
-- FLASK_ENV=production
-- FLASK_DEBUG=0
-- HTTPS/TLS termination and FORCE_HTTPS=1
-- Redis configured for rate limiting
-- Separate scheduler process for multi-worker app servers
-- Environment secrets managed by your platform secret store
-
-## Troubleshooting
-
-1. Smartwatch sync returns incomplete payload:
-
-- Check pre-sync diagnostics for metric_point_totals.
-- Verify source app actually writes those metrics to Google Fit.
-
-1. Scheduler appears idle:
-
-- Confirm ENABLE_SCHEDULER policy and active process role.
-- Verify periodic job registration in startup logs.
-
-1. OAuth callback issues:
-
-- Verify callback URL exactly matches provider console configuration:
-  PHMS_BASE_URL + SMARTWATCH_OAUTH_CALLBACK_PATH
+- Health risk outputs are decision-support signals, not medical diagnosis.
+- Smartwatch ingestion can only process metrics available from the provider/account.
+- Email delivery depends on SMTP provider reliability and configuration.
+- No committed CI workflow under `.github/workflows` at this time.
 
 ## Contributing
 
-Suggested contribution flow:
-
-1. Create a branch for your change.
+1. Create a feature/fix branch.
 2. Keep changes scoped and test-backed.
 3. Run relevant pytest suites.
 4. Open a pull request with problem statement, approach, and verification notes.
 
-## Maintainers and Contact
+## Maintainer
 
-Maintainer: MokariyaPradip | Contact: 22ceuog059@ddu.ac.in
+- Name: MokariyaPradip
+- Contact: 22ceuog059@ddu.ac.in
