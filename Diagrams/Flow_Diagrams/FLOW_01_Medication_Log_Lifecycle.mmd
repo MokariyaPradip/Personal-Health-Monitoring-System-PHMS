@@ -1,0 +1,13 @@
+flowchart TD
+    A[Medication Log Created] --> B[Status: Pending]
+    B --> C{Scheduled Time Reached?}
+    C -- No (Waiting) --> B
+    C -- Yes --> D[Grace Period Window]
+
+    D -- User Takes --> E[Status: Taken]
+    D -- Grace Expires --> F[Status: Missed]
+    D -- User Skips --> G[Status: Skipped]
+
+    E --> H[Completed]
+    F --> H
+    G --> H

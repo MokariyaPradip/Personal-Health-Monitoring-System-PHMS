@@ -1,0 +1,13 @@
+stateDiagram-v2
+    [*] --> Created
+    Created --> Queued: schedule reminder
+    Queued --> Sent: dispatch succeeds
+    Queued --> RetryPending: transient dispatch failure
+    RetryPending --> Sent: retry succeeds
+    RetryPending --> Failed: retry limit exceeded
+    Sent --> Read: user opens notification
+    Sent --> Expired: validity window ends
+    Read --> Archived: cleanup or user action
+    Failed --> Archived: maintenance cleanup
+    Expired --> Archived: maintenance cleanup
+    Archived --> [*]

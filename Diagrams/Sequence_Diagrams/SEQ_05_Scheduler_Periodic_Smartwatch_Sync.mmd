@@ -1,0 +1,35 @@
+sequenceDiagram
+    autonumber
+    participant Scheduler
+    participant Job as smartwatch_periodic_sync job
+    participant Svc as SmartwatchService
+    participant GF as Google Fit API
+    participant Health as HealthService
+    participant DB as Database
+
+    Scheduler->>Job: Trigger at configured interval
+    Job->>Svc: sync_connected_accounts()
+    Svc->>DB: get_connected_accounts()
+    DB-->>Svc: accounts
+
+    loop For each connected account
+        Svc->>GF: Refresh token if near expiry
+        GF-->>Svc: token or error
+        alt token error
+            Svc->>DB: save sync failure diagnostics
+        else token valid
+            Svc->>GF: fetch metrics (incremental window)
+            GF-->>Svc: metric payload
+            Svc->>Svc: adaptive retry for missing metric families
+            alt payload complete
+                Svc->>Health: ingest smart payload
+                Health->>DB: insert health record and alerts
+                DB-->>Health: persisted
+                Svc->>DB: update sync boundary
+            else payload partial
+                Svc->>DB: store partial diagnostics only
+            end
+        end
+    end
+
+    Job-->>Scheduler: cycle summary

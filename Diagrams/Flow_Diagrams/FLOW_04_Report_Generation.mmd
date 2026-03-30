@@ -1,0 +1,11 @@
+flowchart TD
+    A[User Requests Report] --> B[Select Date Range: start_date and end_date]
+    B --> C{Validate Range: start < end?}
+
+    C -- Invalid --> D[Show Error Message]
+    D --> B
+
+    C -- Valid --> E[Query Health Data, Medication Logs, Adherence Percent]
+    E --> F[Generate PDF with Charts]
+    F --> G[Save to File Storage]
+    G --> H[Report Ready for Download]

@@ -759,6 +759,21 @@ def get_pre_sync_diagnostics(
             'status_code': 200,
         }
 
+    except (ConnectionError, TimeoutError, OSError) as e:
+        logger.warning(
+            'Network error in get_pre_sync_diagnostics for user=%s, provider=%s: %s',
+            user_id,
+            provider,
+            str(e),
+            exc_info=True,
+        )
+        return {
+            'success': False,
+            'provider': provider,
+            'message': str(e) or 'Network error while contacting smartwatch provider',
+            'status_code': 503,
+        }
+
     except (RuntimeError, ValueError, TypeError, AttributeError, SQLAlchemyError) as e:
         logger.error(f"Unexpected error in get_pre_sync_diagnostics: {str(e)}", exc_info=True)
         return {

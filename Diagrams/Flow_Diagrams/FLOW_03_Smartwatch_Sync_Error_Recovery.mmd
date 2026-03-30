@@ -1,0 +1,13 @@
+flowchart TD
+    A[Sync Request Initiated] --> B[Fetch Data from Google Fit]
+    B --> C{Error Occurred?}
+
+    C -- No --> D[Data Stored Successfully]
+    D --> E[Sync Complete]
+
+    C -- Yes --> F{Transient or Permanent?}
+    F -- Transient --> G[Transient Error]
+    F -- Permanent --> H[Permanent Error]
+
+    G --> I[Schedule Retry: Exponential Backoff]
+    H --> J[Alert User to Fix Issue]

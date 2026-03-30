@@ -1,0 +1,9 @@
+flowchart LR
+    U[User] -->|Health data, medication actions, report requests| PHMS[PHMS System]
+    PHMS -->|Dashboard, alerts, reports, reminders| U
+
+    SW[Google Fit Provider] -->|Activity and health metrics| PHMS
+    PHMS -->|OAuth authorization and token refresh requests| SW
+
+    ADM[Admin or Maintainer] -->|Configuration and monitoring| PHMS
+    PHMS -->|Logs, diagnostics, scheduler status| ADM

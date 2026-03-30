@@ -1,0 +1,34 @@
+stateDiagram-v2
+    direction LR
+
+    [*] --> Disconnected
+
+    Disconnected --> Connected : User Links
+    Connected --> Disconnected : Unlink/Fail
+    Connected --> Error : Sync Error
+    Connected --> TokenExpired : Token Expires
+    Error --> Connected : Retry
+    Error --> Disconnected : Max Retries
+    TokenExpired --> ReAuthenticating : Re-auth
+    ReAuthenticating --> Connected : OAuth Success
+    ReAuthenticating --> Disconnected : OAuth Fail
+
+    note right of Disconnected
+        Initial state, no OAuth tokens
+    end note
+
+    note right of Connected
+        Valid access token, active sync
+    end note
+
+    note right of TokenExpired
+        Refresh token regeneration needed
+    end note
+
+    note right of Error
+        API/Network failure
+    end note
+
+    note right of ReAuthenticating
+        New OAuth flow initiated
+    end note

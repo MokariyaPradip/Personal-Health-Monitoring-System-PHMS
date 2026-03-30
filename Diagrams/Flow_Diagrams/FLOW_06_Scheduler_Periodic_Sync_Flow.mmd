@@ -1,0 +1,19 @@
+flowchart TD
+    A[Scheduler tick] --> B[Load connected smartwatch accounts]
+    B --> C{Any connected accounts?}
+    C -- No --> D[End cycle]
+    C -- Yes --> E[Iterate account-by-account]
+    E --> F[Refresh token if required]
+    F --> G{Token refresh success?}
+    G -- No --> H[Record account failure and continue]
+    G -- Yes --> I[Fetch metrics using incremental or adaptive window]
+    I --> J[Normalize and map provider payload]
+    J --> K{Payload complete for strict ingest?}
+    K -- No --> L[Store diagnostics and partial status]
+    K -- Yes --> M[Ingest health payload and update sync boundary]
+    L --> N[Continue next account]
+    M --> N
+    H --> N
+    N --> O{More accounts?}
+    O -- Yes --> E
+    O -- No --> P[End cycle with summary log]

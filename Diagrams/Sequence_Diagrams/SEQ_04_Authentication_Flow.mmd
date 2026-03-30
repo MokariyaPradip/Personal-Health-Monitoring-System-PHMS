@@ -1,0 +1,31 @@
+sequenceDiagram
+    autonumber
+    participant Browser
+    participant AuthCtrl as Auth<br/>Controller
+    participant AuthSvc as Auth<br/>Service
+    participant EmailService as Email/OTP<br/>Service
+    participant DB as Database
+
+    Note over Browser,DB: REGISTRATION FLOW
+    Browser->>AuthCtrl: POST /register (email, password, profile)
+    AuthCtrl->>AuthSvc: validate input + password policy
+    AuthSvc->>DB: ensure email uniqueness
+    AuthSvc->>DB: create user + hash password
+    AuthSvc->>DB: create OTP for email verification
+    AuthSvc->>EmailService: send OTP email
+    EmailService-->>AuthSvc: OTP queued/sent
+    AuthCtrl-->>Browser: 201 register success + verify required
+
+    Note over Browser,DB: LOGIN FLOW
+    Browser->>AuthCtrl: POST /login (email, password)
+    AuthCtrl->>DB: verify credentials
+    AuthCtrl->>AuthSvc: generate JWT + refresh token
+    AuthSvc-->>AuthCtrl: return tokens + expiry
+    AuthCtrl-->>Browser: 200 login success
+
+    Note over Browser,DB: PASSWORD RESET FLOW
+    Browser->>AuthCtrl: POST /forgot-password (email)
+    AuthCtrl->>AuthSvc: issue OTP + expiry
+    AuthSvc->>EmailService: send reset OTP email
+    EmailService-->>AuthSvc: OTP sent
+    AuthCtrl-->>Browser: 200 OTP sent

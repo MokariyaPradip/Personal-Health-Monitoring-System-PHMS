@@ -1,0 +1,32 @@
+stateDiagram-v2
+    direction LR
+
+    [*] --> Idle
+
+    Idle --> Syncing : Trigger Sync Job
+    Syncing --> Completed : Data Fetched
+    Syncing --> Failed : API Error
+    Completed --> Idle : Return to Idle
+    Failed --> RetryScheduled : Schedule Retry
+    RetryScheduled --> Syncing : Retry Timeout
+    RetryScheduled --> Failed : Max Retries Exceeded
+
+    note right of Idle
+        Waiting for next scheduled sync
+    end note
+
+    note right of Syncing
+        Fetching data from Google Fit API
+    end note
+
+    note right of Completed
+        Data stored, ready for ML analysis
+    end note
+
+    note right of Failed
+        Initial sync error, schedule retry
+    end note
+
+    note right of RetryScheduled
+        Exponential backoff retry scheduled
+    end note

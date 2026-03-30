@@ -1,0 +1,16 @@
+flowchart TD
+    A[Event Triggered: Health Log or Med Log Update] --> B{Event Type?}
+
+    B -- Health --> C[Health Alert Path]
+    B -- Medication --> D[Medication Alert Path]
+
+    C --> E{Risk Level High?}
+    D --> F{Check Adherence}
+
+    E -- Yes --> G[Send Notification: Push or Email]
+    E -- Low --> H[Notification Sent]
+
+    F -- Missed or Late --> G
+    F -- Taken --> H
+
+    G --> H

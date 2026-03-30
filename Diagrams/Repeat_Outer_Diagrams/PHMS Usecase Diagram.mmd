@@ -1,0 +1,37 @@
+graph LR
+    subgraph PHMS["PHMS System"]
+        A["Auth<br/>Register<br/>Login"]
+        B["Profile<br/>Manage"]
+        C["Dashboard<br/>View Health"]
+        D["Health Log<br/>Log Data"]
+        E["ML<br/>Assessment"]
+        F["Medication<br/>Manage"]
+        G["Med Log<br/>Log Intake"]
+        H["Alerts<br/>Notifications"]
+        I["Reports<br/>View/Gen"]
+        J["Share<br/>Reports"]
+        K["Smartwatch<br/>OAuth"]
+        L["Sync<br/>Manual"]
+        M["Sync<br/>Scheduled"]
+        N["Diagnostics<br/>Sync"]
+    end
+
+    P["Patient/User"]
+    D2["Doctor"]
+    GF["Google<br/>Fit"]
+    S["Scheduler"]
+
+    P --> A & B & C & D & F & G & I & J & K & L & N
+    D2 --> I & J
+    GF --> K & L & M
+    S --> M & H
+    
+    D -.includes.-> E
+    G -.includes.-> H
+    J -.extends.-> I
+
+    style PHMS fill:#e8f4f8,stroke:#5b9bd5,stroke-width:2px
+    style P fill:#fff9e6,stroke:#333
+    style D2 fill:#ffe6e6,stroke:#333
+    style GF fill:#e6f3ff,stroke:#333
+    style S fill:#f0e6ff,stroke:#333

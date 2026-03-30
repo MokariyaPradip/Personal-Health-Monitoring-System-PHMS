@@ -1,0 +1,18 @@
+flowchart TD
+    A[User submits health payload] --> B[Health route and controller]
+    B --> C[Health service canonical ingest]
+    C --> D{Schema valid?}
+    D -- No --> E[Return validation errors]
+    D -- Yes --> F[Deduplication check]
+    F --> G{Duplicate found?}
+    G -- Yes --> H[Skip insert and return duplicate status]
+    G -- No --> I[Compute score and ML assessment]
+    I --> J[Persist health record]
+    J --> K[Generate alert if threshold crossed]
+    K --> L[Return success response]
+
+    subgraph Smartwatch Source Path
+      S1[Sync adapter returns metric payload] --> S2{Required metrics complete?}
+      S2 -- No --> S3[Reject insert under strict policy]
+      S2 -- Yes --> C
+    end

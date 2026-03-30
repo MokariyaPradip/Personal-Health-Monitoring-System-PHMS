@@ -1,0 +1,127 @@
+erDiagram
+    USER ||--o{ HEALTH_DATA : has
+    USER ||--o{ MEDICATION : prescribes
+    USER ||--o{ MEDICATION_LOG : logs
+    USER ||--o{ ALERT : receives
+    USER ||--o{ SMARTWATCH_ACCOUNT : owns
+    USER ||--o{ SMARTWATCH_SYNC_STATE : tracks
+    MEDICINE ||--o{ MEDICATION : prescribedAs
+    MEDICATION ||--o{ MEDICATION_LOG : records
+    HEALTH_DATA ||--o{ ALERT : triggers
+    MEDICATION_LOG ||--o{ ALERT : triggers
+    SMARTWATCH_ACCOUNT ||--|| SMARTWATCH_SYNC_STATE : maintains
+
+    USER {
+        int user_id PK
+        string username UK "VARCHAR(50) INDEX"
+        string user_email UK "VARCHAR(100) UNIQUE INDEX"
+        string password "VARCHAR(255)"
+        int age
+        string gender "VARCHAR(10)"
+        float height
+        float weight
+        float bmi
+        boolean is_admin "DEFAULT FALSE"
+        datetime created_at
+        datetime updated_at
+    }
+
+    HEALTH_DATA {
+        int entry_id PK
+        int user_id FK "INDEX"
+        int heart_rate
+        float temperature
+        int steps
+        float sleep_hours
+        float blood_pressure
+        float sugar
+        datetime recorded_at
+        int health_score
+        float ml_regression_health_score
+        string ml_classifier_risk_label "VARCHAR(20)"
+        string data_source "VARCHAR(30) DEFAULT 'manual'"
+        string source_record_id "VARCHAR(255) NULL"
+        string ingestion_fingerprint "VARCHAR(64) INDEX NULL"
+    }
+
+    MEDICINE {
+        int medicine_id PK
+        string medicine_name UK "VARCHAR(100) UNIQUE"
+        string medicine_type "VARCHAR(50)"
+        string purpose "VARCHAR(200)"
+        string remark "VARCHAR(200)"
+    }
+
+    MEDICATION {
+        int medication_id PK
+        int user_id FK
+        int medicine_id FK
+        string dosage "VARCHAR(50)"
+        int frequency
+        date start_date
+        date end_date
+        boolean is_critical
+    }
+
+    MEDICATION_LOG {
+        int log_id PK
+        int user_id FK "nullable, INDEX"
+        int medication_id FK "INDEX"
+        date log_date
+        time scheduled_time
+        datetime taken_at
+        string status "ENUM(pending,taken,missed,skipped)"
+        datetime created_at
+    }
+
+    ALERT {
+        int alert_id PK
+        int user_id FK "INDEX"
+        int health_id FK "nullable"
+        int medication_log_id FK "nullable"
+        string title "VARCHAR(150)"
+        string message "TEXT"
+        string category "VARCHAR(30)"
+        string severity "VARCHAR(20)"
+        boolean is_read
+        datetime created_at
+    }
+
+    PASSWORD_RESET_OTP {
+        int otp_id PK
+        string user_email "VARCHAR(100) INDEX"
+        string otp_code "VARCHAR(255) HASHED"
+        int attempts
+        datetime created_at
+        datetime expires_at
+        boolean is_verified
+    }
+
+    SMARTWATCH_ACCOUNT {
+        int account_id PK
+        int user_id FK "INDEX"
+        string provider "VARCHAR(50) INDEX"
+        string provider_user_id "VARCHAR(128) NULL"
+        string access_token "TEXT"
+        string refresh_token "TEXT NULL"
+        datetime token_expiry "NULL"
+        string scopes "TEXT NULL"
+        string connection_status "VARCHAR(20) DEFAULT 'connected'"
+        datetime last_synced_at "NULL"
+        string last_error "TEXT NULL"
+        datetime created_at
+        datetime updated_at
+    }
+
+    SMARTWATCH_SYNC_STATE {
+        int state_id PK
+        int account_id FK "INDEX"
+        int user_id FK "INDEX"
+        string provider "VARCHAR(50) INDEX"
+        string incremental_cursor "VARCHAR(255) NULL"
+        datetime incremental_since "NULL"
+        datetime last_synced_at "NULL"
+        string last_error "TEXT NULL"
+        datetime created_at
+        datetime updated_at
+    }

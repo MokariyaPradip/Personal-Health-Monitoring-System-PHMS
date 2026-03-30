@@ -1,0 +1,65 @@
+graph TD
+    subgraph Client["Client Layer"]
+        WebUI["Browser UI<br/>(Templates + Static JS/CSS)"]
+        ReportUI["Reports UI<br/>(PDF + Charts)"]
+        NotifUI["Notification UI<br/>(Dropdown + Alerts)"]
+    end
+
+    subgraph AppLayer["Application Layer - Flask"]
+        Routes["Routes<br/>(feature_routes/* + routes.py)"]
+        Controllers["Controllers<br/>(auth, health, medication,<br/>notifications, reports, smartwatch)"]
+        Services["Services<br/>Business Logic + Validation<br/>+ Orchestration"]
+        
+        SmartWatchSvc["Smartwatch Service<br/>+ Orchestrator"]
+        MLModule["ML Module<br/>(ml/ml_model.py)"]
+        Scheduler["Scheduler / Jobs<br/>(APScheduler + jobs/*)"]
+        
+        Repositories["Repository Layer<br/>(repositories/*)"]
+        Schemas["Schema Layer<br/>(Pydantic schemas/*)"]
+        Models["Model Layer<br/>(SQLAlchemy models/*)"]
+    end
+
+    Database["SQLite / RDBMS<br/>(instance/phms.db)"]
+
+    subgraph External["External Services"]
+        GoogleFit["Google Fit API"]
+        MailServer["SMTP / Mail Server"]
+        Redis["Redis<br/>(Rate Limit Store)"]
+    end
+
+    subgraph Actors["Actors"]
+        Patient["Patient / User"]
+        Doctor["Doctor"]
+    end
+
+    Patient -->|uses| WebUI
+    Doctor -->|views| ReportUI
+    
+    WebUI --> Routes
+    ReportUI --> Routes
+    NotifUI --> Routes
+    
+    Routes --> Controllers
+    Controllers --> Services
+    
+    Services --> Repositories
+    Services --> Schemas
+    Repositories --> Models
+    
+    Models --> Database
+    Schemas --> Database
+    
+    Services -.->|uses| MLModule
+    Controllers -.->|calls| SmartWatchSvc
+    Scheduler -.->|triggers| Services
+    Scheduler -.->|accesses| Repositories
+    
+    GoogleFit -->|data| SmartWatchSvc
+    Services -->|sends| MailServer
+    Routes -->|rate limiting| Redis
+
+    style Client fill:#f5f5f5
+    style AppLayer fill:#eef7ff
+    style External fill:#fff
+    style Database fill:#fff
+    style Actors fill:#fff

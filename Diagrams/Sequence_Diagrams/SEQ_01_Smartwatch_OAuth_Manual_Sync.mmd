@@ -1,0 +1,28 @@
+sequenceDiagram
+    autonumber
+    actor User
+    participant Browser
+    participant SWController as Smartwatch<br/>Controller
+    participant SWService as Smartwatch<br/>Service
+    participant GoogleFitAdapter as Google Fit<br/>Adapter
+    participant GoogleFit as Google Fit<br/>API
+
+    User->>Browser: Click Connect Google Fit
+    Browser->>SWController: GET /smartwatch/connect
+    SWController->>SWService: start_oauth(user_id)
+    SWService->>GoogleFitAdapter: get_auth_url()
+    GoogleFitAdapter->>GoogleFit: Build OAuth URL
+    GoogleFit-->>GoogleFitAdapter: OAuth URL + state
+    GoogleFitAdapter-->>SWService: Return URL
+    SWService-->>SWController: Redirect to Google OAuth
+    SWController-->>Browser: 302 Redirect
+    Browser->>GoogleFit: User authorizes scope
+    GoogleFit-->>Browser: Callback with auth_code
+    Browser->>SWController: GET /smartwatch/callback?code=...
+    SWController->>SWService: exchange_code_for_token()
+    SWService->>SWService: save_watch_account()
+    
+    User->>Browser: Click Manual Sync
+    Browser->>SWController: POST /smartwatch/manual-sync
+    SWController->>SWService: pull_vitals + store + risk check
+    SWController-->>Browser: JSON sync result

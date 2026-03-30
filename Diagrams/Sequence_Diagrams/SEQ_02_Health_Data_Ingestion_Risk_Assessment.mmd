@@ -1,0 +1,26 @@
+sequenceDiagram
+    autonumber
+    participant Client as App Client
+    participant HealthCtrl as Health<br/>Controller
+    participant HealthSvc as Health<br/>Service
+    participant MLModule as ML Model<br/>Module
+    participant DB as Database
+    participant NotifSvc as Notification<br/>Service
+
+    Client->>HealthCtrl: POST /health (vitals payload)
+    HealthCtrl->>HealthSvc: Validate payload + user session
+    HealthSvc->>HealthSvc: normalize_vitals()
+    HealthSvc->>DB: INSERT health_data
+    DB-->>HealthSvc: DB ack (record id)
+    HealthSvc->>MLModule: predict_health_assessment(vitals)
+    MLModule-->>HealthSvc: risk_score + risk_label
+    HealthSvc->>DB: UPDATE health_data with risk
+    DB-->>HealthSvc: DB update ack
+    alt High Risk Score
+        HealthSvc->>NotifSvc: if high-risk then create alert
+        NotifSvc->>DB: INSERT alert + enqueue push
+        DB-->>NotifSvc: alert stored
+        NotifSvc-->>HealthSvc: return alert status
+    end
+    HealthSvc-->>HealthCtrl: 201 Created + risk summary
+    HealthCtrl-->>Client: JSON response to client

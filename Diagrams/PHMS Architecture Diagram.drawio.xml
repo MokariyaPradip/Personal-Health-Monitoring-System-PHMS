@@ -33,15 +33,15 @@
           <mxGeometry x="180" y="110" width="260" height="620" as="geometry" />
         </mxCell>
 
-        <mxCell id="webUI" value="Browser UI\n(Templates + Static JS/CSS)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;" vertex="1" parent="1">
+        <mxCell id="webUI" value="Browser UI&#xa;(Templates + Static JS/CSS)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;" vertex="1" parent="1">
           <mxGeometry x="210" y="180" width="200" height="90" as="geometry" />
         </mxCell>
 
-        <mxCell id="reportView" value="Reports UI\n(PDF + Charts)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;" vertex="1" parent="1">
+        <mxCell id="reportView" value="Reports UI&#xa;(PDF + Charts)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;" vertex="1" parent="1">
           <mxGeometry x="210" y="320" width="200" height="90" as="geometry" />
         </mxCell>
 
-        <mxCell id="notifUI" value="Notification UI\n(Dropdown + Alerts)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;" vertex="1" parent="1">
+        <mxCell id="notifUI" value="Notification UI&#xa;(Dropdown + Alerts)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;" vertex="1" parent="1">
           <mxGeometry x="210" y="460" width="200" height="90" as="geometry" />
         </mxCell>
 
@@ -49,43 +49,43 @@
           <mxGeometry x="490" y="90" width="760" height="660" as="geometry" />
         </mxCell>
 
-        <mxCell id="routes" value="Routes\n(feature_routes/* + routes.py)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dceeff;strokeColor=#5b9bd5;" vertex="1" parent="1">
+        <mxCell id="routes" value="Routes&#xa;(feature_routes/* + routes.py)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dceeff;strokeColor=#5b9bd5;" vertex="1" parent="1">
           <mxGeometry x="530" y="150" width="220" height="90" as="geometry" />
         </mxCell>
 
-        <mxCell id="controllers" value="Controllers\n(auth, health, medication,\nnotifications, reports, smartwatch)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dceeff;strokeColor=#5b9bd5;" vertex="1" parent="1">
+        <mxCell id="controllers" value="Controllers&#xa;(auth, health, medication,&#xa;notifications, reports, smartwatch)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dceeff;strokeColor=#5b9bd5;" vertex="1" parent="1">
           <mxGeometry x="790" y="150" width="250" height="110" as="geometry" />
         </mxCell>
 
-        <mxCell id="services" value="Services\nBusiness Logic + Validation\n+ Orchestration" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#cfe8ff;strokeColor=#5b9bd5;fontStyle=1;" vertex="1" parent="1">
+        <mxCell id="services" value="Services&#xa;Business Logic + Validation&#xa;+ Orchestration" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#cfe8ff;strokeColor=#5b9bd5;fontStyle=1;" vertex="1" parent="1">
           <mxGeometry x="1080" y="150" width="150" height="110" as="geometry" />
         </mxCell>
 
-        <mxCell id="smartwatchSvc" value="Smartwatch Service\n+ Orchestrator" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e8f4ff;strokeColor=#5b9bd5;" vertex="1" parent="1">
+        <mxCell id="smartwatchSvc" value="Smartwatch Service&#xa;+ Orchestrator" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e8f4ff;strokeColor=#5b9bd5;" vertex="1" parent="1">
           <mxGeometry x="530" y="320" width="220" height="90" as="geometry" />
         </mxCell>
 
-        <mxCell id="mlModule" value="ML Module\n(ml/ml_model.py)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e8f4ff;strokeColor=#5b9bd5;" vertex="1" parent="1">
+        <mxCell id="mlModule" value="ML Module&#xa;(ml/ml_model.py)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e8f4ff;strokeColor=#5b9bd5;" vertex="1" parent="1">
           <mxGeometry x="790" y="320" width="250" height="90" as="geometry" />
         </mxCell>
 
-        <mxCell id="scheduler" value="Scheduler / Jobs\n(APScheduler + jobs/*)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e8f4ff;strokeColor=#5b9bd5;" vertex="1" parent="1">
+        <mxCell id="scheduler" value="Scheduler / Jobs&#xa;(APScheduler + jobs/*)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e8f4ff;strokeColor=#5b9bd5;" vertex="1" parent="1">
           <mxGeometry x="1080" y="320" width="150" height="90" as="geometry" />
         </mxCell>
 
-        <mxCell id="repositories" value="Repository Layer\n(repositories/*)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dceeff;strokeColor=#5b9bd5;" vertex="1" parent="1">
+        <mxCell id="repositories" value="Repository Layer&#xa;(repositories/*)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dceeff;strokeColor=#5b9bd5;" vertex="1" parent="1">
           <mxGeometry x="530" y="470" width="320" height="90" as="geometry" />
         </mxCell>
 
-        <mxCell id="schemas" value="Schema Layer\n(Pydantic schemas/*)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dceeff;strokeColor=#5b9bd5;" vertex="1" parent="1">
+        <mxCell id="schemas" value="Schema Layer&#xa;(Pydantic schemas/*)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dceeff;strokeColor=#5b9bd5;" vertex="1" parent="1">
           <mxGeometry x="890" y="470" width="340" height="90" as="geometry" />
         </mxCell>
 
-        <mxCell id="models" value="Model Layer\n(SQLAlchemy models/*)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dceeff;strokeColor=#5b9bd5;" vertex="1" parent="1">
+        <mxCell id="models" value="Model Layer&#xa;(SQLAlchemy models/*)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dceeff;strokeColor=#5b9bd5;" vertex="1" parent="1">
           <mxGeometry x="530" y="610" width="320" height="90" as="geometry" />
         </mxCell>
 
-        <mxCell id="database" value="SQLite / RDBMS\n(instance/phms.db)" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;fillColor=#ffffff;strokeColor=#5b9bd5;" vertex="1" parent="1">
+        <mxCell id="database" value="SQLite / RDBMS&#xa;(instance/phms.db)" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;fillColor=#ffffff;strokeColor=#5b9bd5;" vertex="1" parent="1">
           <mxGeometry x="890" y="600" width="340" height="110" as="geometry" />
         </mxCell>
 

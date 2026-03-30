@@ -1,0 +1,36 @@
+flowchart TB
+    U[User]
+    SW[Google Fit]
+
+    P1[1.0 Authentication and Profile]
+    P2[2.0 Health Ingestion and Risk Assessment]
+    P3[3.0 Medication and Log Management]
+    P4[4.0 Notification and Alert Management]
+    P5[5.0 Smartwatch Sync Orchestration]
+    P6[6.0 Reporting and Analytics]
+
+    D1[(Users DB)]
+    D2[(Health Records DB)]
+    D3[(Medication and Logs DB)]
+    D4[(Alerts and Notifications DB)]
+    D5[(Smartwatch Account and Sync State DB)]
+
+    U --> P1
+    U --> P2
+    U --> P3
+    U --> P6
+
+    P1 <--> D1
+    P2 <--> D2
+    P3 <--> D3
+    P4 <--> D4
+    P5 <--> D5
+
+    P2 --> P4
+    P3 --> P4
+    P5 --> P2
+    SW --> P5
+    P6 --> D2
+    P6 --> D3
+    P6 --> D4
+    P6 --> U

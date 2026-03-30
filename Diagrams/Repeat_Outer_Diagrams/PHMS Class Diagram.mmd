@@ -1,0 +1,162 @@
+classDiagram
+    direction TD
+
+    %% Domain Models
+    class User {
+        +user_id: int
+        +username: str
+        +user_email: str
+        +password: str
+        +age: int
+        +height: float
+        +weight: float
+        +bmi: float
+    }
+
+    class HealthData {
+        +entry_id: int
+        +user_id: int
+        +heart_rate: int
+        +temperature: float
+        +steps: int
+        +sleep_hours: float
+        +blood_pressure: float
+        +sugar: float
+        +health_score: int
+        +ml_classifier_risk_label: str
+    }
+
+    class Alert {
+        +alert_id: int
+        +user_id: int
+        +health_id: int
+        +medication_log_id: int
+        +title: str
+        +message: text
+        +category: str
+        +severity: str
+        +is_read: bool
+    }
+
+    class Medicine {
+        +medicine_id: int
+        +medicine_name: str
+        +medicine_type: str
+        +purpose: str
+        +remark: str
+    }
+
+    class Medication {
+        +medication_id: int
+        +user_id: int
+        +medicine_id: int
+        +dosage: str
+        +frequency: int
+        +start_date: date
+        +end_date: date
+        +is_critical: bool
+        +is_active() bool
+    }
+
+    class MedicationLog {
+        +log_id: int
+        +user_id: int
+        +medication_id: int
+        +log_date: date
+        +status: enum
+        +scheduled_time: time
+        +taken_at: datetime
+    }
+
+    class SmartwatchAccount {
+        +account_id: int
+        +user_id: int
+        +provider: str
+        +access_token: text
+        +refresh_token: text
+        +token_expiry: datetime
+        +connection_status: str
+        +last_synced_at: datetime
+    }
+
+    class SmartwatchSyncState {
+        +state_id: int
+        +account_id: int
+        +user_id: int
+        +provider: str
+        +incremental_cursor: str
+        +incremental_since: datetime
+        +last_synced_at: datetime
+        +last_error: text
+    }
+
+    %% Repositories
+    class HealthRepository {
+    }
+
+    class MedicationRepository {
+    }
+
+    class MedicationLogRepository {
+    }
+
+    class AlertRepository {
+    }
+
+    class SmartwatchRepository {
+    }
+
+    %% Services
+    class HealthService {
+    }
+
+    class MedicationService {
+    }
+
+    class MedicationLogService {
+    }
+
+    class NotificationService {
+    }
+
+    class SmartwatchService {
+    }
+
+    %% Domain Model Relationships
+    User "1" --> "*" HealthData : has
+    User "1" --> "*" Medication : has
+    User "1" --> "*" Alert : receives
+    User "1" --> "*" SmartwatchAccount : owns
+    User "1" --> "*" SmartwatchSyncState : tracks
+
+    Medicine "1" --> "*" Medication : prescribed_as
+    Medication "1" --> "*" MedicationLog : records
+    HealthData "0..*" --> "*" Alert : triggers
+    MedicationLog "0..*" --> "*" Alert : triggers
+    SmartwatchAccount "1" --> "1" SmartwatchSyncState : maintains
+
+    %% Repository to Model Relationships
+    HealthRepository ..> HealthData : manages
+    MedicationRepository ..> Medication : manages
+    MedicationLogRepository ..> MedicationLog : manages
+    AlertRepository ..> Alert : manages
+    SmartwatchRepository ..> SmartwatchAccount : manages
+    SmartwatchRepository ..> SmartwatchSyncState : manages
+
+    %% Service to Repository Relationships
+    HealthService ..> HealthRepository : uses
+    HealthService ..> HealthData : operates_on
+    
+    MedicationService ..> MedicationRepository : uses
+    MedicationService ..> Medication : operates_on
+    MedicationService ..> Medicine : operates_on
+    
+    MedicationLogService ..> MedicationLogRepository : uses
+    MedicationLogService ..> MedicationLog : operates_on
+    
+    NotificationService ..> AlertRepository : uses
+    NotificationService ..> Alert : operates_on
+    
+    SmartwatchService ..> SmartwatchRepository : uses
+    SmartwatchService ..> SmartwatchAccount : operates_on
+    SmartwatchService ..> SmartwatchSyncState : operates_on

@@ -1,0 +1,33 @@
+sequenceDiagram
+    autonumber
+    actor User
+    participant AppUI as App UI
+    participant MedLogCtrl as MedicationLog<br/>Controller
+    participant MedLogSvc as MedicationLog<br/>Service
+    participant DB as Database
+    participant NotifSvc as Notification<br/>Service
+
+    User->>AppUI: Open due medication card
+    AppUI->>MedLogCtrl: POST /medication-log (status action)
+    MedLogCtrl->>MedLogSvc: validate status transition
+    MedLogSvc->>DB: fetch scheduled dose window
+    DB-->>MedLogSvc: scheduled record + prior state
+    MedLogSvc->>MedLogSvc: compute next status + timestamps
+    MedLogSvc->>DB: UPDATE medication_log state
+    DB-->>MedLogSvc: DB update ack
+    
+    alt Status Changed
+        alt Status = MISSED
+            MedLogSvc->>NotifSvc: if status=MISSED trigger alert
+        else Status = SKIPPED
+            MedLogSvc->>NotifSvc: if status=SKIPPED create warning
+        else Status = TAKEN
+            MedLogSvc->>NotifSvc: if status=TAKEN log positive note
+        end
+        NotifSvc->>DB: persist notification event
+        DB-->>NotifSvc: return event id
+        NotifSvc-->>MedLogSvc: notification created
+    end
+    
+    MedLogSvc-->>MedLogCtrl: status response object
+    MedLogCtrl-->>AppUI: UI toast + updated badge
