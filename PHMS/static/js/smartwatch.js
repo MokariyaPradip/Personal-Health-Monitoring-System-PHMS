@@ -37,6 +37,40 @@
         return date.toLocaleString();
     }
 
+    function renderLastAttempt(syncState) {
+        if (!lastAttemptAtEl) {
+            return;
+        }
+
+        const attemptAt = syncState && syncState.last_synced_at;
+        const lastError = syncState && syncState.last_error;
+
+        if (!attemptAt) {
+            lastAttemptAtEl.textContent = 'No attempts yet';
+            return;
+        }
+
+        const timeNode = document.createTextNode(fmt(attemptAt, 'No attempts yet'));
+        lastAttemptAtEl.replaceChildren(timeNode);
+
+        const indicator = document.createElement('span');
+        indicator.style.marginLeft = '8px';
+
+        if (lastError) {
+            indicator.className = 'error-indicator';
+            indicator.style.color = '#d32f2f';
+            indicator.style.fontWeight = 'bold';
+            indicator.title = String(lastError);
+            indicator.textContent = 'Failed';
+        } else {
+            indicator.className = 'success-indicator';
+            indicator.style.color = '#388e3c';
+            indicator.textContent = 'Success';
+        }
+
+        lastAttemptAtEl.appendChild(indicator);
+    }
+
     function setConnectedUi(isConnected) {
         if (statusPill) {
             statusPill.textContent = isConnected ? 'Connected' : 'Disconnected';
@@ -103,9 +137,7 @@
             if (lastSyncedAtEl) {
                 lastSyncedAtEl.textContent = 'Never synced';
             }
-            if (lastAttemptAtEl) {
-                lastAttemptAtEl.textContent = 'No attempts yet';
-            }
+            renderLastAttempt(null);
             if (incrementalCursorEl) {
                 incrementalCursorEl.textContent = 'N/A';
             }
@@ -125,9 +157,7 @@
         if (lastSyncedAtEl) {
             lastSyncedAtEl.textContent = fmt(account.last_synced_at, 'Never synced');
         }
-        if (lastAttemptAtEl) {
-            lastAttemptAtEl.textContent = fmt(syncState.last_synced_at, 'No attempts yet');
-        }
+        renderLastAttempt(syncState);
         if (incrementalCursorEl) {
             incrementalCursorEl.textContent = syncState.incremental_cursor || 'N/A';
         }

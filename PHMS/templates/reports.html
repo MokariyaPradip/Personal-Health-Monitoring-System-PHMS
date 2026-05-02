@@ -63,9 +63,9 @@
 
 		<div class="report-form-row report-form-periods">
 			<label>Or View Predefined Reports</label>
-			<a class="report-link-btn" data-loading-link data-loading-message="Loading weekly report..." href="/reports/weekly?feature={{ meta.feature_filter if meta.feature_filter else 'all' }}">Weekly</a>
-			<a class="report-link-btn" data-loading-link data-loading-message="Loading monthly report..." href="/reports/monthly?feature={{ meta.feature_filter if meta.feature_filter else 'all' }}">Monthly</a>
-			<a class="report-link-btn" data-loading-link data-loading-message="Loading yearly report..." href="/reports/yearly?feature={{ meta.feature_filter if meta.feature_filter else 'all' }}">Yearly</a>
+			<a class="report-link-btn" data-loading-link data-loading-message="Loading weekly report..." href="{{ url_for('reports.weekly_report') }}?feature={{ meta.feature_filter if meta.feature_filter else 'all' }}">Weekly</a>
+			<a class="report-link-btn" data-loading-link data-loading-message="Loading monthly report..." href="{{ url_for('reports.monthly_report') }}?feature={{ meta.feature_filter if meta.feature_filter else 'all' }}">Monthly</a>
+			<a class="report-link-btn" data-loading-link data-loading-message="Loading yearly report..." href="{{ url_for('reports.yearly_report') }}?feature={{ meta.feature_filter if meta.feature_filter else 'all' }}">Yearly</a>
 		</div>
 	</form>
 </div>
@@ -94,7 +94,7 @@
 	<div class="report-actions">
 		<a class="report-btn" data-loading-link data-loading-message="Preparing JSON report..." href="{{ request.path }}?{% if request.query_string %}{{ request.query_string.decode() }}&{% endif %}format=json">Download JSON</a>
 		<a class="report-btn" data-loading-link data-loading-message="Preparing CSV report..." href="{{ request.path }}?{% if request.query_string %}{{ request.query_string.decode() }}&{% endif %}format=csv">Download CSV</a>
-		<a class="report-btn" data-loading-link data-loading-message="Preparing PDF report..." href="/reports/{{ meta.report_type }}/pdf?feature={{ meta.feature_filter }}{% if meta.report_type == 'custom' %}&start_date={{ meta.start_date }}&end_date={{ meta.end_date }}{% endif %}">Download PDF</a>
+		<a class="report-btn" data-loading-link data-loading-message="Preparing PDF report..." href="{{ url_for('reports.report_pdf', report_type=meta.report_type) }}?feature={{ meta.feature_filter }}{% if meta.report_type == 'custom' %}&start_date={{ meta.start_date }}&end_date={{ meta.end_date }}{% endif %}">Download PDF</a>
 		<button class="report-btn" id="printReportBtn">Print Report</button>
 	</div>
 </div>

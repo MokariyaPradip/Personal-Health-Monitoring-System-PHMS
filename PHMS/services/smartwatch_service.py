@@ -42,6 +42,7 @@ from services.smartwatch import (
     SyncRequest,
     TokenBundle,
 )
+from services.smartwatch.token_crypto import decrypt_token_value, encrypt_token_value
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +70,25 @@ def _get_oauth_redirect_uri() -> str:
 def _get_oauth_state(user_id: int, provider: str) -> str:
     """Generate lightweight OAuth state prefix for adapter state format."""
     return f'phms-smartwatch-{provider}-{user_id}'
+
+
+def _build_token_bundle_from_account(account) -> TokenBundle:
+    """Rebuild a token bundle from stored account values, handling legacy plaintext records."""
+    return TokenBundle(
+        access_token=decrypt_token_value(account.access_token),
+        refresh_token=decrypt_token_value(account.refresh_token),
+        expires_at=account.token_expiry,
+        scope=account.scopes,
+        provider_user_id=account.provider_user_id,
+    )
+
+
+def _persist_token_bundle_to_account(account, token_bundle: TokenBundle) -> None:
+    """Persist the current token bundle back to the database in encrypted form."""
+    account.access_token = encrypt_token_value(token_bundle.access_token)
+    account.refresh_token = encrypt_token_value(token_bundle.refresh_token)
+    account.token_expiry = token_bundle.expires_at
+    account.scopes = token_bundle.scope
 
 
 def _get_orchestrator():
@@ -279,12 +299,14 @@ def handle_oauth_callback(user_id: int, provider: str, code: str) -> dict:
         
         # Store account in database
         try:
+            encrypted_access_token = encrypt_token_value(token_bundle.access_token)
+            encrypted_refresh_token = encrypt_token_value(token_bundle.refresh_token)
             account = SmartwatchRepository.create_or_update_account(
                 user_id=user_id,
                 provider=provider,
                 provider_user_id=token_bundle.provider_user_id,
-                access_token=token_bundle.access_token,
-                refresh_token=token_bundle.refresh_token,
+                access_token=encrypted_access_token,
+                refresh_token=encrypted_refresh_token,
                 token_expiry=token_bundle.expires_at,
                 scopes=token_bundle.scope,
                 connection_status='connected',
@@ -393,7 +415,7 @@ def disconnect_account(user_id: int, provider: str) -> dict:
             if adapter:
                 # Some adapters may support revocation; call if available
                 if hasattr(adapter, 'revoke_token'):
-                    adapter.revoke_token(account.access_token)
+                    adapter.revoke_token(decrypt_token_value(account.access_token))
         except (RuntimeError, ValueError, TypeError, ConnectionError, TimeoutError, OSError, AttributeError) as e:
             logger.warning(f"Token revocation failed for {provider}: {str(e)}")
             # Continue anyway - mark as disconnected locally
@@ -529,13 +551,7 @@ def trigger_sync(user_id: int, provider: str, cursor: str | None = None,
         if token_bundle_in_memory is None:
             # Tokens not in memory, reconstruct from database
             logger.debug(f"Loading tokens from database for user={user_id}, provider={provider}")
-            token_bundle_from_db = TokenBundle(
-                access_token=account.access_token,
-                refresh_token=account.refresh_token,
-                expires_at=account.token_expiry,
-                scope=account.scopes,
-                provider_user_id=account.provider_user_id,
-            )
+            token_bundle_from_db = _build_token_bundle_from_account(account)
             orchestrator._token_manager.save_token_bundle(user_id, provider, token_bundle_from_db)
         
         # Execute sync via orchestrator (fetch + ingest + dedupe)
@@ -576,6 +592,10 @@ def trigger_sync(user_id: int, provider: str, cursor: str | None = None,
         # Keeping boundary unchanged prevents lock-in to repeatedly empty narrow windows.
         if next_since is None and sync_result.fetched_count > 0:
             next_since = synced_at
+
+        current_token_bundle = orchestrator._token_manager.get_token_bundle(user_id, provider)
+        if current_token_bundle is not None:
+            _persist_token_bundle_to_account(account, current_token_bundle)
 
         # Update sync/account state in database
         if sync_result.success:
@@ -619,9 +639,9 @@ def trigger_sync(user_id: int, provider: str, cursor: str | None = None,
             )
         
         return {
-            'success': True,
+            'success': sync_result.success,
             'provider': provider,
-            'message': 'Sync completed',
+            'message': sync_result.status_message if not sync_result.success else 'Sync completed',
             'sync_result': {
                 'fetched_count': sync_result.fetched_count,
                 'ingested_count': sync_result.ingested_count,
@@ -695,18 +715,14 @@ def get_pre_sync_diagnostics(
 
         token_bundle = orchestrator._token_manager.get_token_bundle(user_id, provider)
         if token_bundle is None:
-            token_bundle = TokenBundle(
-                access_token=account.access_token,
-                refresh_token=account.refresh_token,
-                expires_at=account.token_expiry,
-                scope=account.scopes,
-                provider_user_id=account.provider_user_id,
-            )
+            token_bundle = _build_token_bundle_from_account(account)
             orchestrator._token_manager.save_token_bundle(user_id, provider, token_bundle)
 
         if token_bundle.is_expired() and token_bundle.refresh_token:
             token_bundle = adapter.refresh_access_token(token_bundle.refresh_token)
             orchestrator._token_manager.save_token_bundle(user_id, provider, token_bundle)
+            _persist_token_bundle_to_account(account, token_bundle)
+            db.session.commit()
 
         context = FetchContext(
             user_id=user_id,
@@ -774,7 +790,37 @@ def get_pre_sync_diagnostics(
             'status_code': 503,
         }
 
-    except (RuntimeError, ValueError, TypeError, AttributeError, SQLAlchemyError) as e:
+    except ValueError as e:
+        message = str(e) or 'Invalid diagnostics request'
+        lower_message = message.lower()
+        if 'authorization failed' in lower_message or 'invalid authentication credentials' in lower_message:
+            logger.warning(
+                'Authorization error in get_pre_sync_diagnostics for user=%s, provider=%s: %s',
+                user_id,
+                provider,
+                message,
+            )
+            return {
+                'success': False,
+                'provider': provider,
+                'message': message,
+                'status_code': 401,
+            }
+
+        logger.warning(
+            'Validation error in get_pre_sync_diagnostics for user=%s, provider=%s: %s',
+            user_id,
+            provider,
+            message,
+        )
+        return {
+            'success': False,
+            'provider': provider,
+            'message': message,
+            'status_code': 400,
+        }
+
+    except (RuntimeError, TypeError, AttributeError, SQLAlchemyError) as e:
         logger.error(f"Unexpected error in get_pre_sync_diagnostics: {str(e)}", exc_info=True)
         return {
             'success': False,

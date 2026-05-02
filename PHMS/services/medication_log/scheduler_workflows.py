@@ -96,7 +96,7 @@ class MedicationLogSchedulerMixin:
 
         try:
             all_medications = Medication.query.all()
-            active_medications = [med for med in all_medications if med.is_active()]
+            active_medications = [med for med in all_medications if med.current_status() == 'ACTIVE']
         except Exception as exc:
             db.session.rollback()
             logger.error("Error loading medications for daily log creation: %s", str(exc))
@@ -207,7 +207,7 @@ class MedicationLogSchedulerMixin:
 
         try:
             all_medications = Medication.query.all()
-            active_medications = [med for med in all_medications if med.is_active()]
+            active_medications = [med for med in all_medications if med.current_status() == 'ACTIVE']
         except Exception as exc:
             db.session.rollback()
             logger.error("Error loading medications for startup initialization: %s", str(exc))

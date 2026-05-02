@@ -142,7 +142,9 @@
                     <p><strong>Smartwatch records:</strong> {{ smartwatch_health_entries }}</p>
                     <p><strong>Sync errors:</strong> {{ smartwatch_summary.recent_errors_count }}</p>
                 </div>
-                <a class="smartwatch-profile-link" href="/smartwatch?provider={{ smartwatch_summary.provider }}">Open Smartwatch Integration →</a>
+                <!--
+                    <a class="smartwatch-profile-link" href="{{ url_for('smartwatch_page') }}?provider={{ smartwatch_summary.provider }}">Open Smartwatch Integration →</a>
+                -->
             </div>
         </div>
 

@@ -58,7 +58,18 @@
                 </div>
                 <div class="status-item">
                     <span class="k">Last Sync Attempt</span>
-                    <span class="v" id="lastAttemptAt">{{ sync_state.last_synced_at if sync_state else 'No attempts yet' }}</span>
+                    <div class="v" id="lastAttemptAt">
+                        {% if sync_state and sync_state.last_synced_at %}
+                            {{ sync_state.last_synced_at }}
+                            {% if sync_state.last_error %}
+                                <span class="error-indicator" title="{{ sync_state.last_error }}" style="color: #d32f2f; font-weight: bold; margin-left: 8px;">⚠️ Failed</span>
+                            {% else %}
+                                <span class="success-indicator" style="color: #388e3c; margin-left: 8px;">✓</span>
+                            {% endif %}
+                        {% else %}
+                            No attempts yet
+                        {% endif %}
+                    </div>
                 </div>
                 <div class="status-item">
                     <span class="k">Incremental Cursor <span class="sync-boundary-hint">(next sync boundary)</span></span>

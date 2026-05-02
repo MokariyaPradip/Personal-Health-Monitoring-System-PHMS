@@ -1,6 +1,9 @@
 import logging
 import hashlib
-from datetime import datetime
+import uuid
+from collections import Counter
+from json import dumps as json_dumps
+from datetime import datetime, timedelta
 from smtplib import SMTPException
 
 from flask import current_app, render_template
@@ -19,10 +22,30 @@ from utils.health_score import calculate_health_score, score_to_label
 logger = logging.getLogger(__name__)
 
 
+HEALTH_METRICS = Counter()
+
+
 SOURCE_LABELS = {
     'manual': 'Manual',
     'google_fit': 'Google Fit',
 }
+
+
+SOURCE_OPTIONS = [
+    {'value': 'all', 'label': 'All Sources'},
+    {'value': 'manual', 'label': SOURCE_LABELS['manual']},
+    {'value': 'google_fit', 'label': SOURCE_LABELS['google_fit']},
+]
+
+
+SORT_OPTIONS = [
+    {'value': 'newest', 'label': 'Newest first'},
+    {'value': 'oldest', 'label': 'Oldest first'},
+    {'value': 'score_desc', 'label': 'Highest score'},
+    {'value': 'score_asc', 'label': 'Lowest score'},
+    {'value': 'heart_rate_desc', 'label': 'Highest heart rate'},
+    {'value': 'heart_rate_asc', 'label': 'Lowest heart rate'},
+]
 
 
 def _format_display_datetime(value):
@@ -82,9 +105,179 @@ def _normalize_source_filter(source):
     return None
 
 
+def _parse_date_filter(raw_value, *, is_end_date=False):
+    if not raw_value:
+        return None
+
+    value = str(raw_value).strip()
+    if not value:
+        return None
+
+    try:
+        parsed = datetime.strptime(value, '%Y-%m-%d')
+    except ValueError:
+        raise ValueError('Dates must use YYYY-MM-DD format')
+
+    if is_end_date:
+        return parsed + timedelta(days=1)
+    return parsed
+
+
+def _safe_parse_date_filters(start_date, end_date, *, correlation_id):
+    """Parse date filters and return a 400 payload instead of raising on invalid input."""
+    errors = {}
+
+    parsed_start_date = None
+    parsed_end_date = None
+
+    if start_date:
+        try:
+            parsed_start_date = _parse_date_filter(start_date)
+        except ValueError:
+            errors.setdefault('start_date', []).append('Dates must use YYYY-MM-DD format')
+
+    if end_date:
+        try:
+            parsed_end_date = _parse_date_filter(end_date, is_end_date=True)
+        except ValueError:
+            errors.setdefault('end_date', []).append('Dates must use YYYY-MM-DD format')
+
+    if errors:
+        return None, None, _error_payload(
+            'Invalid date filter. Dates must use YYYY-MM-DD format',
+            status_code=400,
+            correlation_id=correlation_id,
+            errors=errors,
+            support_message=(
+                'Invalid date filter. Dates must use YYYY-MM-DD format. '
+                f'Reference ID: {correlation_id}'
+            ),
+        )
+
+    return parsed_start_date, parsed_end_date, None
+
+
+def _empty_health_page_context(*, page, source_filter, search, start_date, end_date, sort):
+    """Return a minimal safe context for health page rendering when filters are invalid."""
+    safe_sort = sort if sort in HealthRepository.SORT_OPTIONS else 'newest'
+    return {
+        'last_entry': None,
+        'entries': [],
+        'pagination': {
+            'pages': 0,
+            'page': page,
+            'has_prev': False,
+            'has_next': False,
+            'prev_num': None,
+            'next_num': None,
+        },
+        'total_entries': 0,
+        'filtered_total_entries': 0,
+        'monthly_records_count': 0,
+        'source_filter': source_filter or 'all',
+        'search_query': (search or '').strip(),
+        'start_date_filter': (start_date or '').strip(),
+        'end_date_filter': (end_date or '').strip(),
+        'sort_filter': safe_sort,
+        'source_options': SOURCE_OPTIONS,
+        'sort_options': SORT_OPTIONS,
+        'manual_records_count': 0,
+        'smartwatch_records_count': 0,
+        'smartwatch_provider': 'google_fit',
+        'smartwatch_provider_label': SOURCE_LABELS['google_fit'],
+        'smartwatch_is_connected': False,
+        'smartwatch_last_synced_at': None,
+        'smartwatch_last_attempt_at': None,
+        'smartwatch_recent_errors_count': 0,
+    }
+
+
 def _format_source_label(source):
     normalized = (source or 'manual').strip().lower()
     return SOURCE_LABELS.get(normalized, normalized.replace('_', ' ').title())
+
+
+def _new_correlation_id(prefix='health'):
+    return f"{prefix}-{uuid.uuid4().hex[:12]}"
+
+
+def _metric_name(name, source=None):
+    if source:
+        return f"{name}.{source}"
+    return name
+
+
+def _increment_metric(name, source=None, amount=1):
+    HEALTH_METRICS[_metric_name(name, source)] += amount
+
+
+def _observability_snapshot():
+    return dict(HEALTH_METRICS)
+
+
+def _log_health_event(level, event, correlation_id, **fields):
+    payload = {
+        'event': event,
+        'correlation_id': correlation_id,
+        **fields,
+    }
+    log_message = json_dumps(payload, default=str, sort_keys=True)
+    log_fn = getattr(logger, level, logger.info)
+    log_fn(log_message)
+
+
+def _success_payload(message, *, correlation_id=None, **extra):
+    payload = {'success': True, 'message': message}
+    if correlation_id:
+        payload['correlation_id'] = correlation_id
+    payload.update(extra)
+    return payload
+
+
+def _error_payload(message, *, status_code=500, correlation_id=None, **extra):
+    user_message = message
+    if correlation_id:
+        user_message = f"{message}. Reference ID: {correlation_id}"
+
+    payload = {'success': False, 'message': user_message, 'status_code': status_code}
+    if correlation_id:
+        payload['correlation_id'] = correlation_id
+        payload['support_message'] = user_message
+    payload.update(extra)
+    return payload
+
+
+def _serialize_health_entry(entry):
+    """Serialize a health entry for JSON export and API responses."""
+    recorded_at = getattr(entry, 'recorded_at', None)
+    rule_based_risk_label = score_to_label(entry.health_score) if entry.health_score is not None else None
+    regression_based_risk_label = (
+        score_to_label(entry.ml_regression_health_score)
+        if entry.ml_regression_health_score is not None
+        else None
+    )
+
+    return {
+        'entry_id': entry.entry_id,
+        'user_id': entry.user_id,
+        'heart_rate': entry.heart_rate,
+        'temperature': entry.temperature,
+        'steps': entry.steps,
+        'sleep_hours': entry.sleep_hours,
+        'blood_pressure': entry.blood_pressure,
+        'sugar': entry.sugar,
+        'health_score': entry.health_score,
+        'rule_based_risk_label': rule_based_risk_label,
+        'ml_regression_health_score': entry.ml_regression_health_score,
+        'regression_based_risk_label': regression_based_risk_label,
+        'ml_classifier_risk_label': entry.ml_classifier_risk_label,
+        'recorded_at': recorded_at.isoformat() if recorded_at else None,
+        'recorded_at_display': _format_display_datetime(recorded_at),
+        'data_source': entry.data_source or 'manual',
+        'source_label': _format_source_label(entry.data_source or 'manual'),
+        'source_record_id': entry.source_record_id,
+        'ingestion_fingerprint': entry.ingestion_fingerprint,
+    }
 
 
 def _send_health_alert_email(user_email, user_name, user_bmi, health_data):
@@ -229,6 +422,16 @@ def _build_ingestion_fingerprint(data_source, source_record_id, observed_at, pay
 
 
 def _duplicate_ingestion_response(existing_entry):
+    correlation_id = _new_correlation_id('dedupe')
+    _increment_metric('dedupe.hit')
+    _log_health_event(
+        'warning',
+        'health.ingestion.dedupe_hit',
+        correlation_id,
+        entry_id=existing_entry.entry_id,
+        data_source=getattr(existing_entry, 'data_source', 'manual'),
+        source_record_id=getattr(existing_entry, 'source_record_id', None),
+    )
     return {
         "success": True,
         "message": "Duplicate smartwatch record skipped",
@@ -236,19 +439,55 @@ def _duplicate_ingestion_response(existing_entry):
         "entry_id": existing_entry.entry_id,
         "alert_created": False,
         "alert_email_sent": False,
+        "correlation_id": correlation_id,
         "status_code": 200,
     }
 
 
-def health_page(user_id, page=1, per_page=50, source_filter=None):
+def health_page(user_id, page=1, per_page=50, source_filter=None, search=None, start_date=None, end_date=None, sort='newest'):
     """Build context payload for the health page."""
+    correlation_id = _new_correlation_id('health-filter')
     normalized_source = _normalize_source_filter(source_filter)
+    parsed_start_date, parsed_end_date, date_filter_error = _safe_parse_date_filters(
+        start_date,
+        end_date,
+        correlation_id=correlation_id,
+    )
+
+    if date_filter_error:
+        _increment_metric('filters.invalid_date', normalized_source or 'all')
+        _log_health_event(
+            'warning',
+            'health.filters.invalid_date',
+            correlation_id,
+            user_id=user_id,
+            source_filter=normalized_source or 'all',
+            errors=date_filter_error.get('errors', {}),
+        )
+
+        error_context = _empty_health_page_context(
+            page=page,
+            source_filter=normalized_source or 'all',
+            search=search,
+            start_date=start_date,
+            end_date=end_date,
+            sort=sort,
+        )
+        error_context['status_code'] = 400
+        error_context['filter_error_message'] = date_filter_error.get('message', 'Invalid date filter')
+        error_context['filter_error_details'] = date_filter_error.get('errors', {})
+        error_context['correlation_id'] = correlation_id
+        return error_context
 
     pagination = HealthRepository.get_paginated_user_entries(
         user_id=user_id,
         page=page,
         per_page=per_page,
         data_source=normalized_source,
+        search=search,
+        start_date=parsed_start_date,
+        end_date=parsed_end_date,
+        sort=sort,
     )
 
     for entry in pagination.items:
@@ -277,9 +516,12 @@ def health_page(user_id, page=1, per_page=50, source_filter=None):
         last_entry.source_label = _format_source_label(getattr(last_entry, 'data_source', 'manual'))
 
     total_entries = HealthRepository.count_user_entries(user_id)
-    filtered_total_entries = HealthRepository.count_user_entries_by_source(
+    filtered_total_entries = HealthRepository.count_user_entries_filtered(
         user_id=user_id,
         data_source=normalized_source,
+        search=search,
+        start_date=parsed_start_date,
+        end_date=parsed_end_date,
     )
 
     now = datetime.now()
@@ -307,11 +549,12 @@ def health_page(user_id, page=1, per_page=50, source_filter=None):
         'filtered_total_entries': filtered_total_entries,
         'monthly_records_count': monthly_records_count,
         'source_filter': normalized_source or 'all',
-        'source_options': [
-            {'value': 'all', 'label': 'All Sources'},
-            {'value': 'manual', 'label': SOURCE_LABELS['manual']},
-            {'value': 'google_fit', 'label': SOURCE_LABELS['google_fit']},
-        ],
+        'search_query': (search or '').strip(),
+        'start_date_filter': (start_date or '').strip(),
+        'end_date_filter': (end_date or '').strip(),
+        'sort_filter': sort if sort in HealthRepository.SORT_OPTIONS else 'newest',
+        'source_options': SOURCE_OPTIONS,
+        'sort_options': SORT_OPTIONS,
         'manual_records_count': manual_records_count,
         'smartwatch_records_count': smartwatch_records_count,
         'smartwatch_provider': smartwatch_summary['provider'],
@@ -323,20 +566,113 @@ def health_page(user_id, page=1, per_page=50, source_filter=None):
     }
 
 
+def export_health_data(user_id, source_filter=None, search=None, start_date=None, end_date=None, sort='newest'):
+    """Export filtered health records as JSON-friendly data."""
+    correlation_id = _new_correlation_id('export')
+    normalized_source = _normalize_source_filter(source_filter)
+    parsed_start_date, parsed_end_date, date_filter_error = _safe_parse_date_filters(
+        start_date,
+        end_date,
+        correlation_id=correlation_id,
+    )
+
+    if date_filter_error:
+        _increment_metric('export.invalid_date', normalized_source or 'all')
+        _log_health_event(
+            'warning',
+            'health.export.invalid_date',
+            correlation_id,
+            user_id=user_id,
+            source_filter=normalized_source or 'all',
+            errors=date_filter_error.get('errors', {}),
+        )
+        return date_filter_error
+
+    entries = HealthRepository.get_filtered_user_entries(
+        user_id=user_id,
+        data_source=normalized_source,
+        search=search,
+        start_date=parsed_start_date,
+        end_date=parsed_end_date,
+        sort=sort,
+    )
+
+    _increment_metric('export.success', normalized_source or 'all')
+    _log_health_event(
+        'info',
+        'health.export.completed',
+        correlation_id,
+        user_id=user_id,
+        source_filter=normalized_source or 'all',
+        search_present=bool((search or '').strip()),
+        start_date=start_date,
+        end_date=end_date,
+        sort=sort if sort in HealthRepository.SORT_OPTIONS else 'newest',
+        count=len(entries),
+    )
+
+    return {
+        'exported_at': datetime.now().isoformat(),
+        'correlation_id': correlation_id,
+        'filters': {
+            'source': normalized_source or 'all',
+            'search': (search or '').strip(),
+            'start_date': (start_date or '').strip(),
+            'end_date': (end_date or '').strip(),
+            'sort': sort if sort in HealthRepository.SORT_OPTIONS else 'newest',
+        },
+        'count': len(entries),
+        'entries': [_serialize_health_entry(entry) for entry in entries],
+    }
+
+
 def ingest_health_entry(user_id, data, source='manual', ingestion_metadata=None):
     """Shared health ingestion pipeline used by all health data sources."""
+    correlation_id = _new_correlation_id('ingest')
     current_app.logger.info("Health data submission initiated for user %s via source=%s", user_id, source)
+    _log_health_event(
+        'info',
+        'health.ingestion.started',
+        correlation_id,
+        user_id=user_id,
+        source=source,
+        has_payload=bool(data),
+    )
 
     try:
         payload = AddHealthRequest.model_validate(data or {})
     except ValidationError as exc:
         payload_keys = list(data.keys()) if isinstance(data, dict) else []
         current_app.logger.error("Validation error: %s | Data keys: %s", str(exc), payload_keys)
-        return {
-            "success": False,
-            "message": validation_error_message(exc, fallback="Invalid health data"),
-            "status_code": 400,
-        }
+
+        # Build field-level errors mapping for machine-friendly responses
+        field_errors: dict = {}
+        for err in exc.errors():
+            loc = err.get('loc', [])
+            msg = err.get('msg', 'Invalid value')
+            if loc and isinstance(loc, (list, tuple)):
+                field = loc[0]
+            else:
+                field = '__all__'
+            field_errors.setdefault(field, []).append(msg)
+
+        _increment_metric('ingestion.failure', source)
+        _log_health_event(
+            'warning',
+            'health.ingestion.validation_failed',
+            correlation_id,
+            user_id=user_id,
+            source=source,
+            fields=payload_keys,
+            errors=field_errors,
+        )
+        return _error_payload(
+            'Validation failed',
+            status_code=400,
+            correlation_id=correlation_id,
+            errors=field_errors,
+            support_message=f"Validation failed. Reference ID: {correlation_id}",
+        )
 
     heart_rate = payload.heart_rate
     temperature = payload.temperature
@@ -369,14 +705,26 @@ def ingest_health_entry(user_id, data, source='manual', ingestion_metadata=None)
                 available_vitals_count_temp,
                 ', '.join(missing_fields),
             )
-            return {
-                'success': False,
-                'message': (
+            _increment_metric('sync.error', source)
+            _log_health_event(
+                'warning',
+                'health.sync.incomplete_payload',
+                correlation_id,
+                user_id=user_id,
+                source=source,
+                missing_fields=missing_fields,
+                available_vitals_count=available_vitals_count_temp,
+            )
+            return _error_payload(
+                'Smartwatch sync skipped: incomplete metrics from provider',
+                status_code=422,
+                correlation_id=correlation_id,
+                errors={'missing_fields': missing_fields},
+                support_message=(
                     'Smartwatch sync skipped: incomplete metrics from provider '
-                    f"(missing: {', '.join(missing_fields)})."
+                    f"(missing: {', '.join(missing_fields)}). Reference ID: {correlation_id}"
                 ),
-                'status_code': 422,
-            }
+            )
 
     ingestion_metadata = ingestion_metadata or {}
     data_source = ingestion_metadata.get('data_source') or source
@@ -394,7 +742,14 @@ def ingest_health_entry(user_id, data, source='manual', ingestion_metadata=None)
 
     user = HealthRepository.get_user_by_id(user_id)
     if not user:
-        return {"success": False, "message": "User not found", "status_code": 404}
+        _increment_metric('ingestion.failure', source)
+        _log_health_event('error', 'health.ingestion.user_not_found', correlation_id, user_id=user_id, source=source)
+        return _error_payload(
+            'User not found',
+            status_code=404,
+            correlation_id=correlation_id,
+            support_message=f'User not found. Reference ID: {correlation_id}',
+        )
 
     if source_record_id:
         existing_source_record = HealthRepository.get_by_source_record(
@@ -462,6 +817,15 @@ def ingest_health_entry(user_id, data, source='manual', ingestion_metadata=None)
                 ml_model_version = ml_assessment.get("ml_model_version")
             except (RuntimeError, ValueError, TypeError, KeyError) as ml_exc:
                 # Do not fail ingestion if ML is unavailable or prediction errors occur.
+                _increment_metric('ml.failure', source)
+                _log_health_event(
+                    'warning',
+                    'health.ml.assessment_failed',
+                    correlation_id,
+                    user_id=user_id,
+                    source=source,
+                    error=str(ml_exc),
+                )
                 current_app.logger.warning(
                     "ML assessment unavailable for user %s via source=%s: %s",
                     user_id,
@@ -557,11 +921,25 @@ def ingest_health_entry(user_id, data, source='manual', ingestion_metadata=None)
                 return _duplicate_ingestion_response(existing_fingerprint)
 
         current_app.logger.exception("Integrity error adding health data for user %s via source=%s", user_id, source)
-        return {"success": False, "message": "Error adding health data", "status_code": 500}
+        _increment_metric('ingestion.failure', source)
+        _log_health_event('error', 'health.ingestion.integrity_error', correlation_id, user_id=user_id, source=source)
+        return _error_payload(
+            'Error adding health data',
+            status_code=500,
+            correlation_id=correlation_id,
+            support_message=f'Error adding health data. Reference ID: {correlation_id}',
+        )
     except (SQLAlchemyError, ValueError, TypeError):
         db.session.rollback()
         current_app.logger.exception("Error adding health data for user %s via source=%s", user_id, source)
-        return {"success": False, "message": "Error adding health data", "status_code": 500}
+        _increment_metric('ingestion.failure', source)
+        _log_health_event('error', 'health.ingestion.database_error', correlation_id, user_id=user_id, source=source)
+        return _error_payload(
+            'Error adding health data',
+            status_code=500,
+            correlation_id=correlation_id,
+            support_message=f'Error adding health data. Reference ID: {correlation_id}',
+        )
 
     if is_high_risk:
         current_app.logger.warning(
@@ -578,6 +956,20 @@ def ingest_health_entry(user_id, data, source='manual', ingestion_metadata=None)
     else:
         current_app.logger.info("Low/Medium risk for user %s - No email sent.", user.username)
 
+    _increment_metric('ingestion.success', source)
+    _log_health_event(
+        'info',
+        'health.ingestion.completed',
+        correlation_id,
+        user_id=user_id,
+        source=source,
+        entry_id=health.entry_id,
+        health_score=health_score,
+        rule_based_risk_label=rule_based_risk_label,
+        alert_created=True,
+        alert_email_sent=is_high_risk,
+    )
+
     return {
         "success": True,
         "message": "Health data added successfully",
@@ -589,6 +981,7 @@ def ingest_health_entry(user_id, data, source='manual', ingestion_metadata=None)
         "deduplicated": False,
         "alert_created": True,
         "alert_email_sent": is_high_risk,
+        "correlation_id": correlation_id,
         "status_code": 200,
     }
 

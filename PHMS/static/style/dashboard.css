@@ -511,7 +511,7 @@
     font-weight: 600;
     transition: color 0.2s;
     display: inline-block;
-    margin-top: 0.5rem;
+    /* margin-top: 0.5rem; */
 }
 
 .link:hover {
@@ -579,6 +579,10 @@
     .med-list,
     .alerts-list {
         padding: 1.2rem;
+    }
+
+    .recent-activity-grid {
+        grid-template-columns: 1fr;
     }
 
     .empty-state {
@@ -677,6 +681,26 @@
     border-top: 4px solid var(--accent-blue);
 }
 
+.stat-card.health-score .stat-card-value {
+    font-size: 2.6rem;
+}
+
+.stat-card-delta {
+    font-size: 0.85rem;
+    margin-top: 0.25rem;
+    color: var(--text-muted);
+    font-weight: 700;
+}
+.stat-card-delta[title] {
+    cursor: help;
+}
+.stat-card-delta.positive {
+    color: var(--accent-green);
+}
+.stat-card-delta.negative {
+    color: var(--accent-red);
+}
+
 .stat-card.records {
     border-top: 4px solid var(--accent-green);
 }
@@ -733,9 +757,26 @@
 }
 
 /* Recent Activity Items */
+.recent-activity-panel {
+    padding: 1.5rem;
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+    border-radius: 8px;
+    border-left: 4px solid var(--primary-color);
+    flex: 1;
+}
+
+.recent-activity-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+}
+
 .recent-activity-item {
-    padding: 1rem;
-    border-bottom: 1px solid var(--border-light);
+    padding: 0.85rem 0.95rem;
+    background: var(--white);
+    border-radius: 6px;
+    border-left: 3px solid var(--primary-color);
+    /* width: 100%; */
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -743,8 +784,8 @@
 }
 
 .recent-activity-item:hover {
-    background: var(--bg-light);
-    padding-left: 1.5rem;
+    background: rgba(255, 255, 255, 0.92);
+    transform: translateY(-1px);
 }
 
 .recent-activity-item:last-child {
@@ -784,6 +825,19 @@
     border-left: 4px solid var(--primary-color);
     flex: 1;
 }
+
+/* Collapsible details styling */
+details.collapsible {
+    margin: 0.5rem 1rem 1rem 1rem;
+}
+details.collapsible summary {
+    cursor: pointer;
+    font-weight: 700;
+    padding: 0.75rem 0.5rem;
+    list-style: none;
+}
+details.recent-activity-collapsible summary::marker { display: none; }
+details .recent-activity-contents { padding: 0.5rem 0; }
 
 .health-insights h4 {
     margin: 0 0 1rem 0;

@@ -13,6 +13,10 @@ def register_health_routes(app):
     def add_health():
         return health_controller.add_health()
 
+    @app.route('/health/export', methods=['GET'])
+    def export_health():
+        return health_controller.export_health()
+
     @app.route('/delete-health/<int:entry_id>', methods=['DELETE'])
     @app.route('/delete_health/<int:entry_id>', methods=['DELETE'])
     @app.route('/deleteHealth/<int:entry_id>', methods=['DELETE'])  # legacy alias

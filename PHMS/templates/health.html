@@ -19,8 +19,16 @@
         <button class="btn-add-entry" id="addHealthEntryBtn">+ Add Health Entry</button>
     </div>
 
+    <div id="healthActionBanner" class="health-action-banner" role="status" aria-live="polite" hidden></div>
+
+    {% if filter_error_message %}
+    <div class="health-action-banner" role="alert" aria-live="assertive" style="display:block; background:#fdecea; color:#8a1f17; border:1px solid #f3b3ab; margin-bottom:1rem;">
+        {{ filter_error_message }}
+    </div>
+    {% endif %}
+
     <!-- ===== QUICK STATS CARDS ===== -->
-    <div class="health-stats-grid">
+    <div id="healthStatsGrid" class="health-stats-grid">
         <div class="health-stat-card">
             <div class="stat-icon">❤️</div>
             <div class="stat-label">Latest Score</div>
@@ -59,7 +67,7 @@
         </div>
     </div>
 
-    <div class="smartwatch-health-banner">
+    <div id="smartwatchHealthBanner" class="smartwatch-health-banner">
         <div class="smartwatch-health-head">
             <div>
                 <h3>Smartwatch Integration</h3>
@@ -87,14 +95,17 @@
                 <span class="v">{{ smartwatch_recent_errors_count }}</span>
             </div>
         </div>
-        <div class="smartwatch-health-actions">
-            <a href="/smartwatch?provider={{ smartwatch_provider }}" class="btn-smartwatch-link">Open Smartwatch Integration →</a>
-        </div>
+        <!--
+            <div class="smartwatch-health-actions">
+                <a href="{{ url_for('smartwatch_page') }}?provider={{ smartwatch_provider }}" class="btn-smartwatch-link">Open Smartwatch Integration →</a>
+            </div>
+        -->
     </div>
 
     <!-- ===== LAST HEALTH RECORD (PROMINENT) ===== -->
+    <div id="lastEntrySection">
     {% if last_entry %}
-    <div class="last-entry-card">
+    <div class="last-entry-card" data-entry-id="{{ last_entry.entry_id }}">
         <h2>❤️ Your Latest Health Record</h2>
 
         <div class="risk-summary">
@@ -152,8 +163,10 @@
         <p style="margin: 0.5rem 0;">Click <strong>"+ Add Health Entry"</strong> to start tracking your health!</p>
     </div>
     {% endif %}
+    </div>
 
     <!-- ===== HEALTH INSIGHTS SECTION ===== -->
+    <div id="healthInsightsSection">
     {% if last_entry %}
     <div class="health-insights-section">
         <h3>💡 Health Insights</h3>
@@ -203,27 +216,63 @@
         </div>
     </div>
     {% endif %}
+    </div>
 
     <!-- ===== ALL HEALTH ENTRIES ===== -->
-    <div class="all-entries-section">
+    <div id="healthHistorySection" class="all-entries-section">
         <div class="history-header-row">
-            <h3>Health History{% if filtered_total_entries > 0 %} ({{ filtered_total_entries }} total){% endif %}</h3>
-            <form method="GET" action="/health" class="source-filter-form">
-                {% if selected_page and selected_page != 1 %}
+            <div>
+                <h3>Health History{% if filtered_total_entries > 0 %} ({{ filtered_total_entries }} total){% endif %}</h3>
+                <p class="history-helper-text">Use search, date range, and sorting to narrow the list.</p>
+            </div>
+            <div class="health-filter-card">
+            <form method="GET" action="/health" class="health-filter-form">
                 <input type="hidden" name="page" value="1">
-                {% endif %}
-                <label for="history-source-filter">Source</label>
-                <select id="history-source-filter" name="source">
-                    {% for option in source_options %}
-                    <option value="{{ option.value }}" {{ 'selected' if source_filter == option.value else '' }}>{{ option.label }}</option>
-                    {% endfor %}
-                </select>
+                <div class="health-filter-row">
+                    <div class="health-filter-field">
+                        <label for="history-search">Search</label>
+                        <input id="history-search" type="search" name="search" placeholder="Score, steps, source..." value="{{ search_query }}">
+                    </div>
+                    <div class="health-filter-field">
+                        <label for="history-source-filter">Source</label>
+                        <select id="history-source-filter" name="source">
+                            {% for option in source_options %}
+                            <option value="{{ option.value }}" {{ 'selected' if source_filter == option.value else '' }}>{{ option.label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="health-filter-row">
+                    <div class="health-filter-field">
+                        <label for="history-start-date">From</label>
+                        <input id="history-start-date" type="date" name="start_date" value="{{ start_date_filter }}">
+                    </div>
+                    <div class="health-filter-field">
+                        <label for="history-end-date">To</label>
+                        <input id="history-end-date" type="date" name="end_date" value="{{ end_date_filter }}">
+                    </div>
+                </div>
+                <div class="health-filter-row health-filter-row-actions">
+                    <div class="health-filter-field">
+                        <label for="history-sort">Sort</label>
+                        <select id="history-sort" name="sort">
+                            {% for option in sort_options %}
+                            <option value="{{ option.value }}" {{ 'selected' if sort_filter == option.value else '' }}>{{ option.label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="health-filter-actions">
+                        <button type="submit" class="btn-pagination health-filter-apply">Apply</button>
+                        <button type="submit" class="btn-pagination health-filter-export" formaction="{{ url_for('export_health') }}">Export JSON</button>
+                    </div>
+                </div>
             </form>
+        </div>
         </div>
         {% if entries %}
         <div class="entries-list">
             {% for entry in entries %}
-            <div class="entry-card">
+            <div class="entry-card" data-entry-id="{{ entry.entry_id }}">
                 <div class="entry-header">
                     <div class="entry-header-meta">
                         <span class="entry-date">
@@ -296,8 +345,8 @@
             </div>
             <div class="pagination-buttons">
                 {% if pagination.has_prev %}
-                <a href="?page=1&source={{ source_filter }}" class="btn-pagination" title="First page">«« First</a>
-                <a href="?page={{ pagination.prev_num }}&source={{ source_filter }}" class="btn-pagination" title="Previous page">‹ Previous</a>
+                <a href="?page=1&source={{ source_filter|urlencode }}&search={{ search_query|urlencode }}&start_date={{ start_date_filter|urlencode }}&end_date={{ end_date_filter|urlencode }}&sort={{ sort_filter|urlencode }}" class="btn-pagination" title="First page">«« First</a>
+                <a href="?page={{ pagination.prev_num }}&source={{ source_filter|urlencode }}&search={{ search_query|urlencode }}&start_date={{ start_date_filter|urlencode }}&end_date={{ end_date_filter|urlencode }}&sort={{ sort_filter|urlencode }}" class="btn-pagination" title="Previous page">‹ Previous</a>
                 {% else %}
                 <span class="btn-pagination disabled">«« First</span>
                 <span class="btn-pagination disabled">‹ Previous</span>
@@ -308,8 +357,8 @@
                 </span>
                 
                 {% if pagination.has_next %}
-                <a href="?page={{ pagination.next_num }}&source={{ source_filter }}" class="btn-pagination" title="Next page">Next ›</a>
-                <a href="?page={{ pagination.pages }}&source={{ source_filter }}" class="btn-pagination" title="Last page">Last »»</a>
+                <a href="?page={{ pagination.next_num }}&source={{ source_filter|urlencode }}&search={{ search_query|urlencode }}&start_date={{ start_date_filter|urlencode }}&end_date={{ end_date_filter|urlencode }}&sort={{ sort_filter|urlencode }}" class="btn-pagination" title="Next page">Next ›</a>
+                <a href="?page={{ pagination.pages }}&source={{ source_filter|urlencode }}&search={{ search_query|urlencode }}&start_date={{ start_date_filter|urlencode }}&end_date={{ end_date_filter|urlencode }}&sort={{ sort_filter|urlencode }}" class="btn-pagination" title="Last page">Last »»</a>
                 {% else %}
                 <span class="btn-pagination disabled">Next ›</span>
                 <span class="btn-pagination disabled">Last »»</span>
@@ -325,14 +374,14 @@
 </div>
 
 <!-- ===== CONFIRMATION MODAL FOR DELETE ===== -->
-<div id="confirmDeleteModal" class="modal">
+<div id="confirmDeleteModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="confirmDeleteTitle" aria-describedby="confirmDeleteDescription" aria-hidden="true" tabindex="-1">
     <div class="modal-content" style="max-width: 400px;">
         <div class="modal-header">
-            <h2>⚠️ Confirm Delete</h2>
-            <span class="close" data-action="close-confirm-modal">&times;</span>
+            <h2 id="confirmDeleteTitle">⚠️ Confirm Delete</h2>
+            <button type="button" class="close" data-action="close-confirm-modal" aria-label="Close delete confirmation dialog">&times;</button>
         </div>
         
-        <div class="modal-body">
+        <div class="modal-body" id="confirmDeleteDescription">
             <p style="margin: 1rem 0; text-align: center;">Are you sure you want to delete this health record?</p>
             <p style="color: #e74c3c; font-size: 0.9rem; text-align: center;">This action cannot be undone.</p>
         </div>
@@ -345,43 +394,50 @@
 </div>
 
 <!-- ===== MODAL FOR ADDING HEALTH ENTRY ===== -->
-<div id="healthModal" class="modal">
+<div id="healthModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="healthModalTitle" aria-describedby="healthModalDescription" aria-hidden="true" tabindex="-1">
     <div class="modal-content">
         <div class="modal-header">
-            <h2>Add Health Entry</h2>
-            <span class="close" data-action="close-health-modal">&times;</span>
+            <h2 id="healthModalTitle">Add Health Entry</h2>
+            <button type="button" class="close" data-action="close-health-modal" aria-label="Close add health entry dialog">&times;</button>
         </div>
         
-        <div class="modal-body">
-            <form id="healthForm">
+        <div class="modal-body" id="healthModalDescription">
+            <p class="sr-only">Fill in one or more health measurements. Press Escape to close the dialog.</p>
+            <form id="healthForm" novalidate>
                 <div class="form-group">
-                    <label for="heart_rate">Heart Rate (bpm)</label>
-                    <input type="number" id="heart_rate" placeholder="e.g., 72">
+                    <label for="heart_rate">Heart Rate <span class="unit-label">(bpm)</span></label>
+                    <input type="number" id="heart_rate" name="heart_rate" min="30" max="220" step="1" inputmode="numeric" placeholder="e.g., 72 bpm" aria-describedby="heart_rate_error">
+                    <div class="field-error" id="heart_rate_error" aria-live="polite"></div>
                 </div>
 
                 <div class="form-group">
-                    <label for="temperature">Temperature (°C)</label>
-                    <input type="number" id="temperature" step="0.1" placeholder="e.g., 36.5">
+                    <label for="temperature">Temperature <span class="unit-label">(°C)</span></label>
+                    <input type="number" id="temperature" name="temperature" min="35" max="42" step="0.1" inputmode="decimal" placeholder="e.g., 36.5 °C" aria-describedby="temperature_error">
+                    <div class="field-error" id="temperature_error" aria-live="polite"></div>
                 </div>
 
                 <div class="form-group">
                     <label for="steps">Steps</label>
-                    <input type="number" id="steps" placeholder="e.g., 8000">
+                    <input type="number" id="steps" name="steps" min="0" max="60000" step="1" inputmode="numeric" placeholder="e.g., 8000 steps" aria-describedby="steps_error">
+                    <div class="field-error" id="steps_error" aria-live="polite"></div>
                 </div>
 
                 <div class="form-group">
                     <label for="sleep_hours">Sleep Hours</label>
-                    <input type="number" id="sleep_hours" step="0.5" placeholder="e.g., 7.5">
+                    <input type="number" id="sleep_hours" name="sleep_hours" min="0" max="24" step="0.5" inputmode="decimal" placeholder="e.g., 7.5 hrs" aria-describedby="sleep_hours_error">
+                    <div class="field-error" id="sleep_hours_error" aria-live="polite"></div>
                 </div>
 
                 <div class="form-group">
                     <label for="blood_pressure">Blood Pressure</label>
-                    <input type="number" id="blood_pressure" placeholder="e.g., 120">
+                    <input type="number" id="blood_pressure" name="blood_pressure" min="40" max="250" step="1" inputmode="numeric" placeholder="e.g., 120 mmHg" aria-describedby="blood_pressure_error">
+                    <div class="field-error" id="blood_pressure_error" aria-live="polite"></div>
                 </div>
 
                 <div class="form-group">
-                    <label for="sugar">Sugar</label>
-                    <input type="number" id="sugar" placeholder="e.g., 100">
+                    <label for="sugar">Sugar <span class="unit-label">(mg/dL)</span></label>
+                    <input type="number" id="sugar" name="sugar" min="40" max="600" step="1" inputmode="numeric" placeholder="e.g., 100 mg/dL" aria-describedby="sugar_error">
+                    <div class="field-error" id="sugar_error" aria-live="polite"></div>
                 </div>
             </form>
         </div>

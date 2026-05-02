@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import re
+import math
 from datetime import datetime, timedelta, timezone
 from typing import Any
 from urllib.error import HTTPError, URLError
@@ -67,9 +68,11 @@ class GoogleFitAdapter(SmartwatchProviderAdapter):
         'sugar',
     )
 
-    # When since/cursor is not explicitly provided, gradually widen the window
-    # so low-frequency metrics (sleep, BP, glucose) can still be discovered.
-    _default_lookback_hours = (24, 72, 168, 720)
+    _max_steps_per_entry = 60000.0
+
+    # Fetch strategy is constrained to recent fixed day windows to avoid
+    # cumulative cross-day aggregates in single-entry ingestion.
+    _recent_day_window_count = 3
 
     _data_source_to_field = {
         'com.google.step_count.delta': 'steps',
@@ -220,7 +223,8 @@ class GoogleFitAdapter(SmartwatchProviderAdapter):
     @staticmethod
     def _to_ns(dt: datetime) -> int:
         if dt.tzinfo is None:
-            dt = dt.astimezone().replace(tzinfo=timezone.utc)
+            local_timezone = datetime.now().astimezone().tzinfo
+            dt = dt.replace(tzinfo=local_timezone)
         return int(dt.timestamp() * 1_000_000_000)
 
     @staticmethod
@@ -231,11 +235,12 @@ class GoogleFitAdapter(SmartwatchProviderAdapter):
 
     def _build_aggregate_request(
         self,
-        since: datetime | None,
+        start_time: datetime,
+        end_time: datetime,
         data_types: list[str] | None = None,
     ) -> tuple[dict, datetime, datetime]:
-        end_time = datetime.now().astimezone()
-        start_time = self._as_local_aware(since) if since else (end_time - timedelta(hours=24))
+        start_time = self._as_local_aware(start_time)
+        end_time = self._as_local_aware(end_time)
 
         selected_types = data_types or list(self._aggregate_data_types)
 
@@ -251,6 +256,23 @@ class GoogleFitAdapter(SmartwatchProviderAdapter):
             'bucketByTime': {'durationMillis': int((end_time - start_time).total_seconds() * 1000)},
         }
         return request_payload, start_time, end_time
+
+    def _recent_daily_windows(self) -> list[tuple[str, datetime, datetime]]:
+        """Return fixed day windows: today, yesterday, day-before-yesterday."""
+        now = datetime.now().astimezone()
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+        windows: list[tuple[str, datetime, datetime]] = [
+            ('today', today_start, now),
+        ]
+
+        for day_offset in (1, 2):
+            day_start = today_start - timedelta(days=day_offset)
+            day_end = today_start - timedelta(days=day_offset - 1)
+            label = 'yesterday' if day_offset == 1 else 'day-before-yesterday'
+            windows.append((label, day_start, day_end))
+
+        return windows
 
     @staticmethod
     def _all_required_metrics_present(metrics: dict[str, float]) -> bool:
@@ -492,6 +514,57 @@ class GoogleFitAdapter(SmartwatchProviderAdapter):
             metrics['sleep_hours'] = float(sum(collected['sleep_hours']))
         return metrics
 
+    def _normalize_steps_for_ingestion(
+        self,
+        *,
+        steps: float | None,
+        window_start: datetime | None,
+        window_end: datetime | None,
+    ) -> float | None:
+        """Normalize oversized step totals from long aggregate windows.
+
+        Google Fit aggregate responses can return step totals covering the full
+        requested range. PHMS persists one record per sync payload with schema
+        limit steps <= 60,000, so multi-day totals should be converted to a
+        per-day estimate before ingestion.
+        """
+        if steps is None:
+            return None
+
+        normalized_steps = float(steps)
+
+        if (
+            normalized_steps > self._max_steps_per_entry
+            and window_start is not None
+            and window_end is not None
+        ):
+            window_seconds = max((window_end - window_start).total_seconds(), 0.0)
+            window_days = max(1.0, math.ceil(window_seconds / 86_400.0))
+
+            if window_days > 1.0:
+                per_day_estimate = normalized_steps / window_days
+                logger.warning(
+                    'Google Fit steps exceeded per-entry max for user window; '
+                    'normalizing cumulative steps %.2f across %.0f days to %.2f/day',
+                    normalized_steps,
+                    window_days,
+                    per_day_estimate,
+                )
+                normalized_steps = per_day_estimate
+
+        if normalized_steps > self._max_steps_per_entry:
+            logger.warning(
+                'Google Fit steps still above schema max after normalization (%.2f); capping to %.0f',
+                normalized_steps,
+                self._max_steps_per_entry,
+            )
+            normalized_steps = self._max_steps_per_entry
+
+        if normalized_steps < 0:
+            normalized_steps = 0.0
+
+        return normalized_steps
+
     def _resolve_target_field(self, data_source_id: str, data_type_name: str) -> str | None:
         data_type_reference = f'{data_source_id} {data_type_name}'
         for data_type, mapped_field in self._data_source_to_field.items():
@@ -540,18 +613,14 @@ class GoogleFitAdapter(SmartwatchProviderAdapter):
         return since
 
     def get_pre_sync_diagnostics(self, context: FetchContext) -> dict[str, Any]:
-        since = self._resolve_since_from_context(context)
-        lookback_hours_list = [None] if since else list(self._default_lookback_hours)
-
         metric_point_totals = self._empty_metric_point_totals()
         sampled_dataset_refs: list[tuple[str, int]] = []
+        selected_window_label = 'none'
+        selected_window_start = None
+        selected_window_end = None
 
-        for lookback_hours in lookback_hours_list:
-            requested_since = since
-            if lookback_hours is not None:
-                requested_since = datetime.now().astimezone() - timedelta(hours=lookback_hours)
-
-            aggregate_request, _start_time, _end_time = self._build_aggregate_request(requested_since)
+        for window_label, window_start, window_end in self._recent_daily_windows():
+            aggregate_request, _start_time, _end_time = self._build_aggregate_request(window_start, window_end)
             aggregate_response = self._post_json(
                 self._aggregate_url,
                 bearer_token=context.token.access_token,
@@ -562,11 +631,17 @@ class GoogleFitAdapter(SmartwatchProviderAdapter):
             sampled_dataset_refs.extend(refs_with_points)
 
             extracted_totals = self._extract_metric_point_totals(aggregate_response)
-            for field in self._required_metric_fields:
-                metric_point_totals[field] += extracted_totals.get(field, 0)
+            if sum(extracted_totals.values()) > 0:
+                metric_point_totals = extracted_totals
+                selected_window_label = window_label
+                selected_window_start = _start_time
+                selected_window_end = _end_time
+                break
 
         diagnostics = self._diagnostics_from_point_totals(metric_point_totals)
-        diagnostics['lookback_hours'] = [hours for hours in lookback_hours_list if hours is not None]
+        diagnostics['window_label'] = selected_window_label
+        diagnostics['window_start'] = selected_window_start.isoformat() if selected_window_start else None
+        diagnostics['window_end'] = selected_window_end.isoformat() if selected_window_end else None
         diagnostics['dataset_refs'] = [
             {'ref': ref, 'points': points}
             for ref, points in sorted(set(sampled_dataset_refs), key=lambda item: item[0])
@@ -603,36 +678,21 @@ class GoogleFitAdapter(SmartwatchProviderAdapter):
         )
 
     def fetch_health_payloads(self, context: FetchContext) -> list[NormalizedHealthPayload]:
-        since = self._resolve_since_from_context(context)
+        selected_metrics: dict[str, float] | None = None
+        selected_start_time: datetime | None = None
+        selected_end_time: datetime | None = None
+        selected_window_label: str | None = None
+        selected_aggregate_response: dict | None = None
+        selected_metric_point_totals: dict[str, int] = self._empty_metric_point_totals()
 
-        lookback_hours_list = [None] if since else list(self._default_lookback_hours)
-
-        merged_metrics: dict[str, float] = {}
-        first_start_time = None
-        last_end_time = None
-        raw_payloads: list[dict] = []
-        metric_point_totals = self._empty_metric_point_totals()
-        used_lookback_windows: list[str] = []
-
-        for lookback_hours in lookback_hours_list:
-            requested_since = since
-            if lookback_hours is not None:
-                requested_since = datetime.now().astimezone() - timedelta(hours=lookback_hours)
-                used_lookback_windows.append(f'{lookback_hours}h')
-            else:
-                used_lookback_windows.append('explicit-since')
-
-            missing_before_request = self._missing_required_metrics(merged_metrics)
-            requested_data_types = self._data_types_for_missing_metrics(missing_before_request)
+        for window_label, window_start, window_end in self._recent_daily_windows():
+            requested_data_types = list(self._aggregate_data_types)
 
             logger.warning(
-                'Google Fit fetch attempt for user_id=%s: lookback=%s, requested_data_types=%s, '
-                'metrics_found=%s, metrics_missing=%s',
+                'Google Fit fetch attempt for user_id=%s: day_window=%s, requested_data_types=%s',
                 context.user_id,
-                used_lookback_windows[-1],
+                window_label,
                 requested_data_types,
-                sorted(list(merged_metrics.keys())),
-                missing_before_request,
             )
 
             aggregate_response = None
@@ -641,7 +701,8 @@ class GoogleFitAdapter(SmartwatchProviderAdapter):
 
             while requested_data_types:
                 aggregate_request, start_time, end_time = self._build_aggregate_request(
-                    requested_since,
+                    window_start,
+                    window_end,
                     data_types=requested_data_types,
                 )
                 try:
@@ -684,71 +745,59 @@ class GoogleFitAdapter(SmartwatchProviderAdapter):
                     'Please reconnect and grant at least one health scope.'
                 )
 
-            if first_start_time is None:
-                first_start_time = start_time
-            last_end_time = end_time
-            raw_payloads.append(aggregate_response)
-
             refs_with_points = self._collect_dataset_refs_with_points(aggregate_response)
             if refs_with_points:
                 refs_text = ', '.join(
                     f'{ref} (points={points})'
                     for ref, points in sorted(set(refs_with_points), key=lambda item: item[0])
                 )
-                if lookback_hours is None:
-                    logger.warning(
-                        'Google Fit dataset refs for user_id=%s: %s',
-                        context.user_id,
-                        refs_text,
-                    )
-                else:
-                    logger.warning(
-                        'Google Fit dataset refs for user_id=%s (lookback=%sh): %s',
-                        context.user_id,
-                        lookback_hours,
-                        refs_text,
-                    )
+                logger.warning(
+                    'Google Fit dataset refs for user_id=%s (%s): %s',
+                    context.user_id,
+                    window_label,
+                    refs_text,
+                )
             else:
                 logger.warning(
-                    'Google Fit dataset refs for user_id=%s (lookback=%s): none',
+                    'Google Fit dataset refs for user_id=%s (%s): none',
                     context.user_id,
-                    used_lookback_windows[-1],
+                    window_label,
                 )
 
             extracted_totals = self._extract_metric_point_totals(aggregate_response)
-            for field in self._required_metric_fields:
-                metric_point_totals[field] += extracted_totals.get(field, 0)
-
             extracted_metrics = self._extract_metrics(aggregate_response)
-            for field in self._required_metric_fields:
-                if field not in merged_metrics and field in extracted_metrics:
-                    merged_metrics[field] = extracted_metrics[field]
 
-            missing_after_request = self._missing_required_metrics(merged_metrics)
             logger.warning(
-                'Google Fit merge status for user_id=%s after lookback=%s: found=%s, missing=%s',
+                'Google Fit day-window status for user_id=%s (%s): found=%s, missing=%s',
                 context.user_id,
-                used_lookback_windows[-1],
-                sorted(list(merged_metrics.keys())),
-                missing_after_request,
+                window_label,
+                sorted(list(extracted_metrics.keys())),
+                self._missing_required_metrics(extracted_metrics),
             )
 
-            if self._all_required_metrics_present(merged_metrics):
+            if extracted_metrics:
+                selected_metrics = extracted_metrics
+                selected_start_time = start_time
+                selected_end_time = end_time
+                selected_window_label = window_label
+                selected_aggregate_response = aggregate_response
+                selected_metric_point_totals = extracted_totals
                 break
 
-        if not merged_metrics:
+        if not selected_metrics:
             logger.info('No Google Fit metrics found for user_id=%s in requested window', context.user_id)
             return []
 
-        missing_fields = [field for field in self._required_metric_fields if field not in merged_metrics]
+        missing_fields = [field for field in self._required_metric_fields if field not in selected_metrics]
         if missing_fields:
             logger.warning(
-                'Google Fit metrics still missing for user_id=%s after adaptive lookback: %s',
+                'Google Fit metrics missing for user_id=%s in selected day window (%s): %s',
                 context.user_id,
+                selected_window_label,
                 ', '.join(missing_fields),
             )
 
-        point_diagnostics = self._diagnostics_from_point_totals(metric_point_totals)
+        point_diagnostics = self._diagnostics_from_point_totals(selected_metric_point_totals)
         logger.warning(
             'Google Fit pre-ingestion metric families for user_id=%s: non_zero=%s, zero=%s, point_totals=%s',
             context.user_id,
@@ -757,30 +806,39 @@ class GoogleFitAdapter(SmartwatchProviderAdapter):
             point_diagnostics['metric_point_totals'],
         )
 
-        logger.warning('Google Fit extracted metrics for user_id=%s: %s', context.user_id, merged_metrics)
+        logger.warning('Google Fit extracted metrics for user_id=%s: %s', context.user_id, selected_metrics)
+
+        source_start = selected_start_time or datetime.now().astimezone()
+        source_end = selected_end_time or datetime.now().astimezone()
+
+        normalized_steps = self._normalize_steps_for_ingestion(
+            steps=selected_metrics.get('steps'),
+            window_start=source_start,
+            window_end=source_end,
+        )
+        if normalized_steps is not None:
+            selected_metrics['steps'] = normalized_steps
 
         logger.warning(
-            'Google Fit final merged metrics before payload for user_id=%s: merged=%s, missing=%s, lookback_windows=%s',
+            'Google Fit final metrics before payload for user_id=%s: selected_day=%s, metrics=%s, missing=%s',
             context.user_id,
-            merged_metrics,
+            selected_window_label,
+            selected_metrics,
             missing_fields,
-            used_lookback_windows,
         )
 
-        source_start = first_start_time or datetime.now().astimezone()
-        source_end = last_end_time or datetime.now().astimezone()
         source_record_id = f'aggregate:{self._to_ns(source_start)}:{self._to_ns(source_end)}'
         payload = self._to_normalized_payload(
-            metrics=merged_metrics,
+            metrics=selected_metrics,
             observed_at=source_end.replace(tzinfo=None),
             provider=self.provider_name,
             source_record_id=source_record_id,
             raw_payload={
-                'adaptive_windows': raw_payloads,
+                'selected_window': selected_window_label,
+                'selected_window_payload': selected_aggregate_response,
                 'metric_point_totals': point_diagnostics['metric_point_totals'],
                 'non_zero_metric_families': point_diagnostics['non_zero_metric_families'],
                 'zero_point_metric_families': point_diagnostics['zero_point_metric_families'],
-                'lookback_windows': used_lookback_windows,
                 'missing_metrics': missing_fields,
             },
         )

@@ -94,43 +94,31 @@ class Medication(db.Model):
     # - date ranges (e.g., Feb course and March course)
     # This provides better workflow flexibility
     
-    def is_active(self):
-        """Check if medication is currently active based on date range.
-        
-        Determines if the medication schedule is active on today's date by
-        comparing current date against start_date and end_date boundaries.
-        
-        Returns:
-            bool: True if medication is active today, False otherwise
-                - Active if: start_date <= today <= end_date
-                - Also active if start_date or end_date is None (unbounded)
-        
-        Example:
-            >>> medication = Medication(
-            ...     start_date=date(2026, 3, 1),
-            ...     end_date=date(2026, 3, 31)
-            ... )
-            >>> # On March 15, 2026:
-            >>> medication.is_active()
-            True
-            >>> # On April 5, 2026:
-            >>> medication.is_active()
-            False
-        
-        Use Cases:
-            - Filter dashboard to show only active medications
-            - Determine if new medication logs should be created
-            - Exclude expired medications from adherence calculations
-        
-        Note:
-            - None start_date treated as "started long ago" (always <= today)
-            - None end_date treated as "no end date" (always >= today)
+    def current_status(self):
+        """Return current status of the medication relative to today.
+
+        Returns one of: 'ACTIVE', 'FUTURE', 'EXPIRED'
+        - ACTIVE: start_date <= today <= end_date
+        - FUTURE: start_date > today
+        - EXPIRED: end_date < today
+
+        None start_date is treated as long-ago (<= today). None end_date is
+        treated as open-ended (>= today).
         """
         today = date.today()
-        return (
-            (self.start_date is None or self.start_date <= today) and
-            (self.end_date is None or self.end_date >= today)
-        )
+        # Treat None as unbounded
+        start = self.start_date or date.min
+        end = self.end_date or date.max
+
+        if start <= today <= end:
+            return 'ACTIVE'
+        if start > today:
+            return 'FUTURE'
+        return 'EXPIRED'
+
+    # Backwards-compatible helper
+    def is_active(self):
+        return self.current_status() == 'ACTIVE'
 
     def __repr__(self):
         return f"<Medication {self.medication_id}>"

@@ -5,7 +5,10 @@ from services.medication_service import (
     add_medication as create_medication,
     add_medicine_master as create_master_medicine,
     delete_medication as remove_medication,
+    update_medication as modify_medication,
     medication_page as build_medication_page_context,
+    medicine_name_suggestions,
+    list_medicines,
 )
 
 
@@ -92,6 +95,20 @@ def delete_medication(id):
 
 
 @login_required
+def update_medication(id):
+    payload, error_response = _parse_json_object_payload()
+    if error_response:
+        return error_response
+
+    normalized_payload = dict(payload)
+    if 'is_critical' in normalized_payload:
+        normalized_payload['is_critical'] = _coerce_bool_value(normalized_payload.get('is_critical'))
+
+    result = modify_medication(current_user.user_id, id, normalized_payload)
+    return _json_response_from_service(result)
+
+
+@login_required
 def add_medicine_master():
     payload, error_response = _parse_json_object_payload()
     if error_response:
@@ -106,9 +123,35 @@ def add_medicine_master():
     result = create_master_medicine(normalized_payload)
     return _json_response_from_service(result)
 
+
+@login_required
+def api_medicine_suggestions():
+    q = (request.args.get('q') or '').strip()
+    if len(q) > 120:
+        q = q[:120]
+    result = medicine_name_suggestions(q, limit=8)
+    return jsonify(result)
+
+
+@login_required
+def api_list_medicines():
+    q = (request.args.get('q') or '').strip() or None
+    try:
+        page = int(request.args.get('page') or 1)
+    except ValueError:
+        page = 1
+    try:
+        page_size = int(request.args.get('page_size') or 9)
+    except ValueError:
+        page_size = 9
+    sort = (request.args.get('sort') or 'asc')[:4]
+    result = list_medicines(query=q, page=page, page_size=page_size, sort=sort)
+    return jsonify(result)
+
 __all__ = [
     'medication_page',
     'add_medication',
     'delete_medication',
+    'update_medication',
     'add_medicine_master',
 ]

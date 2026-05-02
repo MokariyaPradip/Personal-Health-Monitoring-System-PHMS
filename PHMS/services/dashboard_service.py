@@ -1,4 +1,5 @@
 from datetime import datetime
+from datetime import timedelta
 
 from repositories.dashboard_repository import DashboardRepository
 from . import smartwatch_service
@@ -58,7 +59,7 @@ def dashboard(user_id):
         )
 
     all_medications = DashboardRepository.get_user_medications(user.user_id)
-    active_medications = [med for med in all_medications if med.is_active()]
+    active_medications = [med for med in all_medications if med.current_status() == 'ACTIVE']
 
     if len(active_medications) >= 3:
         medications = active_medications
@@ -77,6 +78,40 @@ def dashboard(user_id):
     )
 
     active_medications_count = len(active_medications)
+
+    # Compute simple deltas for health_score and steps (previous record and ~7d prior)
+    health_score_delta_24h = None
+    steps_delta_24h = None
+    health_score_delta_7d = None
+    steps_delta_7d = None
+    try:
+        entries = DashboardRepository.get_all_user_entries(user.user_id)
+        if entries and len(entries) > 1:
+            latest = entries[0]
+            prev = entries[1]
+            if latest.health_score is not None and prev.health_score is not None:
+                health_score_delta_24h = latest.health_score - prev.health_score
+            if latest.steps is not None and prev.steps is not None:
+                steps_delta_24h = latest.steps - prev.steps
+
+            # find record older than ~7 days (closest earlier)
+            seven_days_ago = datetime.now() - timedelta(days=7)
+            prior_7d = None
+            for e in entries:
+                if getattr(e, 'recorded_at', None) and e.recorded_at <= seven_days_ago:
+                    prior_7d = e
+                    break
+            if prior_7d:
+                if latest.health_score is not None and prior_7d.health_score is not None:
+                    health_score_delta_7d = latest.health_score - prior_7d.health_score
+                if latest.steps is not None and prior_7d.steps is not None:
+                    steps_delta_7d = latest.steps - prior_7d.steps
+    except Exception:
+        # Keep dashboard resilient if historical data access fails
+        health_score_delta_24h = None
+        steps_delta_24h = None
+        health_score_delta_7d = None
+        steps_delta_7d = None
 
     smartwatch_context = {
         'provider': 'google_fit',
@@ -114,4 +149,8 @@ def dashboard(user_id):
         'smartwatch_incremental_since': _format_iso_datetime(smartwatch_sync_state.get('incremental_since')),
         'smartwatch_recent_errors': smartwatch_recent_errors,
         'smartwatch_recent_errors_count': len(smartwatch_recent_errors),
+        'health_score_delta_24h': health_score_delta_24h,
+        'steps_delta_24h': steps_delta_24h,
+        'health_score_delta_7d': health_score_delta_7d,
+        'steps_delta_7d': steps_delta_7d,
     }

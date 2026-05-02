@@ -40,6 +40,8 @@ MEDICATION_SCHEDULE = {
     240: _every_minutes(6)                                 # every 6 min - gap: 6min
 }
 
+SUPPORTED_MEDICATION_FREQUENCIES = tuple(sorted(MEDICATION_SCHEDULE.keys()))
+
 def get_scheduled_time_for_frequency(frequency):
     """
     Get scheduled intake times for a given medication frequency.
@@ -53,6 +55,11 @@ def get_scheduled_time_for_frequency(frequency):
               Returns empty list if frequency is not found.
     """
     return MEDICATION_SCHEDULE.get(frequency, [])
+
+
+def get_supported_medication_frequencies():
+    """Return the frequencies that have an explicit schedule mapping."""
+    return SUPPORTED_MEDICATION_FREQUENCIES
 
 
 def get_minimum_dose_gap_minutes(frequency):

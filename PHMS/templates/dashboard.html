@@ -7,6 +7,10 @@
 {% endblock %}
 
 {% block content %}
+{% set health_score_delta_24h = health_score_delta_24h|default(none) %}
+{% set steps_delta_24h = steps_delta_24h|default(none) %}
+{% set health_score_delta_7d = health_score_delta_7d|default(none) %}
+{% set steps_delta_7d = steps_delta_7d|default(none) %}
 <div class="dashboard-container">
     <!-- ===== Welcome Header ===== -->
     <div class="welcome-header">
@@ -19,6 +23,9 @@
         <div class="stat-card health-score">
             <div class="stat-card-icon">❤️</div>
             <div class="stat-card-value">{% if last_health %}{{ last_health.health_score or '--' }}{% else %}--{% endif %}</div>
+            {% if health_score_delta_24h is not none %}
+            <div class="stat-card-delta" title="24h change">{% if health_score_delta_24h >= 0 %}+{% endif %}{{ health_score_delta_24h }} pts</div>
+            {% endif %}
             <div class="stat-card-label">Health Score</div>
             {% if last_health %}
             <div class="stat-card-trend">{{ last_health.rule_based_risk_label|replace('Risk', '')|trim }}</div>
@@ -71,21 +78,22 @@
             {% set rb_label_display = rb_label.replace('Risk', ' Risk') if rb_label != 'N/A' and 'Risk' in rb_label and ' ' not in rb_label else rb_label %}
             {% set classifier_label_display = classifier_label.replace('Risk', ' Risk') if classifier_label != 'N/A' and 'Risk' in classifier_label and ' ' not in classifier_label else classifier_label %}
             {% set regression_label_display = regression_label.replace('Risk', ' Risk') if regression_label != 'N/A' and 'Risk' in regression_label and ' ' not in regression_label else regression_label %}
+            {% set health_recorded_at = last_health.recorded_at.strftime('%d %b %Y, %I:%M %p') if last_health.recorded_at and last_health.recorded_at.strftime is defined else (last_health.recorded_at or 'N/A') %}
 
             <div class="risk-summary">
                 <div class="score-chip">
                     <span class="chip-title">Health Score</span>
-                    <span class="chip-score">{{ last_health.health_score or 'N/A' }}</span>
+                    <span class="chip-score">{{ last_health.health_score if last_health.health_score is not none else 'N/A' }}</span>
                     <span class="risk-badge {{ rb_label|lower }}">{{ rb_label_display }}</span>
                 </div>
                 <div class="score-chip alt">
                     <span class="chip-title">ML Classified</span>
-                    <span class="chip-score">N/A</span>
+                    <span class="chip-score">{{ last_health.ml_classifier_risk_label or 'N/A' }}</span>
                     <span class="risk-badge {{ classifier_label|lower }}">{{ classifier_label_display }}</span>
                 </div>
                 <div class="score-chip alt">
                     <span class="chip-title">ML Regression</span>
-                    <span class="chip-score">{{ last_health.ml_regression_health_score|round(1) if last_health.ml_regression_health_score else 'N/A' }}</span>
+                    <span class="chip-score">{{ '%.1f'|format(last_health.ml_regression_health_score) if last_health.ml_regression_health_score is not none else 'N/A' }}</span>
                     <span class="risk-badge {{ regression_label|lower }}">{{ regression_label_display }}</span>
                 </div>
             </div>
@@ -93,42 +101,42 @@
                 <div class="stat-row">
                     <div class="stat-item">
                         <div class="stat-label">Heart Rate</div>
-                        <div class="stat-value">{{ last_health.heart_rate }} <span class="unit">bpm</span></div>
+                        <div class="stat-value">{{ last_health.heart_rate if last_health.heart_rate is not none else 'N/A' }} <span class="unit">bpm</span></div>
                     </div>
                     <div class="stat-item">
                         <div class="stat-label">Temperature</div>
-                        <div class="stat-value">{{ last_health.temperature }} <span class="unit">°C</span></div>
+                        <div class="stat-value">{{ last_health.temperature if last_health.temperature is not none else 'N/A' }} <span class="unit">°C</span></div>
                     </div>
                 </div>
                 <div class="stat-row">
                     <div class="stat-item">
                         <div class="stat-label">Steps</div>
-                        <div class="stat-value">{{ last_health.steps }}</div>
+                        <div class="stat-value">{{ last_health.steps if last_health.steps is not none else 'N/A' }}</div>
                     </div>
                     <div class="stat-item">
                         <div class="stat-label">Sleep</div>
-                        <div class="stat-value">{{ last_health.sleep_hours }} <span class="unit">hrs</span></div>
+                        <div class="stat-value">{{ last_health.sleep_hours if last_health.sleep_hours is not none else 'N/A' }} <span class="unit">hrs</span></div>
                     </div>
                 </div>
                 <div class="stat-row">
                     <div class="stat-item">
                         <div class="stat-label">Blood Pressure</div>
-                        <div class="stat-value">{{ last_health.blood_pressure }}</div>
+                        <div class="stat-value">{{ last_health.blood_pressure if last_health.blood_pressure is not none else 'N/A' }}</div>
                     </div>
                     <div class="stat-item">
                         <div class="stat-label">Sugar</div>
-                        <div class="stat-value">{{ last_health.sugar }} <span class="unit">mg/dL</span></div>
+                        <div class="stat-value">{{ last_health.sugar if last_health.sugar is not none else 'N/A' }} <span class="unit">mg/dL</span></div>
                     </div>
                 </div>
             </div>
             <div class="card-footer">
-                <small>📅 {{ last_health.recorded_at.strftime('%d %b %Y, %I:%M %p') }}</small>
-                <a href="/health" class="link" style="float: right;">View History →</a>
+                <small>📅 {{ health_recorded_at }}</small>
+                <a href="{{ url_for('health_page') }}" class="link" style="float: right;">View History →</a>
             </div>
             {% else %}
             <div class="empty-state">
                 <p>No health data recorded yet.</p>
-                <a href="/health" class="link">Add your first entry →</a>
+                <a href="{{ url_for('health_page') }}" class="link">Add your first entry →</a>
             </div>
             {% endif %}
         </div>
@@ -144,8 +152,8 @@
                 {% for m in medications %}
                 <div class="med-item {% if m.is_critical %}critical-med{% endif %}">
                     <div class="med-name">
-                        {{ m.medicine.medicine_name }}
-                        {% if m.is_active() %}
+                        {{ m.medicine.medicine_name if m.medicine and m.medicine.medicine_name else 'Unknown Medicine' }}
+                        {% if m.current_status() == 'ACTIVE' %}
                             <span class="status-badge active">🟢 Active</span>
                         {% else %}
                             <span class="status-badge inactive">🔴 Inactive</span>
@@ -155,9 +163,9 @@
                         {% endif %}
                     </div>
                     <div class="med-details">
-                        <div><strong>Type:</strong> {{ m.medicine.medicine_type }}</div>
-                        <div><strong>Dosage:</strong> {{ m.dosage }}</div>
-                        <div><strong>Frequency:</strong> {{ m.frequency }}</div>
+                        <div><strong>Type:</strong> {{ m.medicine.medicine_type if m.medicine and m.medicine.medicine_type else 'N/A' }}</div>
+                        <div><strong>Dosage:</strong> {{ m.dosage if m.dosage is not none else 'N/A' }}</div>
+                        <div><strong>Frequency:</strong> {{ m.frequency if m.frequency is not none else 'N/A' }}</div>
                     </div>
                 </div>
                 {% endfor %}
@@ -165,11 +173,11 @@
             {% else %}
             <div class="empty-state">
                 <p>No medications assigned.</p>
-                <a href="/medication" class="link">Add medications →</a>
+                <a href="{{ url_for('medication_page') }}" class="link">Add medications →</a>
             </div>
             {% endif %}
             <div class="card-footer">
-                <a href="/medication" class="link">Manage Medications →</a>
+                <a href="{{ url_for('medication_page') }}" class="link">Manage Medications →</a>
             </div>
         </div>
 
@@ -184,13 +192,15 @@
                 {% for alert in alerts[:5] %}
                 <div class="alert-item alert-{{ alert.severity|lower }} alert-category-{{ alert.category|lower }} {% if not alert.is_read %}unread{% endif %}">
                     <div class="alert-left">
-                        <div class="alert-category-badge">{{ alert.category|upper }}</div>
-                        <div class="alert-severity-badge severity-{{ alert.severity|lower }}">{{ alert.severity }}</div>
+                        <div class="alert-category-badge">{{ (alert.category or 'general')|upper }}</div>
+                        <div class="alert-severity-badge severity-{{ (alert.severity or 'low')|lower }}">{{ alert.severity or 'Low' }}</div>
                     </div>
                     <div class="alert-content">
                         <div class="alert-title">{{ alert.title or 'Alert' }}</div>
-                        <div class="alert-message">{{ alert.message[:80] }}{% if alert.message|length > 80 %}...{% endif %}</div>
-                        <small class="alert-time">📅 {{ alert.created_at.strftime('%d %b, %I:%M %p') }}</small>
+                        {% set alert_message = alert.message or '' %}
+                        {% set alert_created_at = alert.created_at.strftime('%d %b, %I:%M %p') if alert.created_at and alert.created_at.strftime is defined else (alert.created_at or 'N/A') %}
+                        <div class="alert-message">{{ alert_message[:80] }}{% if alert_message|length > 80 %}...{% endif %}</div>
+                        <small class="alert-time">📅 {{ alert_created_at }}</small>
                     </div>
                     {% if not alert.is_read %}
                     <div class="alert-unread-indicator"></div>
@@ -205,7 +215,7 @@
             </div>
             {% endif %}
             <div class="card-footer">
-                <a href="/notifications" class="link">View All Alerts →</a>
+                <a href="{{ url_for('notifications_page') }}" class="link">View All Alerts →</a>
             </div>
         </div>
 
@@ -267,7 +277,7 @@
             </div>
 
             <div class="card-footer smartwatch-card-footer">
-                <a href="/smartwatch?provider={{ smartwatch_provider }}" class="link">Open Integration →</a>
+                <a href="{{ url_for('smartwatch_page', provider=smartwatch_provider) }}" class="link">Open Integration →</a>
             </div>
         </div>
     </div>
@@ -280,36 +290,54 @@
                 <h3>Recent Activity</h3>
                 <span class="card-icon">📋</span>
             </div>
-            {% if last_health or medications %}
+            {% if last_health or medications or alerts or smartwatch_recent_errors %}
             <div style="flex: 1;">
-                {% if last_health %}
-                <div class="recent-activity-item">
-                    <div class="activity-info">
-                        <div class="activity-title">Health Record Added</div>
-                        <div class="activity-time">{{ last_health.recorded_at.strftime('%d %b %Y, %I:%M %p') }}</div>
+                <details class="recent-activity collapsible">
+                    <summary>Show recent activity</summary>
+                    <div class="recent-activity-panel">
+                        <div class="recent-activity-grid">
+                            {% if last_health %}
+                            <div class="recent-activity-item">
+                                <div class="activity-info">
+                                    <div class="activity-title">Latest health score</div>
+                                    <div class="activity-time">{{ last_health.health_score if last_health.health_score is not none else 'N/A' }} | {{ health_recorded_at }}</div>
+                                </div>
+                                <span class="activity-badge">📊 Health</span>
+                            </div>
+                            {% endif %}
+
+                            {% if medications %}
+                            <div class="recent-activity-item">
+                                <div class="activity-info">
+                                    <div class="activity-title">Active medications</div>
+                                    <div class="activity-time">{{ active_medications_count }} active of {{ medications|length }} loaded</div>
+                                </div>
+                                <span class="activity-badge">💊 Medication</span>
+                            </div>
+                            {% endif %}
+
+                            {% if alerts %}
+                            <div class="recent-activity-item">
+                                <div class="activity-info">
+                                    <div class="activity-title">Unread alerts</div>
+                                    <div class="activity-time">{{ unread_alerts_count }} unread | Latest: {{ alerts[0].title or 'Alert' }}</div>
+                                </div>
+                                <span class="activity-badge">🔔 Alerts</span>
+                            </div>
+                            {% endif %}
+
+                            {% if smartwatch_recent_errors %}
+                            <div class="recent-activity-item">
+                                <div class="activity-info">
+                                    <div class="activity-title">Recent sync errors</div>
+                                    <div class="activity-time">{{ smartwatch_recent_errors_count }} on {{ smartwatch_provider_label }}</div>
+                                </div>
+                                <span class="activity-badge">⌚ Sync</span>
+                            </div>
+                            {% endif %}
+                        </div>
                     </div>
-                    <span class="activity-badge">📊 Health</span>
-                </div>
-                {% endif %}
-                
-                {% if medications %}
-                <div class="recent-activity-item">
-                    <div class="activity-info">
-                        <div class="activity-title">{% if active_medications_count %}{{ active_medications_count }}{% else %}0{% endif %} Active Medications</div>
-                        <div class="activity-time">Currently managed</div>
-                    </div>
-                    <span class="activity-badge">💊 Medication</span>
-                </div>
-                {% endif %}
-                
-                <div class="recent-activity-item">
-                    <div class="activity-info">
-                        <div class="activity-title">Dashboard Synced</div>
-                        <div class="activity-time">Just now</div>
-                    </div>
-                    <span class="activity-badge">✓ Active</span>
-                </div>
-            </div>
+                </details>
             {% else %}
             <div class="empty-state">
                 <p>No recent activity</p>
@@ -325,64 +353,69 @@
                 <span class="card-icon">💡</span>
             </div>
             {% if last_health %}
-            <div class="health-insights">
-                {% if last_health.rule_based_risk_label == "Low Risk" %}
-                <div class="insight-item positive">
-                    <strong>✓ Great Health Status</strong><br>Your health metrics are within normal ranges. Keep up the good work!
-                </div>
-                {% elif last_health.rule_based_risk_label == "Medium Risk" %}
-                <div class="insight-item warning">
-                    <strong>⚠ Monitor Your Health</strong><br>Some metrics need attention. Consider consulting your healthcare provider.
-                </div>
-                {% else %}
-                <div class="insight-item warning">
-                    <strong>⚠ Alert</strong><br>Your health indicators show higher risk. Please seek medical advice promptly.
-                </div>
-                {% endif %}
-                
+            <details class="health-insights collapsible">
+                <summary>Show health insights</summary>
+                <div class="health-insights">
                 <div class="insight-item">
-                    <strong>📈 Health Score</strong><br>Current: {{ last_health.health_score }} | {{ rb_label_display }}
+                    <strong>📈 Health Score</strong><br>Current: {{ last_health.health_score if last_health.health_score is not none else 'N/A' }} | {{ rb_label_display }}
+                </div>
+
+                <div class="insight-item">
+                    <strong>🤖 ML Classifier</strong><br>{{ last_health.ml_classifier_risk_label or 'N/A' }} | {{ classifier_label_display }}
                 </div>
                 
                 {% if medications %}
                 <div class="insight-item positive">
-                    <strong>💊 Medication Tracking</strong><br>{{ active_medications_count or medications|length }} medications being monitored
+                    <strong>💊 Medication Tracking</strong><br>{{ active_medications_count }} active of {{ medications|length }} loaded
                 </div>
                 {% endif %}
                 
                 <div class="insight-item">
-                    <strong>📊 Data Collection</strong><br>{{ health_records_count or '0' }} health records recorded this month
+                    <strong>📊 Data Collection</strong><br>{{ health_records_count }} health records recorded this month
                 </div>
-            </div>
+
+                {% if smartwatch_recent_errors_count %}
+                <div class="insight-item warning">
+                    <strong>⌚ Sync Stability</strong><br>{{ smartwatch_recent_errors_count }} recent sync errors on {{ smartwatch_provider_label }}
+                </div>
+                {% else %}
+                <div class="insight-item positive">
+                    <strong>⌚ Sync Stability</strong><br>No recent sync errors on {{ smartwatch_provider_label }}
+                </div>
+                {% endif %}
+                </div>
+            </details>
             {% else %}
             <div class="empty-state">
                 <p>Add health data to see personalized insights</p>
-                <a href="/health" class="link">Add Health Data →</a>
+                <a href="{{ url_for('health_page') }}" class="link">Add Health Data →</a>
             </div>
             {% endif %}
         </div>
     </div>
 
     <!-- ===== Quick Actions ===== -->
-    <div class="card">
-        <div class="card-header">
-            <h3>Quick Actions</h3>
-            <span class="card-icon">⚡</span>
-        </div>
-        <div style="padding: 1.5rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem;">
-            <a href="/health" class="quick-action-btn btn-health">
-                📊 Add Health Data
+    <!--
+        <div class="card">
+            <div class="card-header">
+                <h3>Quick Actions</h3>
+                <span class="card-icon">⚡</span>
+            </div>
+            <div style="padding: 1.5rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem;">
+                <a href="{{ url_for('health_page') }}" class="quick-action-btn btn-health">
+                    📊 Add Health Data
+                </a>
+                <a href="{{ url_for('medication_page') }}" class="quick-action-btn btn-medication">
+                    💊 Manage Medications
+                </a>
+                <a href="{{ url_for('reports.reports_home') }}" class="quick-action-btn btn-reports">
+                    📈 View Reports
             </a>
-            <a href="/medication" class="quick-action-btn btn-medication">
-                💊 Manage Medications
-            </a>
-            <a href="/reports" class="quick-action-btn btn-reports">
-                📈 View Reports
-            </a>
-            <a href="/notifications" class="quick-action-btn btn-notifications">
+                <a href="{{ url_for('notifications_page') }}" class="quick-action-btn btn-notifications">
                 🔔 All Notifications
             </a>
         </div>
     </div>
+    -->
 </div>
 {% endblock %}

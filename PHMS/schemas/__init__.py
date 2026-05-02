@@ -9,7 +9,7 @@ from .auth_schemas import (
     ResetPasswordVerifyOtpRequest,
 )
 from .health_schemas import AddHealthRequest
-from .medication_schemas import AddMedicationRequest, AddMedicineMasterRequest
+from .medication_schemas import AddMedicationRequest, AddMedicineMasterRequest, UpdateMedicationRequest
 
 __all__ = [
     'RequestSchema',
@@ -24,4 +24,5 @@ __all__ = [
     'AddHealthRequest',
     'AddMedicationRequest',
     'AddMedicineMasterRequest',
+    'UpdateMedicationRequest',
 ]

@@ -82,7 +82,7 @@ def profile(user_id):
     )
 
     medications = MedicationRepository.get_user_medications(user.user_id)
-    active_medications = [med for med in medications if med.is_active()]
+    active_medications = [med for med in medications if med.current_status() == 'ACTIVE']
     critical_medications_count = sum(1 for med in medications if med.is_critical)
 
     unread_alerts_count = AlertRepository.count_unread_user_alerts(user.user_id)

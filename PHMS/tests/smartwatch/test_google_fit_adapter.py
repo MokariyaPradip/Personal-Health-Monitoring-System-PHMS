@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from urllib.parse import parse_qs, urlparse
 
 import pytest
@@ -171,6 +171,17 @@ def test_to_token_bundle_requires_access_token():
 
     with pytest.raises(ValueError, match='access_token'):
         adapter._to_token_bundle({'refresh_token': 'rt'})
+
+
+def test_to_ns_treats_naive_datetimes_as_local_time():
+    adapter = GoogleFitAdapter(client_id='client-id', client_secret='client-secret')
+
+    local_timezone = datetime.now().astimezone().tzinfo
+    wall_time = datetime(2026, 3, 25, 14, 20, 0)
+    naive_ns = adapter._to_ns(wall_time)
+    local_aware_ns = adapter._to_ns(wall_time.replace(tzinfo=local_timezone))
+
+    assert naive_ns == local_aware_ns
 
 
 def test_fetch_health_payloads_returns_empty_when_no_supported_metrics():
@@ -351,9 +362,57 @@ def test_extract_metrics_combines_multiple_points_and_buckets():
     assert metrics['sleep_hours'] == 1.0
 
 
-def test_fetch_health_payloads_retries_only_missing_metrics_across_windows():
-    # Simulates Fire-Boltt/Da Fit-like partial export where steps are present,
-    # and other families remain absent in Google Fit datasets.
+def test_fetch_health_payloads_caps_large_steps_for_single_day_window():
+    adapter = EdgeCaseGoogleFitAdapter(
+        aggregate_response={
+            'bucket': [
+                {
+                    'dataset': [
+                        {
+                            'dataSourceId': 'derived:com.google.step_count.delta:merge',
+                            'point': [
+                                {'value': [{'intVal': 99828}]},
+                            ],
+                        },
+                    ]
+                }
+            ]
+        }
+    )
+
+    context = FetchContext(
+        user_id=88,
+        provider='google_fit',
+        token=TokenBundle(access_token='token', refresh_token='rt'),
+        # Adapter now ignores explicit historical since for fetch strategy and
+        # evaluates fixed recent day windows only.
+        since=datetime(2026, 3, 30, 16, 17, 48, tzinfo=timezone.utc),
+    )
+
+    payloads = adapter.fetch_health_payloads(context)
+
+    assert len(payloads) == 1
+    payload = payloads[0]
+    assert payload.steps == 60000
+    assert payload.steps <= 60000
+
+
+def test_normalize_steps_caps_single_window_extreme_values():
+    adapter = GoogleFitAdapter(client_id='client-id', client_secret='client-secret')
+
+    now = datetime(2026, 4, 25, 12, 0, 0, tzinfo=timezone.utc)
+    normalized = adapter._normalize_steps_for_ingestion(
+        steps=120000.0,
+        window_start=now - timedelta(hours=6),
+        window_end=now,
+    )
+
+    assert normalized == 60000.0
+
+
+def test_fetch_health_payloads_stops_at_first_day_with_data():
+    # Adapter should stop at the first day window that yields any metrics and
+    # should not continue probing older windows.
     responses = [
         {
             'bucket': [
@@ -398,45 +457,11 @@ def test_fetch_health_payloads_retries_only_missing_metrics_across_windows():
                 {
                     'dataset': [
                         {
-                            'dataSourceId': 'derived:com.google.heart_rate.summary:com.google.android.gms:aggregated',
-                            'dataTypeName': 'com.google.heart_rate.summary',
-                            'point': [],
-                        },
-                        {
-                            'dataSourceId': 'derived:com.google.body.temperature.summary:com.google.android.gms:aggregated',
-                            'dataTypeName': 'com.google.body.temperature.summary',
-                            'point': [],
-                        },
-                        {
-                            'dataSourceId': 'derived:com.google.sleep.segment:com.google.android.gms:merged',
-                            'dataTypeName': 'com.google.sleep.segment',
-                            'point': [],
-                        },
-                        {
-                            'dataSourceId': 'derived:com.google.blood_pressure.summary:com.google.android.gms:aggregated',
-                            'dataTypeName': 'com.google.blood_pressure.summary',
-                            'point': [],
-                        },
-                        {
-                            'dataSourceId': 'derived:com.google.blood_glucose.summary:com.google.android.gms:aggregated',
-                            'dataTypeName': 'com.google.blood_glucose.summary',
-                            'point': [],
+                            'dataSourceId': 'derived:com.google.step_count.delta:com.google.android.gms:aggregated',
+                            'dataTypeName': 'com.google.step_count.delta',
+                            'point': [{'value': [{'intVal': 99999}]}],
                         },
                     ]
-                }
-            ]
-        },
-        {
-            'bucket': [
-                {
-                    'dataset': []
-                }
-            ]
-        },
-        {
-            'bucket': [
-                {
-                    'dataset': []
                 }
             ]
         },
@@ -461,7 +486,7 @@ def test_fetch_health_payloads_retries_only_missing_metrics_across_windows():
     assert payload.blood_pressure is None
     assert payload.sugar is None
 
-    # First attempt asks all families; subsequent attempts exclude steps since it was found.
+    # First attempt asks all canonical families and stops after that day succeeds.
     assert adapter.seen_aggregate_by[0] == [
         'com.google.step_count.delta',
         'com.google.heart_rate.bpm',
@@ -470,10 +495,10 @@ def test_fetch_health_payloads_retries_only_missing_metrics_across_windows():
         'com.google.blood_pressure',
         'com.google.blood_glucose',
     ]
-    for attempt_data_types in adapter.seen_aggregate_by[1:]:
-        assert 'com.google.step_count.delta' not in attempt_data_types
+    assert len(adapter.seen_aggregate_by) == 1
 
     assert payload.raw_payload is not None
+    assert payload.raw_payload['selected_window'] == 'today'
     assert payload.raw_payload['missing_metrics'] == [
         'heart_rate',
         'temperature',

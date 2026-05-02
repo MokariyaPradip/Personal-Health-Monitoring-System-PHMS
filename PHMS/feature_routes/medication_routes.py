@@ -18,7 +18,20 @@ def register_medication_routes(app):
     def delete_medication(id):
         return medication_controller.delete_medication(id)
 
+    @app.route('/update-medication/<int:id>', methods=['PUT'])
+    @app.route('/updateMedication/<int:id>', methods=['PUT'])  # legacy alias
+    def update_medication(id):
+        return medication_controller.update_medication(id)
+
     @app.route('/add-medicine', methods=['POST'])
     @app.route('/addMedicine', methods=['POST'])  # legacy alias
     def add_medicine_master():
         return medication_controller.add_medicine_master()
+
+    @app.route('/api/medicine-suggestions', methods=['GET'])
+    def api_medicine_suggestions():
+        return medication_controller.api_medicine_suggestions()
+
+    @app.route('/api/medicines', methods=['GET'])
+    def api_list_medicines():
+        return medication_controller.api_list_medicines()
