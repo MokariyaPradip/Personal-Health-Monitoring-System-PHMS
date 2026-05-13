@@ -12,3 +12,11 @@ def register_profile_routes(app):
     @app.route('/updateProfile', methods=['PUT'])  # legacy alias
     def update_profile():
         return profile_controller.update_profile()
+
+    @app.route('/settings', methods=['GET'])
+    def get_settings():
+        return profile_controller.get_settings()
+
+    @app.route('/settings', methods=['PUT'])
+    def update_settings():
+        return profile_controller.update_settings()

@@ -130,61 +130,57 @@ def profile(user_id):
 def update_profile(user_id, data):
     """Update user profile fields from a plain payload."""
     user = db.session.get(User, user_id)
-
-    username = data.get('username', '').strip() if data.get('username') else user.username
-    gender = data.get('gender', '').strip() if data.get('gender') else user.gender
-
+    # Use pydantic schema validation for structured errors
     try:
-        age = int(data.get('age')) if data.get('age') is not None else user.age
-        if age is not None and (age < 1 or age > 150):
+        from schemas.profile_schema import validate_profile_payload
+    except Exception:
+        validate_profile_payload = None
+
+    if validate_profile_payload:
+        model, errors = validate_profile_payload(data)
+        if errors:
             return {
                 "success": False,
-                "message": "Age must be between 1 and 150",
+                "message": "Validation failed",
+                "errors": errors,
                 "status_code": 400,
             }
-    except (ValueError, TypeError):
-        return {
-            "success": False,
-            "message": "Age must be a valid number",
-            "status_code": 400,
-        }
 
-    try:
-        height = float(data.get('height')) if data.get('height') is not None else user.height
-        if height is not None and (height < 50 or height > 300):
+        # apply validated values (only if provided)
+        username = model.username if model.username is not None else user.username
+        gender = model.gender if model.gender is not None else user.gender
+        age = model.age if model.age is not None else user.age
+        height = model.height if model.height is not None else user.height
+        weight = model.weight if model.weight is not None else user.weight
+
+    else:
+        # fallback to previous validation logic if schema import failed
+        username = data.get('username', '').strip() if data.get('username') else user.username
+        gender = data.get('gender', '').strip() if data.get('gender') else user.gender
+        try:
+            age = int(data.get('age')) if data.get('age') is not None else user.age
+        except (ValueError, TypeError):
             return {
                 "success": False,
-                "message": "Height must be between 50cm and 300cm",
+                "message": "Age must be a valid number",
                 "status_code": 400,
             }
-    except (ValueError, TypeError):
-        return {
-            "success": False,
-            "message": "Height must be a valid number",
-            "status_code": 400,
-        }
-
-    try:
-        weight = float(data.get('weight')) if data.get('weight') is not None else user.weight
-        if weight is not None and (weight < 10 or weight > 500):
+        try:
+            height = float(data.get('height')) if data.get('height') is not None else user.height
+        except (ValueError, TypeError):
             return {
                 "success": False,
-                "message": "Weight must be between 10kg and 500kg",
+                "message": "Height must be a valid number",
                 "status_code": 400,
             }
-    except (ValueError, TypeError):
-        return {
-            "success": False,
-            "message": "Weight must be a valid number",
-            "status_code": 400,
-        }
-
-    if username and (len(username) < 2 or len(username) > 50):
-        return {
-            "success": False,
-            "message": "Username must be between 2 and 50 characters",
-            "status_code": 400,
-        }
+        try:
+            weight = float(data.get('weight')) if data.get('weight') is not None else user.weight
+        except (ValueError, TypeError):
+            return {
+                "success": False,
+                "message": "Weight must be a valid number",
+                "status_code": 400,
+            }
 
     user.username = username
     user.gender = gender
@@ -198,5 +194,13 @@ def update_profile(user_id, data):
         "success": True,
         "message": "Profile updated successfully",
         "bmi": user.bmi,
+        "updated": {
+            "username": user.username,
+            "gender": user.gender,
+            "age": user.age,
+            "height": user.height,
+            "weight": user.weight,
+            "bmi": user.bmi,
+        },
         "status_code": 200,
     }

@@ -10,6 +10,28 @@
     --border-light: #ecf0f1;
     --bg-light: #f8f9fa;
     --white: #ffffff;
+    /* Performance: Default transition duration (disabled in prefers-reduced-motion) */
+    --transition-duration: 0.3s;
+}
+
+/* Screen-reader only helper */
+.sr-only {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0 0 0 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+}
+
+.field-error {
+    color: #c0392b;
+    font-size: 0.85rem;
+    margin-top: 0.4rem;
+    min-height: 1.1rem;
 }
 
 .profile-container {
@@ -25,7 +47,7 @@
     padding: 3rem 2rem;
     border-radius: 16px;
     margin-bottom: 2rem;
-    box-shadow: 0 12px 32px rgba(102, 126, 234, 0.25);
+    box-shadow: 0 6px 16px rgba(102, 126, 234, 0.15);
 }
 
 .header-content {
@@ -43,8 +65,14 @@
     justify-content: center;
     background: rgba(255, 255, 255, 0.2);
     border-radius: 50%;
-    -webkit-backdrop-filter: blur(10px);
-    backdrop-filter: blur(10px);
+    /* Backdrop filter disabled for low-end devices; fallback is opaque background */
+}
+
+@supports (backdrop-filter: blur(10px)) {
+    .avatar {
+        -webkit-backdrop-filter: blur(10px);
+        backdrop-filter: blur(10px);
+    }
 }
 
 .header-info h1 {
@@ -68,7 +96,7 @@
 /* Profile Overview */
 .profile-overview-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     gap: 1rem;
     margin-bottom: 2rem;
 }
@@ -79,16 +107,16 @@
     border-top: 4px solid var(--primary-color);
     border-radius: 12px;
     padding: 1rem;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.07);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
-    transition: all 0.25s ease;
+    transition: all var(--transition-duration) ease;
 }
 
 .profile-overview-card:hover {
     transform: translateY(-2px);
-    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 .profile-overview-card.health {
@@ -131,25 +159,51 @@
     color: var(--text-muted);
 }
 
+.profile-overview-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-top: auto;
+    padding: 0.35rem 0.65rem;
+    border-radius: 999px;
+    border: 1px solid var(--border-light);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    text-decoration: none;
+    color: var(--text-dark);
+    background: var(--bg-light);
+    width: fit-content;
+    cursor: pointer;
+}
+
+.profile-overview-link:hover {
+    background: #e8ecf5;
+    border-color: #d7deea;
+}
+
 .completion-meter {
     width: 100%;
     height: 8px;
     border-radius: 999px;
     background: #e8ecf5;
     overflow: hidden;
+    /* ARIA: Expose completion value for screen readers */
+    role: progressbar;
 }
 
 .completion-fill {
     height: 100%;
     border-radius: 999px;
     background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
-    transition: width 0.4s ease;
+    transition: width var(--transition-duration) ease;
+    /* Fallback for prefers-reduced-motion: immediate width change */
 }
 
 /* Profile Grid */
 .profile-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
     gap: 2rem;
     margin-bottom: 2rem;
 }
@@ -160,12 +214,12 @@
     border: 1px solid var(--border-light);
     border-radius: 12px;
     overflow: hidden;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    transition: all var(--transition-duration) ease;
 }
 
 .profile-card:hover {
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.10);
     transform: translateY(-2px);
 }
 
@@ -240,7 +294,7 @@
 }
 
 .metric-item:hover {
-    background: linear-gradient(135deg, rgba(102, 126, 234, 0.08), rgba(118, 75, 162, 0.08));
+    background: rgba(102, 126, 234, 0.06);
     border-left-color: var(--secondary-color);
 }
 
@@ -431,7 +485,7 @@
 
 .btn-update:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.25);
 }
 
 .btn-password {
@@ -441,7 +495,7 @@
 
 .btn-password:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(52, 152, 219, 0.4);
+    box-shadow: 0 4px 12px rgba(52, 152, 219, 0.25);
 }
 
 .btn-logout-link {
@@ -456,7 +510,7 @@
 
 .btn-logout:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(231, 76, 60, 0.4);
+    box-shadow: 0 4px 12px rgba(231, 76, 60, 0.25);
 }
 
 /* Modal Styles */
@@ -469,7 +523,7 @@
     width: 100%;
     height: 100%;
     background-color: rgba(0, 0, 0, 0.5);
-    animation: fadeIn 0.3s ease;
+    animation: fadeIn var(--transition-duration) ease;
 }
 
 @keyframes fadeIn {
@@ -482,12 +536,14 @@
     margin: 3% auto;
     border-radius: 12px;
     width: 90%;
-    max-width: 500px;
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+    max-width: 520px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
     display: flex;
     flex-direction: column;
-    max-height: 90vh;
-    animation: slideUp 0.3s ease;
+    /* Prevent modal overflow on small screens and allow internal scrolling */
+    max-height: calc(100vh - 120px);
+    overflow: auto;
+    animation: slideUp var(--transition-duration) ease;
 }
 
 @keyframes slideUp {
@@ -508,6 +564,8 @@
     justify-content: space-between;
     align-items: center;
     flex-shrink: 0;
+    background: linear-gradient(180deg, #f8f9fb 0%, #eef2f7 100%);
+    border-radius: 12px 12px 0 0;
 }
 
 .modal-header h2 {
@@ -515,18 +573,32 @@
     font-size: 1.5rem;
     color: var(--text-dark);
     font-weight: 700;
+    letter-spacing: 0.2px;
+    line-height: 1.25;
+    white-space: nowrap;
 }
 
 .close {
-    font-size: 28px;
+    font-size: 30px;
     font-weight: bold;
     color: var(--text-muted);
     cursor: pointer;
-    transition: color 0.2s;
+    transition: color 0.2s ease, transform 0.2s ease, background-color 0.2s ease;
+    background: transparent;
+    border: none;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
 }
 
 .close:hover {
     color: var(--text-dark);
+    background: rgba(44, 62, 80, 0.08);
+    transform: scale(1.04);
 }
 
 .modal-body {
@@ -567,7 +639,7 @@
     border: 1px solid var(--border-light);
     border-radius: 8px;
     font-size: 1rem;
-    transition: all 0.2s;
+    transition: all 0.2s ease;
 }
 
 .form-group input:focus,
@@ -719,5 +791,70 @@
 
     .modal-content {
         width: 98%;
+    }
+}
+
+/* Performance: Reduced Motion Support (prefers-reduced-motion: reduce) */
+@media (prefers-reduced-motion: reduce) {
+    :root {
+        /* Disable all transitions and animations for users who prefer reduced motion */
+        --transition-duration: 0s;
+    }
+
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+
+    .profile-overview-card:hover,
+    .profile-card:hover,
+    .btn-update:hover,
+    .btn-password:hover,
+    .btn-logout:hover {
+        /* Remove hover transforms for reduced-motion users */
+        transform: none;
+    }
+}
+
+/* Performance: Low-Quality Visuals Support (prefers-color-scheme: light) */
+@media (prefers-color-scheme: light) {
+    /* Reduce shadow blur and spread for better performance on low-end devices */
+    .profile-header {
+        box-shadow: 0 2px 6px rgba(102, 126, 234, 0.1);
+    }
+
+    .profile-overview-card {
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
+    }
+
+    .profile-overview-card:hover {
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    }
+
+    .profile-card {
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+    }
+
+    .profile-card:hover {
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+
+    .modal-content {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .btn-update:hover {
+        box-shadow: 0 2px 8px rgba(102, 126, 234, 0.15);
+    }
+
+    .btn-password:hover {
+        box-shadow: 0 2px 8px rgba(52, 152, 219, 0.15);
+    }
+
+    .btn-logout:hover {
+        box-shadow: 0 2px 8px rgba(231, 76, 60, 0.15);
     }
 }

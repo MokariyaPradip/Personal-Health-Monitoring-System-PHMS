@@ -29,7 +29,18 @@
             <a href="{{ url_for('smartwatch_page') }}">Smartwatch</a>
             <a href="{{ url_for('medication_page') }}">Medication</a>
             <a href="{{ url_for('reports.reports_home') }}">Reports</a>
-            <a href="{{ url_for('profile') }}">Profile</a>
+            <div class="profile-menu">
+                <a class="profile-menu-trigger" href="{{ url_for('profile') }}" aria-haspopup="true">Profile</a>
+                <div class="profile-menu-dropdown" role="menu" aria-label="Profile actions">
+                    <a role="menuitem" href="{{ url_for('profile') }}">View profile</a>
+                    <a role="menuitem" href="{{ url_for('reports.reports_home') }}">Health reports</a>
+                    <a role="menuitem" href="{{ url_for('notifications_page') }}">Notifications</a>
+                    <form class="profile-menu-logout" method="post" action="{{ url_for('logout') }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" role="menuitem">🚪 Logout</button>
+                    </form>
+                </div>
+            </div>
             
             <!-- Notification Bell -->
             <div class="notification-container">

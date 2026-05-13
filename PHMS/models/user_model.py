@@ -7,8 +7,8 @@ class User(UserMixin, db.Model):
     """User account model with profile information and BMI auto-calculation.
     
     Stores user authentication credentials, profile data (age, gender, height, weight),
-    and automatically calculates BMI when height/weight are updated. Integrates with
-    Flask-Login for session management.
+    internationalization preferences, and automatically calculates BMI when height/weight 
+    are updated. Integrates with Flask-Login for session management.
     
     Attributes:
         user_id (int): Primary key, auto-incremented
@@ -17,9 +17,12 @@ class User(UserMixin, db.Model):
         password (str): Hashed password (max 255 chars)
         age (int, optional): User's age in years
         gender (str, optional): Gender identifier (max 10 chars)
-        height (float, optional): Height in centimeters
-        weight (float, optional): Weight in kilograms
+        height (float, optional): Height in centimeters (always stored in metric)
+        weight (float, optional): Weight in kilograms (always stored in metric)
         bmi (float, optional): Body Mass Index, auto-calculated from height/weight
+        is_admin (bool): Admin privilege flag (default: False)
+        language (str): Preferred language code, e.g., 'en', 'es' (default: 'en')
+        unit_system (str): Preferred unit system ('metric' or 'imperial', default: 'metric')
         created_at (datetime): Account creation timestamp (device local time)
         updated_at (datetime): Last profile update timestamp (device local time, auto-updated)
     
@@ -35,6 +38,8 @@ class User(UserMixin, db.Model):
     
     Methods:
         get_id(): Returns user_id as string for Flask-Login
+        get_language(): Returns preferred language code (default 'en')
+        get_unit_system(): Returns preferred unit system (default 'metric')
     
     Events:
         Before insert/update: Auto-calculates BMI from height and weight
@@ -46,7 +51,9 @@ class User(UserMixin, db.Model):
         ...     password=hashed_password,
         ...     age=30,
         ...     height=175,  # cm
-        ...     weight=70    # kg
+        ...     weight=70,   # kg
+        ...     language='es',  # Spanish
+        ...     unit_system='imperial'  # Display in imperial units
         ... )
         >>> db.session.add(user)
         >>> db.session.commit()
@@ -56,6 +63,8 @@ class User(UserMixin, db.Model):
         - Email is case-insensitive (normalized in controllers)
         - BMI calculation: weight(kg) / (height(m))²
         - Password must be hashed before storage (use werkzeug.security)
+        - Height and weight are always stored in metric (cm, kg); conversion happens on display
+        - Language and unit_system are user preferences that affect template/API responses
     """
     __tablename__ = 'user'
 
@@ -74,6 +83,10 @@ class User(UserMixin, db.Model):
 
     # Admin flag — only True for system administrators
     is_admin = db.Column(db.Boolean, default=False, nullable=False)
+
+    # Internationalization & Units
+    language = db.Column(db.String(5), default='en', nullable=False)  # e.g., 'en', 'es'
+    unit_system = db.Column(db.String(10), default='metric', nullable=False)  # 'metric' or 'imperial'
 
     created_at = db.Column(db.DateTime, default=datetime.now, nullable=False)
     updated_at = db.Column(

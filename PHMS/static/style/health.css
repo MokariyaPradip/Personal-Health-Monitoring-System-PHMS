@@ -1063,6 +1063,65 @@ body.modal-open {
     display: block;
 }
 
+/* Match Add Health modal header + typography with medication modal */
+#healthModal .modal-content {
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    max-height: calc(100vh - 120px);
+    overflow: auto;
+}
+
+#healthModal .modal-header {
+    padding: 1.5rem;
+    border-bottom: 2px solid var(--border-light);
+    align-items: center;
+    background: linear-gradient(180deg, #f8f9fb 0%, #eef2f7 100%);
+    border-radius: 12px 12px 0 0;
+}
+
+#healthModal .modal-header h2 {
+    margin: 0;
+    font-size: 1.5rem;
+    color: var(--text-dark);
+    font-weight: 700;
+    letter-spacing: 0.2px;
+    line-height: 1.25;
+    white-space: nowrap;
+}
+
+#healthModal .close {
+    width: 36px;
+    height: 36px;
+    font-size: 30px;
+    font-weight: bold;
+    color: var(--text-light);
+    transition: color 0.2s ease, transform 0.2s ease, background-color 0.2s ease;
+}
+
+#healthModal .close:hover {
+    color: var(--text-dark);
+    background: rgba(44, 62, 80, 0.08);
+    transform: scale(1.04);
+}
+
+#healthModal .form-group label {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--text-dark);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 0.5rem;
+}
+
+#healthModal .form-group input {
+    padding: 0.8rem;
+    border: 1px solid var(--border-light);
+    border-radius: 8px;
+    font-size: 1rem;
+    transition: all 0.2s;
+    color: var(--text-dark);
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
     .health-header {

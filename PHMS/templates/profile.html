@@ -13,10 +13,10 @@
     <!-- ===== PROFILE HEADER ===== -->
     <div class="profile-header">
         <div class="header-content">
-            <div class="avatar">{{ user.username[0]|upper if user.username else '👤' }}</div>
+                <div class="avatar" aria-label="Avatar for {{ user.username or 'user' }}">{{ user.username[0]|upper if user.username else '👤' }}</div>
             <div class="header-info">
-                <h1>{{ user.username }}</h1>
-                <p class="subtitle">{{ user.user_email }}</p>
+                <h1 id="display_username">{{ user.username }}</h1>
+                <p class="subtitle" id="display_email">{{ user.user_email }}</p>
                 <p class="header-meta">Member since {{ profile_stats.member_since }} • {{ profile_stats.account_age_days }} days</p>
             </div>
         </div>
@@ -27,40 +27,52 @@
         <div class="profile-overview-card primary">
             <span class="profile-overview-label">Profile Completion</span>
             <span class="profile-overview-value">{{ profile_stats.completion }}%</span>
-            <div class="completion-meter">
+            <div class="completion-meter" 
+                 role="progressbar" 
+                 aria-valuenow="{{ profile_stats.completion }}" 
+                 aria-valuemin="0" 
+                 aria-valuemax="100"
+                 aria-label="Profile completion progress">
                 <div class="completion-fill" style="width: {{ profile_stats.completion }}%;"></div>
             </div>
+            <span class="sr-only">Profile is {{ profile_stats.completion }}% complete</span>
             <span class="profile-overview-meta">Complete data improves health recommendations</span>
+            <button type="button" class="profile-overview-link" data-action="open-profile-update">Complete profile</button>
         </div>
 
         <div class="profile-overview-card health">
             <span class="profile-overview-label">Health Records</span>
             <span class="profile-overview-value">{{ profile_stats.health_entries }}</span>
             <span class="profile-overview-meta">Total entries tracked so far</span>
+            <a class="profile-overview-link" href="{{ url_for('health_page') }}">View health data</a>
         </div>
 
         <div class="profile-overview-card medication">
             <span class="profile-overview-label">Active Medications</span>
             <span class="profile-overview-value">{{ profile_stats.active_medications }}</span>
             <span class="profile-overview-meta">Critical: {{ profile_stats.critical_medications }}</span>
+            <a class="profile-overview-link" href="{{ url_for('medication_page') }}">Manage medications</a>
         </div>
 
         <div class="profile-overview-card alerts">
             <span class="profile-overview-label">Unread Alerts</span>
             <span class="profile-overview-value">{{ profile_stats.unread_alerts }}</span>
             <span class="profile-overview-meta">Review recent notifications regularly</span>
+            <a class="profile-overview-link" href="{{ url_for('notifications_page') }}">Open alerts</a>
         </div>
 
         <div class="profile-overview-card score">
             <span class="profile-overview-label">Latest Health Score</span>
             <span class="profile-overview-value">{{ profile_stats.latest_health_score if profile_stats.latest_health_score is not none else 'N/A' }}</span>
             <span class="profile-overview-meta">Risk: {{ profile_stats.latest_health_risk or 'N/A' }}</span>
+            <a class="profile-overview-link" href="{{ url_for('reports.reports_home') }}">View reports</a>
         </div>
 
         <div class="profile-overview-card smartwatch">
             <span class="profile-overview-label">Smartwatch Sync</span>
             <span class="profile-overview-value">{{ 'On' if smartwatch_summary.is_connected else 'Off' }}</span>
             <span class="profile-overview-meta">{{ smartwatch_summary.provider_label }}</span>
+            <a class="profile-overview-link" href="{{ url_for('smartwatch_page') }}">Manage sync</a>
         </div>
     </div>
 
@@ -71,16 +83,16 @@
         <div class="profile-card">
             <div class="card-header">
                 <h3>Personal Information</h3>
-                <span class="card-icon">👤</span>
+                <span class="card-icon" aria-hidden="true">👤</span>
             </div>
             <div class="card-content">
                 <div class="info-row">
                     <span class="info-label">Username</span>
-                    <span class="info-value">{{ user.username }}</span>
+                    <span class="info-value" id="info_username">{{ user.username }}</span>
                 </div>
                 <div class="info-row">
                     <span class="info-label">Email</span>
-                    <span class="info-value">{{ user.user_email }}</span>
+                    <span class="info-value" id="info_email">{{ user.user_email }}</span>
                 </div>
                 <div class="info-row">
                     <span class="info-label">Member Since</span>
@@ -88,11 +100,11 @@
                 </div>
                 <div class="info-row">
                     <span class="info-label">Gender</span>
-                    <span class="info-value">{{ user.gender or 'N/A' }}</span>
+                    <span class="info-value" id="info_gender">{{ user.gender or 'N/A' }}</span>
                 </div>
                 <div class="info-row">
                     <span class="info-label">Age</span>
-                    <span class="info-value">{{ user.age if user.age is not none else 'N/A' }}{% if user.age is not none %} years{% endif %}</span>
+                    <span class="info-value" id="info_age">{{ user.age if user.age is not none else 'N/A' }}{% if user.age is not none %} years{% endif %}</span>
                 </div>
             </div>
         </div>
@@ -101,21 +113,21 @@
         <div class="profile-card">
             <div class="card-header">
                 <h3>Health Metrics</h3>
-                <span class="card-icon">📊</span>
+                <span class="card-icon" aria-hidden="true">📊</span>
             </div>
             <div class="card-content">
                 <div class="metric-grid">
                     <div class="metric-item">
                         <span class="metric-label">Height</span>
-                        <span class="metric-value">{{ user.height if user.height is not none else 'N/A' }}{% if user.height is not none %} <span class="unit">cm</span>{% endif %}</span>
+                        <span class="metric-value" id="metric_height">{{ user.height if user.height is not none else 'N/A' }}{% if user.height is not none %} <span class="unit">cm</span>{% endif %}</span>
                     </div>
                     <div class="metric-item">
                         <span class="metric-label">Weight</span>
-                        <span class="metric-value">{{ user.weight if user.weight is not none else 'N/A' }}{% if user.weight is not none %} <span class="unit">kg</span>{% endif %}</span>
+                        <span class="metric-value" id="metric_weight">{{ user.weight if user.weight is not none else 'N/A' }}{% if user.weight is not none %} <span class="unit">kg</span>{% endif %}</span>
                     </div>
                     <div class="metric-item">
                         <span class="metric-label">BMI</span>
-                        <span class="metric-value">{{ user.bmi if user.bmi is not none else 'N/A' }}{% if user.bmi is not none %} <span class="unit">kg/m²</span>{% endif %}</span>
+                        <span class="metric-value" id="metric_bmi">{{ user.bmi if user.bmi is not none else 'N/A' }}{% if user.bmi is not none %} <span class="unit">kg/m²</span>{% endif %}</span>
                     </div>
                 </div>
                 <div class="bmi-insight-row">
@@ -127,7 +139,7 @@
         <div class="profile-card smartwatch-profile-card">
             <div class="card-header">
                 <h3>Smartwatch Integration</h3>
-                <span class="card-icon">⌚</span>
+                <span class="card-icon" aria-hidden="true">⌚</span>
             </div>
             <div class="card-content">
                 <div class="smartwatch-profile-row">
@@ -194,44 +206,49 @@
 </div>
 
 <!-- ===== UPDATE PROFILE MODAL ===== -->
-<div class="modal" id="updateModal">
+<div class="modal" id="updateModal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="updateModalLabel" aria-describedby="updateModalDesc">
     <div class="modal-content">
         <div class="modal-header">
-            <h2>Update Profile</h2>
-            <span class="close" data-action="close-all-profile-modals">&times;</span>
+            <h2 id="updateModalLabel">Update Profile</h2>
+            <button type="button" class="close" data-action="close-all-profile-modals" aria-label="Close dialog">&times;</button>
         </div>
         
         <div class="modal-body">
             <form id="updateForm">
+                <div id="updateModalDesc" class="sr-only">Form to update user profile fields such as name, gender, age, height and weight.</div>
                 <div class="form-group">
                     <label for="edit_username">Username</label>
-                    <input id="edit_username" type="text" value="{{ user.username }}" required>
+                    <input id="edit_username" name="username" type="text" value="{{ user.username }}" required autocomplete="username" aria-describedby="error_username">
+                    <div class="field-error" id="error_username" aria-live="polite"></div>
                 </div>
 
                 <div class="form-group">
                     <label for="edit_gender">Gender</label>
-                    <select id="edit_gender" required>
+                    <select id="edit_gender" name="gender" required autocomplete="sex" aria-describedby="error_gender">
+                        <option value="">Choose</option>
                         <option value="Male" {{ 'selected' if user.gender=='Male' }}>Male</option>
                         <option value="Female" {{ 'selected' if user.gender=='Female' }}>Female</option>
                         <option value="Other" {{ 'selected' if user.gender=='Other' }}>Other</option>
                     </select>
+                    <div class="field-error" id="error_gender" aria-live="polite"></div>
                 </div>
 
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="edit_age">Age</label>
-                        <input id="edit_age" type="number" value="{{ user.age }}" min="1" max="120" required>
-                    </div>
+                <div class="form-group">
+                    <label for="edit_age">Age</label>
+                    <input id="edit_age" name="age" type="number" value="{{ user.age }}" min="1" max="120" required autocomplete="bday" aria-describedby="error_age">
+                    <div class="field-error" id="error_age" aria-live="polite"></div>
+                </div>
 
-                    <div class="form-group">
-                        <label for="edit_height">Height (cm)</label>
-                        <input id="edit_height" type="number" step="0.1" value="{{ user.height }}" min="50" max="300" required>
-                    </div>
+                <div class="form-group">
+                    <label for="edit_height">Height (cm)</label>
+                    <input id="edit_height" name="height_cm" type="number" step="0.1" value="{{ user.height }}" min="50" max="300" required autocomplete="height" aria-describedby="error_height">
+                    <div class="field-error" id="error_height" aria-live="polite"></div>
+                </div>
 
-                    <div class="form-group">
-                        <label for="edit_weight">Weight (kg)</label>
-                        <input id="edit_weight" type="number" step="0.1" value="{{ user.weight }}" min="20" max="300" required>
-                    </div>
+                <div class="form-group">
+                    <label for="edit_weight">Weight (kg)</label>
+                    <input id="edit_weight" name="weight_kg" type="number" step="0.1" value="{{ user.weight }}" min="20" max="300" required autocomplete="weight" aria-describedby="error_weight">
+                    <div class="field-error" id="error_weight" aria-live="polite"></div>
                 </div>
             </form>
         </div>
@@ -244,28 +261,32 @@
 </div>
 
 <!-- ===== CHANGE PASSWORD MODAL ===== -->
-<div class="modal" id="passwordModal">
+<div class="modal" id="passwordModal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="passwordModalLabel" aria-describedby="passwordModalDesc">
     <div class="modal-content">
         <div class="modal-header">
-            <h2>Change Password</h2>
-            <span class="close" data-action="close-all-profile-modals">&times;</span>
+            <h2 id="passwordModalLabel">Change Password</h2>
+            <button type="button" class="close" data-action="close-all-profile-modals" aria-label="Close dialog">&times;</button>
         </div>
         
         <div class="modal-body">
             <form id="passwordForm">
+                <div id="passwordModalDesc" class="sr-only">Form to change account password. New password must be at least eight characters.</div>
                 <div class="form-group">
                     <label for="current_password">Current Password</label>
-                    <input id="current_password" type="password" placeholder="Enter current password" required>
+                    <input id="current_password" name="current_password" type="password" placeholder="Enter current password" required autocomplete="current-password" aria-describedby="error_current_password">
+                    <div class="field-error" id="error_current_password" aria-live="polite"></div>
                 </div>
 
                 <div class="form-group">
                     <label for="new_password">New Password</label>
-                    <input id="new_password" type="password" placeholder="Enter new password" required>
+                    <input id="new_password" name="new_password" type="password" placeholder="Enter new password" required autocomplete="new-password" aria-describedby="error_new_password">
+                    <div class="field-error" id="error_new_password" aria-live="polite"></div>
                 </div>
 
                 <div class="form-group">
                     <label for="confirm_password">Confirm Password</label>
-                    <input id="confirm_password" type="password" placeholder="Confirm new password" required>
+                    <input id="confirm_password" name="confirm_password" type="password" placeholder="Confirm new password" required autocomplete="new-password" aria-describedby="error_confirm_password">
+                    <div class="field-error" id="error_confirm_password" aria-live="polite"></div>
                 </div>
             </form>
         </div>

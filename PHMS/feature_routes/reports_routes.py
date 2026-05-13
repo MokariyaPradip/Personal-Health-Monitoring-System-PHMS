@@ -31,6 +31,16 @@ def custom_report():
     return reports_controller.custom_report()
 
 
+@reports_bp.route("/records", methods=["GET"])
+def health_records():
+    return reports_controller.health_records_api()
+
+
+@reports_bp.route("/charts", methods=["GET"])
+def report_charts():
+    return reports_controller.report_charts_api()
+
+
 @reports_bp.route("/<string:report_type>/pdf", methods=["GET"])
 def report_pdf(report_type):
     return reports_controller.report_pdf(report_type)

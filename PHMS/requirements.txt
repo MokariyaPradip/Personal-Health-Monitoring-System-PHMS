@@ -44,3 +44,4 @@ pydantic==2.9.2
 
 # Testing
 pytest==8.3.5
+playwright==1.53.0

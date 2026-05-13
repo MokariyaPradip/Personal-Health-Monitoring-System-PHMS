@@ -6,7 +6,12 @@
 // ===== CSRF TOKEN =====
 window.getCsrfToken = function () {
     const el = document.querySelector('meta[name="csrf-token"]');
-    return el ? el.getAttribute('content') : '';
+    if (el && el.getAttribute('content')) {
+        return el.getAttribute('content');
+    }
+    // Fallback: try cookie named csrf_token
+    const match = document.cookie.match(new RegExp('(^| )' + 'csrf_token' + '=([^;]+)'));
+    return match ? decodeURIComponent(match[2]) : '';
 };
 
 // ===== TOAST NOTIFICATIONS =====

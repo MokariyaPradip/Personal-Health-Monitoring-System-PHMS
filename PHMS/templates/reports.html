@@ -10,21 +10,24 @@
 {% endblock %}
 
 {% block content %}
+{% set meta = report_data.meta if report_data else {} %}
+{% set user = report_data.user if report_data else {} %}
 <div class="reports-container"
 	data-has-report-data="{{ '1' if report_data else '0' }}"
-	data-risk-indicators='{{ (report_data.risk_indicators if report_data else {}) | tojson | forceescape }}'
-	data-trend-analysis='{{ (report_data.trend_analysis if report_data else {}) | tojson | forceescape }}'
-	data-medication-adherence='{{ (report_data.medication_adherence if report_data else {}) | tojson | forceescape }}'>
+	data-record-count="{{ meta.record_count if meta and meta.record_count is not none else 0 }}"
+	data-report-type="{{ meta.report_type if meta and meta.report_type else '' }}"
+	data-start-date="{{ meta.start_date if meta and meta.start_date else '' }}"
+	data-end-date="{{ meta.end_date if meta and meta.end_date else '' }}"
+	data-feature-filter="{{ meta.feature_filter if meta and meta.feature_filter else 'all' }}">
+<div id="reportLiveRegion" class="sr-only" aria-live="polite" aria-atomic="true"></div>
 <div class="report-card">
 	<h2 class="report-title">Reports & Analytics</h2>
 	<p class="report-subtitle">Weekly, monthly, yearly and custom reports with trend analysis, risk indicators, adherence and alerts.</p>
 </div>
 
-{% set meta = report_data.meta if report_data else {} %}
-{% set user = report_data.user if report_data else {} %}
-
 <div class="report-card">
-	<form method="GET" action="/reports/custom" class="report-form" data-loading-form data-loading-message="Generating report..." data-loading-button-text="Generating...">
+	<form method="GET" action="/reports/custom" class="report-form" data-loading-form data-loading-message="Generating report..." data-loading-button-text="Generating..." aria-describedby="reportFormHelp">
+		<p id="reportFormHelp" class="sr-only">Choose date range and feature filter, then generate a report.</p>
 		<div class="report-form-row report-form-dates">
 			<div class="field-item">
 				<label for="start_date">Start Date</label>
@@ -92,12 +95,55 @@
 		</div>
 	</div>
 	<div class="report-actions">
+		<div class="download-status" role="status" aria-live="polite" aria-hidden="true">
+			<span class="download-spinner" aria-hidden="true"></span>
+			<span class="download-status-text">Preparing download...</span>
+		</div>
 		<a class="report-btn" data-loading-link data-loading-message="Preparing JSON report..." href="{{ request.path }}?{% if request.query_string %}{{ request.query_string.decode() }}&{% endif %}format=json">Download JSON</a>
 		<a class="report-btn" data-loading-link data-loading-message="Preparing CSV report..." href="{{ request.path }}?{% if request.query_string %}{{ request.query_string.decode() }}&{% endif %}format=csv">Download CSV</a>
 		<a class="report-btn" data-loading-link data-loading-message="Preparing PDF report..." href="{{ url_for('reports.report_pdf', report_type=meta.report_type) }}?feature={{ meta.feature_filter }}{% if meta.report_type == 'custom' %}&start_date={{ meta.start_date }}&end_date={{ meta.end_date }}{% endif %}">Download PDF</a>
 		<button class="report-btn" id="printReportBtn">Print Report</button>
 	</div>
 </div>
+
+{% set dq = report_data.data_quality if report_data and report_data.data_quality else {} %}
+{% if dq %}
+<div class="report-card data-quality-card data-quality-{{ dq.status if dq.status else 'good' }}">
+	<div class="data-quality-header">
+		<h3>Data Quality Check</h3>
+		<span class="data-quality-status">{{ dq.status|capitalize }}</span>
+	</div>
+	<div class="data-quality-summary">
+		<p><strong>Coverage:</strong> {{ dq.coverage_pct }}% of {{ dq.expected_days }} day{{ 's' if dq.expected_days != 1 else '' }} in range.</p>
+		<p><strong>Observed days:</strong> {{ dq.observed_days }} | <strong>Missing days:</strong> {{ dq.missing_days }}</p>
+	</div>
+	{% if dq.missing_ranges %}
+	<div class="data-quality-ranges">
+		<p><strong>Missing periods:</strong></p>
+		<ul>
+			{% for gap in dq.missing_ranges[:3] %}
+			<li>{{ gap.start_date }} to {{ gap.end_date }} ({{ gap.days }} day{{ 's' if gap.days != 1 else '' }})</li>
+			{% endfor %}
+			{% if dq.missing_ranges|length > 3 %}
+			<li>and {{ dq.missing_ranges|length - 3 }} more gap{{ 's' if dq.missing_ranges|length - 3 != 1 else '' }}</li>
+			{% endif %}
+		</ul>
+	</div>
+	{% endif %}
+	{% if dq.warnings %}
+	<ul class="data-quality-list">
+		{% for warning in dq.warnings %}
+		<li class="data-quality-item {{ warning.level }}">
+			<span class="data-quality-pill">{{ warning.level|capitalize }}</span>
+			<span>{{ warning.message }}</span>
+		</li>
+		{% endfor %}
+	</ul>
+	{% else %}
+	<p class="data-quality-ok">No data gaps detected. Trend comparison is based on sufficient period coverage.</p>
+	{% endif %}
+</div>
+{% endif %}
 
 <div class="report-card">
 	<h3>Visual Insights</h3>
@@ -155,22 +201,66 @@
 			<span class="kpi-badge warn">No Data</span>
 			{% endif %}
 		</div>
+
+		<div class="kpi-card chronic-kpi">
+			<p class="kpi-label">Diabetes Risk</p>
+			<p class="kpi-value">{{ report_data.chronic_condition_summary.diabetes.status|capitalize if report_data.chronic_condition_summary and report_data.chronic_condition_summary.diabetes else 'N/A' }}</p>
+			{% if report_data.chronic_condition_summary and report_data.chronic_condition_summary.diabetes %}
+			<span class="risk-pill {{ report_data.chronic_condition_summary.diabetes.status }}">{% if report_data.chronic_condition_summary.diabetes.reference_metric is not none %}Avg Sugar: {{ '%.1f'|format(report_data.chronic_condition_summary.diabetes.reference_metric) }} mg/dL{% else %}No Data{% endif %}</span>
+			{% endif %}
+		</div>
+
+		<div class="kpi-card chronic-kpi">
+			<p class="kpi-label">Hypertension Risk</p>
+			<p class="kpi-value">{{ report_data.chronic_condition_summary.hypertension.status|capitalize if report_data.chronic_condition_summary and report_data.chronic_condition_summary.hypertension else 'N/A' }}</p>
+			{% if report_data.chronic_condition_summary and report_data.chronic_condition_summary.hypertension %}
+			<span class="risk-pill {{ report_data.chronic_condition_summary.hypertension.status }}">{% if report_data.chronic_condition_summary.hypertension.reference_metric is not none %}Avg BP: {{ '%.1f'|format(report_data.chronic_condition_summary.hypertension.reference_metric) }} mmHg{% else %}No Data{% endif %}</span>
+			{% endif %}
+		</div>
 	</div>
 
-	<div class="visual-grid">
-		<div class="visual-item">
-			<h4>Risk Distribution</h4>
-			<canvas id="riskPieChart" aria-label="Risk Distribution Chart"></canvas>
+	<details class="report-details" open>
+		<summary>Charts and trends</summary>
+		<div class="report-details-body">
+			<div id="chartLoading" class="chart-loading" role="status" aria-live="polite" aria-hidden="true">
+				<span class="chart-loading-spinner" aria-hidden="true"></span>
+				<span class="chart-loading-text">Loading charts...</span>
+			</div>
+
+			<div class="visual-grid" role="region" aria-label="Report charts and visual insights">
+				<div class="visual-item" tabindex="0">
+					<h4>Risk Distribution</h4>
+					<canvas id="riskPieChart" role="img" aria-label="Risk distribution chart"></canvas>
+					<p id="riskChartSummary" class="chart-summary sr-only">Risk distribution summary will load when chart data is ready.</p>
+					<p class="chart-empty" data-chart-empty="risk">No risk distribution data for this period.</p>
+				</div>
+				<div class="visual-item" tabindex="0">
+					<h4>Medication Adherence</h4>
+					<canvas id="adherencePieChart" role="img" aria-label="Medication adherence chart"></canvas>
+					<p id="adherenceChartSummary" class="chart-summary sr-only">Medication adherence summary will load when chart data is ready.</p>
+					<p class="chart-empty" data-chart-empty="adherence">No medication adherence data for this period.</p>
+				</div>
+				<div class="visual-item" tabindex="0">
+					<h4>ML Risk Prediction Distribution</h4>
+					<canvas id="mlDistributionChart" role="img" aria-label="Machine learning risk prediction distribution chart"></canvas>
+					<p id="mlChartSummary" class="chart-summary sr-only">ML risk prediction summary will load when chart data is ready.</p>
+					<p class="chart-empty" data-chart-empty="ml">No ML prediction data for this period.</p>
+				</div>
+				<div class="visual-item visual-item-wide" tabindex="0">
+					<h4>Trend % Change by Metric</h4>
+					<canvas id="trendBarChart" role="img" aria-label="Trend comparison bar chart"></canvas>
+					<p id="trendChartSummary" class="chart-summary sr-only">Trend comparison summary will load when chart data is ready.</p>
+					<p class="chart-empty" data-chart-empty="trend">No trend comparison data for this period.</p>
+				</div>
+				<div class="visual-item visual-item-wide" tabindex="0">
+					<h4>Daily Time-Series Trends</h4>
+					<canvas id="timeseriesLineChart" role="img" aria-label="Daily time-series trend line chart"></canvas>
+					<p id="timeseriesChartSummary" class="chart-summary sr-only">Time-series summary will load when chart data is ready.</p>
+					<p class="chart-empty" data-chart-empty="timeseries">No time-series data for this period.</p>
+				</div>
+			</div>
 		</div>
-		<div class="visual-item">
-			<h4>Medication Adherence</h4>
-			<canvas id="adherencePieChart" aria-label="Medication Adherence Chart"></canvas>
-		</div>
-		<div class="visual-item visual-item-wide">
-			<h4>Trend % Change by Metric</h4>
-			<canvas id="trendBarChart" aria-label="Trend Comparison Chart"></canvas>
-		</div>
-	</div>
+	</details>
 </div>
 
 <div class="report-card">
@@ -200,18 +290,43 @@
 		Source split helps validate whether trends come from self-entered records or wearable ingestion.
 	</div>
 </div>
-
-<div class="report-card table-wrap">
-	<h3>Section 1: Summary Statistics</h3>
-	{% if report_data.summary_statistics %}
-	<table class="report-table">
+ 
+<div class="report-card table-wrap" role="region" aria-label="Raw health records table" tabindex="0">
+	<h3>Raw Records</h3>
+	<table id="rawRecordsTable" class="report-table" role="table" aria-label="Raw health records">
+		<caption class="sr-only">Raw health records in the selected range.</caption>
 		<thead>
 			<tr>
-				<th>Metric</th>
-				<th>Average</th>
-				<th>Minimum</th>
-				<th>Maximum</th>
-				<th>Unit</th>
+				<th scope="col">Recorded At</th>
+				<th scope="col">Heart Rate</th>
+				<th scope="col">Blood Pressure</th>
+				<th scope="col">Sugar</th>
+				<th scope="col">Temp</th>
+				<th scope="col">Steps</th>
+				<th scope="col">Sleep</th>
+				<th scope="col">Health Score</th>
+				<th scope="col">Source</th>
+			</tr>
+		</thead>
+		<tbody>
+			<!-- rows loaded via server-side pagination -->
+		</tbody>
+	</table>
+	<div class="server-pagination-placeholder"></div>
+</div>
+
+<div class="report-card table-wrap" role="region" aria-label="Summary statistics table" tabindex="0">
+	<h3>Section 1: Summary Statistics</h3>
+	{% if report_data.summary_statistics %}
+	<table class="report-table" role="table" aria-label="Summary statistics by metric">
+		<caption class="sr-only">Summary statistics by metric including average, minimum and maximum values.</caption>
+		<thead>
+			<tr>
+				<th scope="col">Metric</th>
+				<th scope="col">Average</th>
+				<th scope="col">Minimum</th>
+				<th scope="col">Maximum</th>
+				<th scope="col">Unit</th>
 			</tr>
 		</thead>
 		<tbody>
@@ -231,17 +346,18 @@
 	{% endif %}
 </div>
 
-<div class="report-card table-wrap">
+<div class="report-card table-wrap" role="region" aria-label="Trend comparison table" tabindex="0">
 	<h3>Section 2: Trend Comparison</h3>
 	{% if report_data.trend_analysis %}
-	<table class="report-table">
+	<table class="report-table" role="table" aria-label="Trend comparison between current and previous periods">
+		<caption class="sr-only">Trend comparison between current and previous period averages and percentage change.</caption>
 		<thead>
 			<tr>
-				<th>Metric</th>
-				<th>Current Avg</th>
-				<th>Previous Avg</th>
-				<th>Change</th>
-				<th>Trend</th>
+				<th scope="col">Metric</th>
+				<th scope="col">Current Avg</th>
+				<th scope="col">Previous Avg</th>
+				<th scope="col">Change</th>
+				<th scope="col">Trend</th>
 			</tr>
 		</thead>
 		<tbody>
@@ -261,14 +377,15 @@
 	{% endif %}
 </div>
 
-<div class="report-card table-wrap">
+<div class="report-card table-wrap" role="region" aria-label="Risk indicators table" tabindex="0">
 	<h3>Section 3: Risk Indicators</h3>
-	<table class="report-table">
+	<table class="report-table" role="table" aria-label="Risk indicators by metric">
+		<caption class="sr-only">Risk indicators by metric with average values and risk level.</caption>
 		<thead>
 			<tr>
-				<th>Metric</th>
-				<th>Average</th>
-				<th>Risk</th>
+				<th scope="col">Metric</th>
+				<th scope="col">Average</th>
+				<th scope="col">Risk</th>
 			</tr>
 		</thead>
 		<tbody>
@@ -283,37 +400,41 @@
 	</table>
 </div>
 
-<div class="report-card table-wrap">
+<div class="report-card table-wrap" role="region" aria-label="Medication adherence table" tabindex="0">
 	<h3>Section 4: Medication Adherence</h3>
-	<table class="report-table">
+	<table class="report-table" role="table" aria-label="Medication adherence summary">
+		<caption class="sr-only">Medication adherence summary values.</caption>
 		<tbody>
-			<tr><th>Total Scheduled Doses</th><td>{{ report_data.medication_adherence.total_scheduled_doses }}</td></tr>
-			<tr><th>Total Taken Doses</th><td>{{ report_data.medication_adherence.total_taken_doses }}</td></tr>
-			<tr><th>Adherence Percentage</th><td>{{ report_data.medication_adherence.adherence_percentage }}%</td></tr>
+			<tr><th scope="row">Total Scheduled Doses</th><td>{{ report_data.medication_adherence.total_scheduled_doses }}</td></tr>
+			<tr><th scope="row">Total Taken Doses</th><td>{{ report_data.medication_adherence.total_taken_doses }}</td></tr>
+			<tr><th scope="row">Total Missed Doses</th><td>{{ report_data.medication_adherence.total_missed_doses }}</td></tr>
+			<tr><th scope="row">Total Skipped Doses</th><td>{{ report_data.medication_adherence.total_skipped_doses }}</td></tr>
+			<tr><th scope="row">Total Pending Doses</th><td>{{ report_data.medication_adherence.total_pending_doses }}</td></tr>
+			<tr><th scope="row">Adherence Percentage</th><td>{{ report_data.medication_adherence.adherence_percentage }}%</td></tr>
 		</tbody>
 	</table>
 </div>
 
-<div class="report-card table-wrap">
+<div class="report-card table-wrap" role="region" aria-label="Alerts summary table" tabindex="0">
 	<h3>Section 5: Alerts Summary</h3>
-	<table class="report-table">
+	<table class="report-table" role="table" aria-label="Alerts summary">
+		<caption class="sr-only">Total and critical alerts in selected period.</caption>
 		<tbody>
-			<tr><th>Total Alerts</th><td>{{ report_data.alert_summary.total_alerts }}</td></tr>
-			<tr><th>Critical Alerts</th><td>{{ report_data.alert_summary.critical_alerts }}</td></tr>
+			<tr><th scope="row">Total Alerts</th><td>{{ report_data.alert_summary.total_alerts }}</td></tr>
+			<tr><th scope="row">Critical Alerts</th><td>{{ report_data.alert_summary.critical_alerts }}</td></tr>
 		</tbody>
 	</table>
 	<div class="chronic-summary">
 		<h4>Chronic Condition Indicators</h4>
+		<p class="source-help-text">These indicators are also highlighted in the KPI strip above for faster review.</p>
 		<div class="chronic-grid">
 			<div class="chronic-item">
-				<span class="chronic-label">Diabetes Risk:</span>
+				<span class="chronic-label">Diabetes:</span>
 				<span class="risk-pill {{ report_data.chronic_condition_summary.diabetes.status }}">{{ report_data.chronic_condition_summary.diabetes.status|capitalize }}</span>
-				{% if report_data.chronic_condition_summary.diabetes.reference_metric %}<small>(Avg Sugar: {{ '%.1f'|format(report_data.chronic_condition_summary.diabetes.reference_metric) }} mg/dL)</small>{% endif %}
 			</div>
 			<div class="chronic-item">
-				<span class="chronic-label">Hypertension Risk:</span>
+				<span class="chronic-label">Hypertension:</span>
 				<span class="risk-pill {{ report_data.chronic_condition_summary.hypertension.status }}">{{ report_data.chronic_condition_summary.hypertension.status|capitalize }}</span>
-				{% if report_data.chronic_condition_summary.hypertension.reference_metric %}<small>(Avg BP: {{ '%.1f'|format(report_data.chronic_condition_summary.hypertension.reference_metric) }} mmHg)</small>{% endif %}
 			</div>
 		</div>
 	</div>

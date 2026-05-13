@@ -752,8 +752,13 @@
 .two-column-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-    gap: 1.5rem;
+    gap: 2rem;
+    align-items: start;
     margin-bottom: 2rem;
+}
+
+.dashboard-container > .two-column-grid > .card {
+    margin-bottom: 1rem;
 }
 
 /* Recent Activity Items */
@@ -818,12 +823,34 @@
 }
 
 /* Health Insights */
-.health-insights {
+.health-insights-panel {
     padding: 1.5rem;
     background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
     border-radius: 8px;
     border-left: 4px solid var(--primary-color);
     flex: 1;
+}
+
+.health-insights-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+}
+
+.health-insights-grid .recent-activity-item {
+    padding: 0.85rem 0.95rem;
+    background: var(--white);
+    border-radius: 6px;
+    border-left: 3px solid var(--primary-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all 0.2s ease;
+}
+
+.health-insights-grid .recent-activity-item:hover {
+    background: rgba(255, 255, 255, 0.92);
+    transform: translateY(-1px);
 }
 
 /* Collapsible details styling */
@@ -1081,7 +1108,13 @@ details .recent-activity-contents { padding: 0.5rem 0; }
 /* Responsive Enhancements */
 @media (max-width: 1024px) {
     .two-column-grid {
-        grid-template-columns: 1fr;
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+
+    .two-column-grid > .card {
+        margin: 0;
     }
 }
 

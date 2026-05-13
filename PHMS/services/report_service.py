@@ -315,11 +315,17 @@ def _medication_adherence(user_id: int, dr: ReportDateRange) -> dict:
 
     total_scheduled = len(logs)
     total_taken = sum(1 for item in logs if item.status == "taken")
+    total_missed = sum(1 for item in logs if item.status == "missed")
+    total_skipped = sum(1 for item in logs if item.status == "skipped")
+    total_pending = sum(1 for item in logs if item.status == "pending")
     adherence_pct = round((total_taken / total_scheduled) * 100.0, 2) if total_scheduled else 0.0
 
     return {
         "total_scheduled_doses": total_scheduled,
         "total_taken_doses": total_taken,
+        "total_missed_doses": total_missed,
+        "total_skipped_doses": total_skipped,
+        "total_pending_doses": total_pending,
         "adherence_percentage": adherence_pct,
     }
 
@@ -554,6 +560,169 @@ def _source_summary(records: list[HealthData]) -> dict:
     }
 
 
+def _group_missing_dates(missing_dates: list[date]) -> list[dict]:
+    """Group missing dates into consecutive ranges for readable warnings."""
+    if not missing_dates:
+        return []
+
+    grouped = []
+    range_start = missing_dates[0]
+    prev_day = missing_dates[0]
+
+    for current_day in missing_dates[1:]:
+        if current_day - prev_day == timedelta(days=1):
+            prev_day = current_day
+            continue
+        grouped.append({
+            "start_date": range_start.isoformat(),
+            "end_date": prev_day.isoformat(),
+            "days": (prev_day - range_start).days + 1,
+        })
+        range_start = current_day
+        prev_day = current_day
+
+    grouped.append({
+        "start_date": range_start.isoformat(),
+        "end_date": prev_day.isoformat(),
+        "days": (prev_day - range_start).days + 1,
+    })
+    return grouped
+
+
+def _data_quality_summary(
+    current_records: list[HealthData],
+    prev_records: list[HealthData],
+    dr: ReportDateRange,
+    active_metrics: list[str],
+    current_df: pd.DataFrame,
+    prev_df: pd.DataFrame,
+) -> dict:
+    """Build a human-readable data quality summary for report warnings."""
+    expected_days = dr.days
+    observed_dates = sorted({
+        getattr(item, 'recorded_at', None).date()
+        for item in current_records
+        if getattr(item, 'recorded_at', None) is not None
+    })
+    missing_dates = []
+    cursor = dr.start_date
+    observed_set = set(observed_dates)
+    while cursor <= dr.end_date:
+        if cursor not in observed_set:
+            missing_dates.append(cursor)
+        cursor += timedelta(days=1)
+
+    coverage_pct = round((len(observed_dates) / expected_days) * 100.0, 1) if expected_days else 0.0
+    missing_days = len(missing_dates)
+    missing_ranges = _group_missing_dates(missing_dates)
+
+    warnings = []
+    if missing_days > 0:
+        first_range = missing_ranges[0]
+        warnings.append({
+            "type": "missing_period",
+            "level": "warning" if missing_days <= 2 else "critical",
+            "message": (
+                f"Missing data for {missing_days} day{'s' if missing_days != 1 else ''} "
+                f"in the selected period. First gap: {first_range['start_date']} to {first_range['end_date']}."
+            ),
+        })
+
+    if len(current_records) < 3:
+        warnings.append({
+            "type": "insufficient_current_data",
+            "level": "critical",
+            "message": "Current period has fewer than 3 records, so trend analysis may be unreliable.",
+        })
+
+    if len(prev_records) < 3:
+        warnings.append({
+            "type": "insufficient_trend_baseline",
+            "level": "warning",
+            "message": "Previous period has fewer than 3 records, so trend comparison is limited.",
+        })
+
+    active_metric_coverage = {}
+    low_coverage_metrics = []
+    total_rows = len(current_df)
+    for metric in active_metrics:
+        if metric not in current_df.columns or total_rows == 0:
+            active_metric_coverage[metric] = {"observed": 0, "expected": total_rows, "coverage_pct": 0.0}
+            low_coverage_metrics.append(metric)
+            continue
+        observed = int(current_df[metric].notna().sum())
+        metric_coverage = round((observed / total_rows) * 100.0, 1) if total_rows else 0.0
+        active_metric_coverage[metric] = {"observed": observed, "expected": total_rows, "coverage_pct": metric_coverage}
+        if metric_coverage < 60.0:
+            low_coverage_metrics.append(metric)
+
+    if low_coverage_metrics:
+        warnings.append({
+            "type": "low_metric_coverage",
+            "level": "warning",
+            "message": "Some metrics have low coverage in this period: " + ", ".join(low_coverage_metrics[:4]) + ("..." if len(low_coverage_metrics) > 4 else ""),
+        })
+
+    status = "good" if not warnings else ("critical" if any(item["level"] == "critical" for item in warnings) else "warning")
+
+    return {
+        "status": status,
+        "expected_days": expected_days,
+        "observed_days": len(observed_dates),
+        "missing_days": missing_days,
+        "coverage_pct": coverage_pct,
+        "missing_ranges": missing_ranges,
+        "warning_count": len(warnings),
+        "warnings": warnings,
+        "metric_coverage": active_metric_coverage,
+    }
+
+
+def _timeseries_trends(current_df: pd.DataFrame, active_metrics: list[str]) -> dict:
+    """Build daily time-series values for selected metrics used in line charts."""
+    if current_df.empty or "recorded_at" not in current_df.columns:
+        return {"labels": [], "datasets": []}
+
+    df = current_df.copy()
+    df["recorded_at"] = pd.to_datetime(df["recorded_at"], errors="coerce")
+    df = df.dropna(subset=["recorded_at"])
+    if df.empty:
+        return {"labels": [], "datasets": []}
+
+    df["recorded_date"] = df["recorded_at"].dt.date
+
+    preferred_metrics = ["health_score", "heart_rate", "sugar", "blood_pressure", "steps", "sleep_hours"]
+    selected_metrics = [m for m in preferred_metrics if m in active_metrics and m in df.columns][:4]
+    if not selected_metrics:
+        return {"labels": [], "datasets": []}
+
+    grouped = df.groupby("recorded_date")[selected_metrics].mean(numeric_only=True).sort_index()
+    labels = [d.isoformat() for d in grouped.index.tolist()]
+
+    datasets = []
+    for metric in selected_metrics:
+        values = []
+        has_data = False
+        for value in grouped[metric].tolist():
+            rounded = _round_or_none(value)
+            values.append(rounded)
+            if rounded is not None:
+                has_data = True
+
+        if not has_data:
+            continue
+
+        datasets.append(
+            {
+                "metric": metric,
+                "label": metric.replace("_", " ").title(),
+                "values": values,
+            }
+        )
+
+    return {"labels": labels, "datasets": datasets}
+
+
 def build_report_for_range(
     user_id: int,
     report_type: str,
@@ -668,7 +837,9 @@ def build_report_for_range(
     alerts = _alert_summary(user_id, dr)
     chronic_flags = _chronic_condition_flags(summary)
     ml_classifier_dist = _ml_classifier_distribution(current_df)
+    timeseries_trends = _timeseries_trends(current_df, active_metrics)
     source_summary = _source_summary(current_records)
+    data_quality = _data_quality_summary(current_records, prev_records, dr, active_metrics, current_df, prev_df)
 
     record_count = len(current_records)
     records_per_day = round(record_count / dr.days, 1) if dr.days > 0 else 0.0
@@ -701,5 +872,7 @@ def build_report_for_range(
         "alert_summary": alerts,
         "chronic_condition_summary": chronic_flags,
         "ml_classifier_distribution": ml_classifier_dist,
+        "timeseries_trends": timeseries_trends,
         "source_summary": source_summary,
+        "data_quality": data_quality,
     }

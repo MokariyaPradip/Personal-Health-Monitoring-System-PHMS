@@ -355,34 +355,60 @@
             {% if last_health %}
             <details class="health-insights collapsible">
                 <summary>Show health insights</summary>
-                <div class="health-insights">
-                <div class="insight-item">
-                    <strong>📈 Health Score</strong><br>Current: {{ last_health.health_score if last_health.health_score is not none else 'N/A' }} | {{ rb_label_display }}
-                </div>
+                <div class="health-insights-panel">
+                    <div class="health-insights-grid">
+                        <div class="recent-activity-item">
+                            <div class="activity-info">
+                                <div class="activity-title">📈 Health Score</div>
+                                <div class="activity-time">Current: {{ last_health.health_score if last_health.health_score is not none else 'N/A' }} | {{ rb_label_display }}</div>
+                            </div>
+                            <span class="activity-badge">Health</span>
+                        </div>
 
-                <div class="insight-item">
-                    <strong>🤖 ML Classifier</strong><br>{{ last_health.ml_classifier_risk_label or 'N/A' }} | {{ classifier_label_display }}
-                </div>
-                
-                {% if medications %}
-                <div class="insight-item positive">
-                    <strong>💊 Medication Tracking</strong><br>{{ active_medications_count }} active of {{ medications|length }} loaded
-                </div>
-                {% endif %}
-                
-                <div class="insight-item">
-                    <strong>📊 Data Collection</strong><br>{{ health_records_count }} health records recorded this month
-                </div>
+                        <div class="recent-activity-item">
+                            <div class="activity-info">
+                                <div class="activity-title">🤖 ML Classifier</div>
+                                <div class="activity-time">{{ last_health.ml_classifier_risk_label or 'N/A' }} | {{ classifier_label_display }}</div>
+                            </div>
+                            <span class="activity-badge">Model</span>
+                        </div>
 
-                {% if smartwatch_recent_errors_count %}
-                <div class="insight-item warning">
-                    <strong>⌚ Sync Stability</strong><br>{{ smartwatch_recent_errors_count }} recent sync errors on {{ smartwatch_provider_label }}
-                </div>
-                {% else %}
-                <div class="insight-item positive">
-                    <strong>⌚ Sync Stability</strong><br>No recent sync errors on {{ smartwatch_provider_label }}
-                </div>
-                {% endif %}
+                        {% if medications %}
+                        <div class="recent-activity-item">
+                            <div class="activity-info">
+                                <div class="activity-title">💊 Medication Tracking</div>
+                                <div class="activity-time">{{ active_medications_count }} active of {{ medications|length }} loaded</div>
+                            </div>
+                            <span class="activity-badge">Medication</span>
+                        </div>
+                        {% endif %}
+
+                        <div class="recent-activity-item">
+                            <div class="activity-info">
+                                <div class="activity-title">📊 Data Collection</div>
+                                <div class="activity-time">{{ health_records_count }} health records recorded this month</div>
+                            </div>
+                            <span class="activity-badge">Data</span>
+                        </div>
+
+                        {% if smartwatch_recent_errors_count %}
+                        <div class="recent-activity-item">
+                            <div class="activity-info">
+                                <div class="activity-title">⌚ Sync Stability</div>
+                                <div class="activity-time">{{ smartwatch_recent_errors_count }} recent sync errors on {{ smartwatch_provider_label }}</div>
+                            </div>
+                            <span class="activity-badge">Sync</span>
+                        </div>
+                        {% else %}
+                        <div class="recent-activity-item">
+                            <div class="activity-info">
+                                <div class="activity-title">⌚ Sync Stability</div>
+                                <div class="activity-time">No recent sync errors on {{ smartwatch_provider_label }}</div>
+                            </div>
+                            <span class="activity-badge">Sync</span>
+                        </div>
+                        {% endif %}
+                    </div>
                 </div>
             </details>
             {% else %}
