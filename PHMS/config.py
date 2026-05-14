@@ -164,16 +164,24 @@ def _get_limiter_storage_uri():
         client.close()
         return redis_uri
     except Exception as exc:
-        # Redis not available - only allow in-memory storage in development.
-        if IS_PRODUCTION:
+        # Redis not available - allow in-memory storage only in development or when explicitly allowed.
+        allow_insecure_memory = os.environ.get('ALLOW_INSECURE_RATE_LIMITING', '').lower() in ('1', 'true', 'yes')
+        if IS_PRODUCTION and not allow_insecure_memory:
             raise RuntimeError(
                 "CRITICAL SECURITY ERROR: Redis is unavailable for rate limiting in PRODUCTION mode. "
-                "Configure REDIS_URL (or REDIS_HOST/REDIS_PORT/REDIS_DB) to a reachable Redis instance."
+                "Configure REDIS_URL (or REDIS_HOST/REDIS_PORT/REDIS_DB) to a reachable Redis instance, "
+                "or set ALLOW_INSECURE_RATE_LIMITING=1 to force in-memory storage."
             )
-        logging.warning(
-            "⚠️ Redis not available for rate limiting in development mode. "
-            "Using in-memory storage (not suitable for distributed deployments)."
-        )
+        if IS_PRODUCTION and allow_insecure_memory:
+            logging.warning(
+                "⚠️ Redis not available in production; ALLOW_INSECURE_RATE_LIMITING=1 set. "
+                "Using in-memory storage (not suitable for multi-instance deployments)."
+            )
+        else:
+            logging.warning(
+                "⚠️ Redis not available for rate limiting in development mode. "
+                "Using in-memory storage (not suitable for distributed deployments)."
+            )
         if last_redis_error:
             logging.debug("Rate limit Redis URL check failed: %s", last_redis_error)
         logging.debug("Rate limit Redis host/port check failed: %s", exc)

@@ -15,7 +15,7 @@ SQLAlchemy==2.0.23
 alembic==1.13.2
 
 # Data Processing & Analysis
-pandas==2.1.1
+pandas==2.2.3
 numpy==1.26.2
 
 # Machine Learning
@@ -45,3 +45,7 @@ pydantic==2.9.2
 # Testing
 pytest==8.3.5
 playwright==1.53.0
+
+# for deployment
+gunicorn==23.0.0
+psycopg2-binary==2.9.10
