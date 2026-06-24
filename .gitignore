@@ -15,7 +15,6 @@ __pycache__/
 *.egg-info/
 *.manifest
 *.spec
-.python-version
 
 # Explicit PHMS cache paths
 /PHMS/**/__pycache__/
