@@ -1,17 +1,28 @@
 services:
   - type: web
-    name: phms
-    env: python
-    pythonVersion: 3.11.9
-    plan: free
-    buildCommand: pip install -r PHMS/requirements.txt
-    startCommand: gunicorn -w 1 -b 0.0.0.0:$PORT PHMS.wsgi:app
+    name: phms-web
+    runtime: python
+    rootDir: PHMS
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn -w 2 -b 0.0.0.0:$PORT app:app
     envVars:
       - key: FLASK_ENV
         value: production
       - key: FLASK_DEBUG
         value: "0"
       - key: ENABLE_SCHEDULER
-        value: "1"
-      - key: ALLOW_INSECURE_RATE_LIMITING
-        value: "1"
+        value: "0"
+      - key: RATELIMIT_STORAGE_URI
+        value: memory://
+      - key: SECRET_KEY
+        generateValue: true
+      - key: SECURITY_PASSWORD_SALT
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: phms-db
+          property: connectionString
+
+databases:
+  - name: phms-db
+    plan: free
